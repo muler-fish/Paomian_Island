@@ -11,12 +11,16 @@ public static class AppFonts
         new Uri("pack://application:,,,/"),
         "/Tide;component/Assets/Fonts/#Tide Reading");
 
-    // 阅读文字保留 MiSans 的自然字距，以灰度抗锯齿避免非整数缩放下的彩色边缘。
-    // Fixed 保留静态文字的清晰度；不对文本做位图缩放或模糊，也不影响独立绘制的彩色 emoji。
+    // MiSans Light 4.009 的内部字重为 250，并非 WPF 的 Light(300)。
+    // 显式请求该真实字重，只减轻阅读正文；界面 Regular 与标题 Semibold 继续沿用原值。
+    internal static FontWeight ReadingWeight { get; } = FontWeight.FromOpenTypeWeight(250);
+
+    // 试验版保留自然字距，由 WPF 自动选择抗锯齿算法，并采用适合运动的字形提示。
+    // Animated 可能降低静态锐度，需结合 OTF 在实际显示器上验收；不影响独立绘制的彩色 emoji。
     internal static void ApplyReadingRendering(DependencyObject target)
     {
         TextOptions.SetTextFormattingMode(target, TextFormattingMode.Ideal);
-        TextOptions.SetTextRenderingMode(target, TextRenderingMode.Grayscale);
-        TextOptions.SetTextHintingMode(target, TextHintingMode.Fixed);
+        TextOptions.SetTextRenderingMode(target, TextRenderingMode.Auto);
+        TextOptions.SetTextHintingMode(target, TextHintingMode.Animated);
     }
 }

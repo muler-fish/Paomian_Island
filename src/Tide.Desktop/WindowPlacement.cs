@@ -32,6 +32,14 @@ internal static class WindowPlacement
             window.WindowStartupLocation = WindowStartupLocation.Manual;
             window.Left = placement.Bounds.Left;
             window.Top = placement.Bounds.Top;
+            if (window.Owner is { } owner && GetWindowRect(new WindowInteropHelper(owner).Handle, out var ownerRect))
+            {
+                var scale = dpi / 96d;
+                var left = (ownerRect.Left + ownerRect.Right) / (2 * scale) - window.Width / 2;
+                var top = (ownerRect.Top + ownerRect.Bottom) / (2 * scale) - window.Height / 2;
+                window.Left = Math.Clamp(left, work.Left / scale, work.Right / scale - window.Width);
+                window.Top = Math.Clamp(top, work.Top / scale, work.Bottom / scale - window.Height);
+            }
             if (maximized) window.WindowState = WindowState.Maximized;
         };
     }
@@ -54,4 +62,5 @@ internal static class WindowPlacement
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Auto)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr window);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
 }

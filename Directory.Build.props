@@ -1,9 +1,18 @@
 <Project>
   <PropertyGroup>
+    <AppDisplayName>泡面岛</AppDisplayName>
+    <AppEnglishName>paomian island</AppEnglishName>
+    <Product>$(AppDisplayName)</Product>
+    <AssemblyTitle>$(AppDisplayName)</AssemblyTitle>
+    <Description>$(AppDisplayName)（$(AppEnglishName)）· X岛匿名版非官方 Windows 客户端</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="DisplayName" Value="$(AppDisplayName)" />
+    <AssemblyMetadata Include="EnglishName" Value="$(AppEnglishName)" />
+  </ItemGroup>
 </Project>

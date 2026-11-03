@@ -80,6 +80,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (ThreadList.SelectedItem is PostCard post) await Model.OpenThreadAsync(post.Post.Id);
     }
+    private void MyPosts_Click(object sender, RoutedEventArgs e) => new MyPostsWindow(Model) { Owner = this }.Show();
     private void Jump_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Model.JumpCommand.Execute(null); e.Handled = true; } }
     private void Page_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Model.JumpPageCommand.Execute(null); e.Handled = true; } }
     private void Page_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => ((TextBox)sender).SelectAll();
@@ -124,18 +125,25 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (((Button)sender).Tag is Post { IsSiteTip: false } post && Model.Original is not null) OpenComposer(Model.Original.Id, $">>No.{post.Id}\n");
     }
-    private async void OpenComposer(long id, string quote = "")
+    private async void OpenComposer(long id, string quote = "", long reportPostId = 0)
     {
         // 编辑器负责保存草稿和发送；返回后根据发送结果、身份变化刷新相关列表。
         var identity = Model.State.ActiveCookieId;
-        var composer = new ComposerWindow(Model, id, quote) { Owner = this };
+        var composer = new ComposerWindow(Model, id, quote, reportPostId: reportPostId) { Owner = this };
         composer.ShowDialog();
         if (composer.Delivered && id > 0) await Model.OpenThreadAsync(id, refresh: true);
-        if (composer.Delivered || identity != Model.State.ActiveCookieId) await Model.RefreshListAsync();
+        if ((composer.Delivered && reportPostId == 0) || identity != Model.State.ActiveCookieId) await Model.RefreshListAsync();
+        if (composer.Delivered && reportPostId > 0) ShowFeedback("举报已发送", FeedbackArea.Reader);
+        else if (composer.Delivered) ShowFeedback(composer.DeliveredMessage, id > 0 ? FeedbackArea.Reader : FeedbackArea.List);
     }
     private void Drafts_Click(object sender, RoutedEventArgs e)
     {
-        new DraftWindow(Model, (draft) => new ComposerWindow(Model, draft.ThreadId, "", draft) { Owner = this }.ShowDialog()) { Owner = this }.ShowDialog();
+        new DraftWindow(Model, draft =>
+        {
+            var composer = new ComposerWindow(Model, draft.ThreadId, "", draft) { Owner = this };
+            composer.ShowDialog();
+            if (composer.Delivered) ShowFeedback(composer.DeliveredMessage, FeedbackArea.General);
+        }) { Owner = this }.ShowDialog();
     }
     private void CopyThreadLink_Click(object sender, RoutedEventArgs e)
     {
@@ -148,11 +156,28 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         // 阅读栏可拖窄：日期换行后仍完整可见，楼号始终留在右上角。
         var header = (Grid)sender;
         var date = header.Children.OfType<TextBlock>().Single();
-        var compact = header.ActualWidth < 480;
+        var compact = header.ActualWidth < 420;
         Grid.SetRow(date, compact ? 1 : 0); Grid.SetColumn(date, compact ? 0 : 1);
         Grid.SetColumnSpan(date, compact ? 3 : 1);
+        date.HorizontalAlignment = HorizontalAlignment.Left;
         date.Margin = compact ? new Thickness(0, 6, 0, 0) : new Thickness(8, 0, 8, 0);
-        header.ColumnDefinitions[2].Width = compact ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+        header.ColumnDefinitions[2].Width = new GridLength(1, GridUnitType.Star);
+    }
+    private void BackToTop_Click(object sender, RoutedEventArgs e)
+    {
+        InertialScroll.Stop(ReaderList);
+        if (ReaderList.Items.Count > 0) ReaderList.ScrollIntoView(ReaderList.Items[0]);
+        ReadingAnchor.Children<ScrollViewer>(ReaderList).FirstOrDefault()?.ScrollToTop();
+    }
+    private void ReaderHeader_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var compact = e.NewSize.Width < 460;
+        Grid.SetColumnSpan(ReaderHeaderTitle, compact ? 2 : 1);
+        Grid.SetRow(ReaderHeaderActions, compact ? 1 : 0);
+        Grid.SetColumn(ReaderHeaderActions, compact ? 0 : 1);
+        Grid.SetColumnSpan(ReaderHeaderActions, compact ? 2 : 1);
+        ReaderHeaderActions.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        ReaderHeaderActions.Margin = compact ? new Thickness(0, 10, 0, 0) : new Thickness(0);
     }
     public void OpenExternal(string url)
     {

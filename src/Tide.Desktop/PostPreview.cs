@@ -5,7 +5,7 @@ using Tide.Core;
 
 namespace Tide.Desktop;
 
-/// <summary>只读列表预览：保留格式与空白，由实际栏宽换行，最多八行；点击交给所在串条目。</summary>
+/// <summary>只读列表预览：保留格式与空白，由实际栏宽换行，最多七行；点击交给所在串条目。</summary>
 public sealed class PostPreview : TextBlock
 {
     static PostPreview() => FontSizeProperty.OverrideMetadata(typeof(PostPreview),
@@ -21,13 +21,15 @@ public sealed class PostPreview : TextBlock
     {
         // 默认字号已由依赖属性元数据提供；构造时设置局部值会盖过列表模板中的字号绑定。
         FontFamily = AppFonts.Family;
+        FontWeight = AppFonts.ReadingWeight;
         AppFonts.ApplyReadingRendering(this);
         TextWrapping = TextWrapping.Wrap; TextTrimming = TextTrimming.CharacterEllipsis;
         LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         // 不另建滚动区，链接和文本点击都继续打开当前串；正文内仍可操作原链接。
         IsHitTestVisible = false; Focusable = false;
-        SetResourceReference(ForegroundProperty, "Text");
+        SetResourceReference(ForegroundProperty, "BodyText");
         SetResourceReference(HideSpoilersProperty, "HideSpoilers");
+        Loaded += (_, _) => UpdateLineLimit();
         UpdateLineLimit();
     }
 
@@ -35,8 +37,12 @@ public sealed class PostPreview : TextBlock
     {
         Inlines.Clear();
         var content = ContentText.Normalize(Html);
-        if (HideSpoilers) content = Regex.Replace(content, @"\[h\][\s\S]*?\[/h\]", "[隐藏内容]", RegexOptions.IgnoreCase);
-        PostBody.AppendHtml(Inlines, content);
+        foreach (var piece in Regex.Split(content, @"(\[h\][\s\S]*?\[/h\])", RegexOptions.IgnoreCase))
+        {
+            if (HideSpoilers && piece.StartsWith("[h]", StringComparison.OrdinalIgnoreCase) && piece.EndsWith("[/h]", StringComparison.OrdinalIgnoreCase))
+                Inlines.Add(new SpoilerSpan(piece[3..^4], false));
+            else PostBody.AppendHtml(Inlines, piece);
+        }
         ColorEmoji.Render(Inlines);
         // 文本内有 Hyperlink 也不能形成隐蔽的 Tab 入口，列表项本身保留键盘入口。
         DisableLinkFocus(Inlines);
@@ -51,5 +57,14 @@ public sealed class PostPreview : TextBlock
         }
     }
 
-    private void UpdateLineLimit() { LineHeight = FontSize * 1.5; MaxHeight = LineHeight * 8; }
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    { base.OnDpiChanged(oldDpi, newDpi); UpdateLineLimit(); }
+
+    private void UpdateLineLimit()
+    {
+        LineHeight = FontSize * UiMetrics.BodyLineHeightRatio;
+        var scale = System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleY;
+        // Round upward to a device pixel: rounding 189 DIP down at 125% makes WPF omit the seventh wrapped line.
+        MaxHeight = Math.Ceiling(LineHeight * UiMetrics.PreviewLines * scale) / scale;
+    }
 }

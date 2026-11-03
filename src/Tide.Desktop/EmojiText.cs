@@ -12,6 +12,13 @@ internal static class EmojiText
     {
         for (var position = start; position is not null && position.CompareTo(end) < 0;)
         {
+            var hidden = SpoilerSpan.HiddenAncestor(position.Parent)
+                ?? (position.GetAdjacentElement(LogicalDirection.Forward) as SpoilerSpan is { Hidden: true } entering ? entering : null);
+            if (hidden is not null)
+            {
+                var after = hidden.ElementEnd.CompareTo(end) < 0 ? hidden.ElementEnd : end;
+                yield return new(position, after, "[隐藏内容]"); position = after; continue;
+            }
             var next = position.GetNextContextPosition(LogicalDirection.Forward);
             if (next is null) yield break;
             if (next.CompareTo(end) > 0) next = end;

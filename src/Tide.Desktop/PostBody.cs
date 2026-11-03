@@ -13,7 +13,7 @@ namespace Tide.Desktop;
 public sealed class PostBody : System.Windows.Controls.RichTextBox
 {
     // 行高随字号变化；1.5 倍用于中文正文及多行颜文字，避免正文过松。
-    private const double LineHeightRatio = 1.5;
+    private const double LineHeightRatio = UiMetrics.BodyLineHeightRatio;
     // 依赖属性使控件可直接在 XAML 中绑定正文；列表复用控件并换绑内容时会重新渲染。
     public static readonly DependencyProperty HtmlProperty = DependencyProperty.Register(nameof(Html), typeof(string), typeof(PostBody), new PropertyMetadata("", (d, _) => ((PostBody)d).Render()));
     public string Html { get => (string)GetValue(HtmlProperty); set => SetValue(HtmlProperty, value); }
@@ -27,24 +27,29 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         IsReadOnly = true; IsDocumentEnabled = true; BorderThickness = new(0); Padding = new(0);
         Background = Brushes.Transparent; VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
         HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled; AcceptsTab = false;
-        SetResourceReference(ForegroundProperty, "Text");
+        SetResourceReference(ForegroundProperty, "BodyText");
         SetResourceReference(SelectionBrushProperty, "AccentSoft");
         FontFamily = AppFonts.Family;
+        FontWeight = AppFonts.ReadingWeight;
+        SetResourceReference(StyleProperty, "ReaderDocument");
         AppFonts.ApplyReadingRendering(this);
         SetResourceReference(HideSpoilersProperty, "HideSpoilers");
         DataObject.AddCopyingHandler(this, (_, e) =>
         {
             var text = EmojiText.Read(Selection.Start, Selection.End);
-            e.DataObject.SetData(DataFormats.UnicodeText, text); e.DataObject.SetData(DataFormats.Text, text);
+            // WPF's default RTF/XAML payload would otherwise contain the masked original text.
+            e.CancelCommand();
+            try { Clipboard.SetText(text); }
+            catch (System.Runtime.InteropServices.ExternalException) { /* Keep the default rich payload cancelled when the clipboard is busy. */ }
         });
     }
 
     private void Render()
     {
         var paragraph = new Paragraph { Margin = new(0), LineStackingStrategy = LineStackingStrategy.MaxHeight };
-        var doc = new FlowDocument(paragraph) { PagePadding = new(0), FontFamily = FontFamily, LineHeight = FontSize * LineHeightRatio };
+        var doc = new FlowDocument(paragraph) { PagePadding = new(0), FontFamily = FontFamily, FontWeight = AppFonts.ReadingWeight, LineHeight = FontSize * LineHeightRatio };
         AppFonts.ApplyReadingRendering(doc);
-        doc.SetResourceReference(ForegroundProperty, "Text");
+        doc.SetResourceReference(ForegroundProperty, "BodyText");
         doc.SetBinding(FontSizeProperty, new System.Windows.Data.Binding(nameof(FontSize)) { Source = this });
         Document = doc;
         var content = ContentText.Normalize(Html);
@@ -61,33 +66,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         RenderEmoji();
     }
 
-    private void AddSpoiler(InlineCollection target, string hiddenHtml)
-    {
-        // 文档中只放遮罩字符，避免选中、复制或彩色 emoji 使尚未展开的文字透出。
-        var reveal = new Hyperlink { Foreground = Brushes.Black, Background = Brushes.Black, TextDecorations = null,
-            ToolTip = "点击显示防剧透内容", Focusable = true };
-        System.Windows.Automation.AutomationProperties.SetName(reveal, "显示防剧透内容");
-        var lines = ContentText.Plain(hiddenHtml).Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            if (i > 0) reveal.Inlines.Add(new LineBreak());
-            // 用字素计数，组合表情只占一格；长遮罩由 WPF 随可用宽度换行。
-            var count = Math.Max(2, new StringInfo(lines[i]).LengthInTextElements);
-            reveal.Inlines.Add(new Run(new string('█', count)));
-        }
-        reveal.Click += (_, _) =>
-        {
-            if (!target.Contains(reveal)) return;
-            var visible = new Span(); AppendHtml(visible.Inlines, hiddenHtml);
-            // 换成普通 Span，避免展开后链接嵌套在 Hyperlink 中。
-            target.InsertBefore(reveal, visible); target.Remove(reveal); RenderEmoji();
-        };
-        reveal.PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key == System.Windows.Input.Key.Space) { reveal.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); e.Handled = true; }
-        };
-        target.Add(reveal);
-    }
+    private void AddSpoiler(InlineCollection target, string hiddenHtml) => target.Add(new SpoilerSpan(hiddenHtml, true));
 
     // 列表预览复用同一份受限格式映射；调用方负责 Normalize 和防剧透处理。
     internal static void AppendHtml(InlineCollection target, string html)
@@ -117,11 +96,12 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
                 if (tag is not ("b" or "strong" or "i" or "em" or "s" or "del" or "u" or "span" or "font" or "a")) continue;
                 // 仅将已知标签和少量样式映射到 WPF 属性，不把服务端样式直接交给解析器。
                 Span span = new();
-                if (tag is "b" or "strong") span.FontWeight = FontWeights.Bold;
+                // 半粗体使用真实 Semibold 字形；Bold(700) 会再模拟加粗，使骰子数字和强调文字过黑。
+                if (tag is "b" or "strong") span.FontWeight = FontWeights.SemiBold;
                 if (tag is "i" or "em") span.FontStyle = FontStyles.Italic;
                 if (tag is "s" or "del") span.TextDecorations = TextDecorations.Strikethrough;
                 if (tag == "u") span.TextDecorations = TextDecorations.Underline;
-                if (Regex.IsMatch(token, @"font-weight\s*:\s*(bold|[6-9]00)", RegexOptions.IgnoreCase)) span.FontWeight = FontWeights.Bold;
+                if (Regex.IsMatch(token, @"font-weight\s*:\s*(bold|[6-9]00)", RegexOptions.IgnoreCase)) span.FontWeight = FontWeights.SemiBold;
                 if (Regex.IsMatch(token, @"(?:color\s*=\s*[""']?|color\s*:\s*)(?:red|#(?:cc0000|ff0000))", RegexOptions.IgnoreCase)) span.SetResourceReference(ForegroundProperty, "PostRed");
                 else if (tag == "font" || Regex.IsMatch(token, @"color\s*:", RegexOptions.IgnoreCase)) span.SetResourceReference(ForegroundProperty, "PostGreen");
                 if (tag == "a" && !suppressLinkChildren)
@@ -132,6 +112,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
                     if (IslandLink.TryWebUri(url, out var uri))
                     {
                         var link = new Hyperlink { ToolTip = uri.AbsoluteUri };
+                        link.SetResourceReference(ForegroundProperty, "Link");
                         link.Click += (_, _) => Navigate(link, uri.AbsoluteUri); span = link; suppressLinkChildren = true;
                     }
                 }
@@ -164,6 +145,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         {
             target.Add(new Run(text[start..match.Index]));
             var value = match.Value; var link = new Hyperlink(new Run(value));
+            link.SetResourceReference(ForegroundProperty, "Link");
             link.ToolTip = match.Groups[1].Success ? "查看引用" : value;
             if (match.Groups[1].Success && long.TryParse(match.Groups[1].Value, out var id)) link.Click += (_, _) => ReferenceClicked?.Invoke(id);
             else link.Click += (_, _) => Navigate(link, value);

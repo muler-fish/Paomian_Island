@@ -34,6 +34,7 @@ internal static class Program
                 Console.Error.WriteLine(ex); return 1;
             }
         }
+        var refinedOnly = args.FirstOrDefault() == "--refined-reader";
         var layoutOnly = args.FirstOrDefault() == "--layout";
         var childOnly = args.FirstOrDefault() == "--child-windows";
         var forumOnly = args.FirstOrDefault() == "--forum-navigation";
@@ -60,14 +61,30 @@ internal static class Program
         var contextActionsOnly = args.FirstOrDefault() == "--context-actions";
         var feedbackMotionOnly = args.FirstOrDefault() == "--feedback-motion";
         var readingPolishOnly = args.FirstOrDefault() == "--reading-polish";
+        var postMenuOnly = args.FirstOrDefault() == "--post-menu";
+        var menuSplitOnly = args.FirstOrDefault() == "--menu-split";
+        var spoilerGeometryOnly = args.FirstOrDefault() == "--spoiler-geometry";
+        var settingsUiOnly = args.FirstOrDefault() == "--settings-ui";
+        var brandingOnly = args.FirstOrDefault() == "--branding";
+        var fontTrialOnly = args.FirstOrDefault() == "--font-trial";
+        var readingIdentityOnly = args.FirstOrDefault() == "--reading-identity";
+        var sentPostsOnly = args.FirstOrDefault() == "--sent-posts";
+        var reportOnly = args.FirstOrDefault() == "--reports";
         var fontComparisonOnly = args.FirstOrDefault() == "--font-comparison";
-        var output = Path.GetFullPath((layoutOnly || childOnly || forumOnly || noticeOnly || readerOnly || subscriptionOnly || cacheOnly || incrementalOnly || inertiaOnly || navigationOnly || progressOnly || cookieOnly || emoticonsOnly || fontOnly || typographyOnly || emojiOnly || tipsOnly || spoilersOnly || floatingOnly || previewOnly || layoutMemoryOnly || imagesOnly || linksOnly || contextActionsOnly || feedbackMotionOnly || readingPolishOnly || fontComparisonOnly ? args.ElementAtOrDefault(1) : args.FirstOrDefault()) ?? "artifacts/window-qa");
+        var output = Path.GetFullPath((layoutOnly || childOnly || forumOnly || noticeOnly || readerOnly || subscriptionOnly || cacheOnly || incrementalOnly || inertiaOnly || navigationOnly || progressOnly || cookieOnly || emoticonsOnly || fontOnly || typographyOnly || emojiOnly || tipsOnly || spoilersOnly || floatingOnly || previewOnly || layoutMemoryOnly || imagesOnly || linksOnly || contextActionsOnly || feedbackMotionOnly || readingPolishOnly || fontComparisonOnly || reportOnly || postMenuOnly || fontTrialOnly ? args.ElementAtOrDefault(1) : args.FirstOrDefault()) ?? "artifacts/window-qa");
+        if (readingIdentityOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reading-identity");
+        if (sentPostsOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/sent-posts");
+        if (menuSplitOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/menu-split");
+        if (spoilerGeometryOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/spoiler-geometry");
+        if (settingsUiOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-ui");
+        if (brandingOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/branding");
+        if (refinedOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/refined-reader-migration/qa");
         Directory.CreateDirectory(output);
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
         App.ApplyTheme("light");
-        var vm = new MainViewModel(UiRefinementChecks.CreateApi(), new LocalStore(Path.Combine(output, "profile")));
-        var window = new MainWindow(vm) { ShowInTaskbar = false };
+        var vm = new MainViewModel(refinedOnly ? RefinedReaderChecks.CreateApi() : UiRefinementChecks.CreateApi(), new LocalStore(Path.Combine(output, "profile")));
+        var window = new MainWindow(vm) { ShowInTaskbar = args.Contains("--hold") };
         var started = false;
         window.ContentRendered += async (_, _) =>
         {
@@ -75,6 +92,21 @@ internal static class Program
             started = true;
             try
             {
+                if (refinedOnly)
+                {
+                    await RefinedReaderChecks.RunAsync(window, output, Capture, args.Contains("--inspect-only"));
+                    if (args.Contains("--hold")) { window.Title += " · 界面验收（隔离资料）"; window.Closed += (_, _) => app.Shutdown(0); return; }
+                    app.Shutdown(0); return;
+                }
+                if (spoilerGeometryOnly) { await SpoilerGeometryChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
+                if (settingsUiOnly) { await SettingsUiChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
+                if (brandingOnly) { await BrandingUiChecks.RunAsync(window, output, Capture, args.Contains("--assets")); app.Shutdown(0); return; }
+                if (postMenuOnly) { await ContextActionChecks.RunAsync(window, output, Capture, postMenuOnly: true); app.Shutdown(0); return; }
+                if (menuSplitOnly) { await ContextActionChecks.RunAsync(window, output, Capture, menuSplitOnly: true); app.Shutdown(0); return; }
+                if (fontTrialOnly) { await FontTrialChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
+                if (readingIdentityOnly) { await ReadingIdentityChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
+                if (sentPostsOnly) { await SentPostsChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
+                if (reportOnly) { await ReportChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (readingPolishOnly) { await ReadingPolishChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (fontComparisonOnly) { await ReadingPolishChecks.CompareFontsAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (feedbackMotionOnly) { await FeedbackMotionChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
@@ -212,7 +244,7 @@ internal static class Program
             if (process.MainWindowHandle == IntPtr.Zero) throw new InvalidOperationException("等待交付程序窗口超时。");
             Thread.Sleep(300);
             // 自定义按钮属于 WPF 可访问性树，不能用 DWM 的系统标题栏占位矩形代替。
-            var root = WaitPublishedWindow(process.Id, "潮汐 · X岛");
+            var root = WaitPublishedWindow(process.Id, AppIdentity.WindowTitle);
             var mainHandle = new IntPtr(root.Current.NativeWindowHandle);
             var caption = PublishedCaptionBounds(root);
             var report = Inspect(mainHandle, caption);
@@ -232,7 +264,7 @@ internal static class Program
                     if (pid == process.Id)
                     {
                         var name = new StringBuilder(256); GetWindowText(h, name, name.Capacity);
-                        if (name.ToString() == "来自 X 岛的通知 · 潮汐") handle = h;
+                        if (name.ToString() == "来自 X 岛的通知") handle = h;
                     }
                     return true;
                 }, IntPtr.Zero);
@@ -292,7 +324,7 @@ internal static class Program
             InvokePublishedButton(root, AutomationElement.AutomationIdProperty, "HomeTimelineButton");
             for (var attempt = 0; attempt < 100 && root.FindFirst(TreeScope.Descendants, new AndCondition(new PropertyCondition(AutomationElement.AutomationIdProperty, "NewThreadButton"), new PropertyCondition(AutomationElement.IsOffscreenProperty, false))) is null; attempt++) Thread.Sleep(50);
             InvokePublishedButton(root, AutomationElement.AutomationIdProperty, "NewThreadButton");
-            var composer = WaitPublishedWindow(process.Id, "发一个串 · 潮汐");
+            var composer = WaitPublishedWindow(process.Id, "发串");
             children["new-thread"] = InspectPublishedChild(composer, output, "new-thread");
             InvokePublishedButton(composer, AutomationElement.NameProperty, "颜文字");
             AutomationElement? emoticon = null;
@@ -325,7 +357,7 @@ internal static class Program
             ((ValuePattern)fontInput.GetCurrentPattern(ValuePattern.Pattern)).SetValue(emojiDraft);
             Thread.Sleep(200); Capture(new IntPtr(composer.Current.NativeWindowHandle), Path.Combine(output, "emoticon-fonts.png"));
             InvokePublishedButton(composer, AutomationElement.NameProperty, "管理饼干");
-            var cookies = WaitPublishedWindow(process.Id, "饼干管理 · 潮汐");
+            var cookies = WaitPublishedWindow(process.Id, "饼干管理");
             children["cookies"] = InspectPublishedChild(cookies, output, "cookies");
             foreach (var name in new[] { "选择二维码图片", "粘贴二维码", "导入并使用" })
             {
@@ -342,13 +374,13 @@ internal static class Program
             ClosePublishedChild(composer, root);
             if (!profile.Load().Drafts.Any(d => d.Content == emojiDraft)) throw new InvalidOperationException("最终 EXE 没有完整保存 emoji 与尾部空行。");
             InvokePublishedButton(root, AutomationElement.AutomationIdProperty, "NewThreadButton");
-            composer = WaitPublishedWindow(process.Id, "发一个串 · 潮汐");
+            composer = WaitPublishedWindow(process.Id, "发串");
             var restoredEditor = composer.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "发言正文"))!;
             if (((ValuePattern)restoredEditor.GetCurrentPattern(ValuePattern.Pattern)).Current.Value != emojiDraft)
                 throw new InvalidOperationException("最终 EXE 重新打开草稿时 emoji 或换行丢失。");
             ClosePublishedChild(composer, root);
             InvokePublishedButton(root, AutomationElement.NameProperty, "设置与关于");
-            var settings = WaitPublishedWindow(process.Id, "阅读设置 · 潮汐");
+            var settings = WaitPublishedWindow(process.Id, "设置");
             children["settings"] = InspectPublishedChild(settings, output, "settings");
             var spoilers = settings.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "启用防剧透"))
                 ?? throw new InvalidOperationException("交付程序未包含防剧透选项。");
@@ -374,7 +406,7 @@ internal static class Program
             for (var attempt = 0; attempt < 100 && !profile.Load().InertialScrolling; attempt++) Thread.Sleep(50);
             if (!profile.Load().InertialScrolling) throw new InvalidOperationException("交付程序没有保存惯性开启设置。");
             InvokePublishedButton(settings, AutomationElement.NameProperty, "管理订阅号");
-            var subscriptions = WaitPublishedWindow(process.Id, "订阅号管理 · 潮汐");
+            var subscriptions = WaitPublishedWindow(process.Id, "订阅号管理");
             children["subscriptions"] = InspectPublishedChild(subscriptions, output, "subscriptions");
             var numberInput = subscriptions.FindFirst(TreeScope.Descendants, new AndCondition(new PropertyCondition(AutomationElement.NameProperty, "订阅号"), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)))
                 ?? throw new InvalidOperationException("交付程序的明文订阅号输入框不可访问。");

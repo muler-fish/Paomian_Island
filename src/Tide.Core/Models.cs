@@ -62,8 +62,8 @@ public sealed record ThreadPage(Post Original, List<Post> Replies, int Page, boo
 public sealed record SavedThread(Post Post, int Page, DateTimeOffset ReadAt, ReadingPosition? Position = null);
 /// <summary>可见回复及其顶部被滚出的像素；Index 用于原回复删除后的同页近邻回退。</summary>
 public sealed record ReadingPosition(long PostId, int Index, double Offset, bool OnlyPo);
-/// <summary>未发送的编辑内容；Key 区分草稿，ThreadId 为 0 时表示新串。</summary>
-public sealed record Draft(string Key, int ForumId, long ThreadId, string Title, string Content, string ImageFile, bool Watermark, string Name = "");
+/// <summary>未发送的编辑内容；举报也是新串，ReportPostId 保存被举报楼号，Content 单独保存理由。</summary>
+public sealed record Draft(string Key, int ForumId, long ThreadId, string Title, string Content, string ImageFile, bool Watermark, string Name = "", long ReportPostId = 0);
 /// <summary>本机饼干身份；Id 是本地生成的标识，EncryptedValue 由 Windows 层加密后保存。</summary>
 public sealed record CookieIdentity(string Id, string Name, string EncryptedValue);
 /// <summary>订阅号的本地身份；备注不参与服务端请求，号码由 Windows 层加密。</summary>
@@ -77,6 +77,7 @@ public sealed record PostResult(string Message, long? ThreadId);
 
 /// <summary>本机屏蔽条目，只保留管理列表需要的串号与标题摘要。</summary>
 public sealed record BlockedThread(long Id, string Title);
+public sealed record BlockedForum(int Id, string Name);
 
 /// <summary>整个资料目录的可持久化状态；正文页缓存另存，不混入 state.json。</summary>
 public sealed class UserState
@@ -84,6 +85,12 @@ public sealed class UserState
     public int SchemaVersion { get; set; } = 1;
     public string Theme { get; set; } = "light";
     public double FontSize { get; set; } = 16;
+    public bool IslandUseProxy { get; set; } = true;
+    public bool UpdateUseProxy { get; set; } = true;
+    public bool AutoCheckUpdates { get; set; } = true;
+    public bool InstallUpdatesOnExit { get; set; }
+    public string CacheParentPath { get; set; } = "";
+    public int CacheLimitMb { get; set; } = 256;
     public bool ShowImages { get; set; } = true;
     public bool InertialScrolling { get; set; } = true;
     // 新资料和缺少此字段的旧资料默认关闭，显式保存的开关状态继续沿用。
@@ -97,6 +104,7 @@ public sealed class UserState
     public List<Forum> FavoriteForums { get; set; } = [];
     // 本机列表屏蔽，不代表取消订阅或删除阅读历史。
     public List<BlockedThread> BlockedThreads { get; set; } = [];
+    public List<BlockedForum> BlockedForums { get; set; } = [];
     // 只保存已明确选择“不再显示”的通知摘要，不缓存公告正文，避免离线弹出过期维护消息。
     public List<string> SuppressedNoticeKeys { get; set; } = [];
     // 订阅号可用于修改云端列表，由 Windows 层加密；不保留本地串收藏或旧版迁移路径。

@@ -17,11 +17,13 @@ internal sealed class MainLayoutController : IDisposable
     private readonly GridSplitter _navigationSplitter, _listSplitter;
     private readonly DispatcherTimer _timer;
     private bool _ready, _applying, _disposed;
+    private bool _defaultColumns;
 
     public MainLayoutController(MainWindow window)
     {
         _window = window; _model = window.Model;
         var restoring = _model.State.WindowLayout is not null;
+        _defaultColumns = !restoring;
         _state = _model.State.WindowLayout ??= new(); _state.Normalize();
         _grid = (Grid)window.FindName("ContentColumns");
         _navigationSplitter = (GridSplitter)window.FindName("NavigationSplitter");
@@ -65,15 +67,21 @@ internal sealed class MainLayoutController : IDisposable
         _applying = true;
         try
         {
-            var available = Math.Max(1, (_grid.ActualWidth > 0 ? _grid.ActualWidth : _window.Width) - 8);
+            var available = Math.Max(1, (_grid.ActualWidth > 0 ? _grid.ActualWidth : _window.Width) - 2);
+            if (_defaultColumns)
+            {
+                var wide = available >= 1500;
+                _state.NavigationWidth = wide ? 232 : 188;
+                _state.ListWidth = wide ? 520 : 378;
+            }
             var scale = Math.Min(1, available / 668);
             var navigationMin = 148 * scale;
             var listMin = 240 * scale; var readerMin = 280 * scale;
-            var navigationWidth = Math.Clamp(_state.NavigationWidth, navigationMin, Math.Max(navigationMin, Math.Min(260, available - listMin - readerMin)));
+            var navigationWidth = Math.Clamp(_state.NavigationWidth, navigationMin, Math.Max(navigationMin, Math.Min(300, available - listMin - readerMin)));
             var listMax = Math.Max(listMin, available - navigationWidth - readerMin);
             var nav = _grid.ColumnDefinitions[0]; var list = _grid.ColumnDefinitions[2];
             // 限制当前可拖范围，保证右侧阅读区不会被固定栏宽挤到窗口外。
-            nav.MinWidth = navigationMin; nav.MaxWidth = Math.Max(navigationMin, Math.Min(260, available - listMin - readerMin));
+            nav.MinWidth = navigationMin; nav.MaxWidth = Math.Max(navigationMin, Math.Min(300, available - listMin - readerMin));
             nav.Width = new(navigationWidth);
             list.MinWidth = listMin; list.MaxWidth = listMax; list.Width = new(Math.Clamp(_state.ListWidth, listMin, listMax));
             _grid.ColumnDefinitions[4].MinWidth = readerMin;
@@ -89,6 +97,7 @@ internal sealed class MainLayoutController : IDisposable
     private void RememberColumns()
     {
         if (!_ready || _applying) return;
+        _defaultColumns = false;
         // 键盘调整后的 Width 已变化，但 ActualWidth 可能尚未经过本轮排版。
         _grid.UpdateLayout();
         _state.NavigationWidth = _grid.ColumnDefinitions[0].ActualWidth;

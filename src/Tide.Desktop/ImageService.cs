@@ -12,7 +12,15 @@ namespace Tide.Desktop;
 /// <summary>下载与解码图片；独立 HttpClient 不附带饼干，下载并发限制为 4。</summary>
 public static class ImageService
 {
-    private static readonly HttpClient Http = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All, AllowAutoRedirect = false, UseCookies = false }) { Timeout = TimeSpan.FromSeconds(20) };
+    private static readonly HttpClient Http = NetworkClients.Create();
+    internal static DiskCache? DiskCache { get; set; }
+    internal static void ClearMemoryCache() => Cache.Clear();
+    internal static void Forget(string url)
+    {
+        Cache.Remove(url);
+        try { DiskCache?.Remove(ImageKey(url)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+    private static string ImageKey(string url) => "images/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url))) + ".bin";
     private static readonly SemaphoreSlim Slots = new(4);
     // 缩略图仅缓存在内存，当前调用方在 WPF 界面线程上访问此字典。
     private static readonly Dictionary<string, BitmapSource> Cache = [];
@@ -22,6 +30,9 @@ public static class ImageService
         // 只请求已知图片站；调用方不能借此下载任意域名或本地协议的资源。
         var uri = new Uri(url);
         if (uri.Scheme != "https" || uri.Host != "image.nmb.best") throw new ArgumentException("不支持的图片地址。");
+        var cache = DiskCache;
+        var key = ImageKey(uri.AbsoluteUri);
+        if (cache is not null && await Task.Run(() => cache.Read(key), ct) is { } saved) return saved;
         await Slots.WaitAsync(ct);
         try
         {
@@ -38,7 +49,9 @@ public static class ImageService
                 if (output.Length + count > limit) throw new InvalidDataException("图片过大。");
                 output.Write(buffer, 0, count);
             }
-            return output.ToArray();
+            var bytes = output.ToArray();
+            if (cache is not null) await Task.Run(() => cache.Write(key, bytes), ct);
+            return bytes;
         }
         finally { Slots.Release(); }
     }
@@ -103,7 +116,7 @@ public sealed class PostImage : ContentControl
         Content = button;
         // 无图模式保留手动打开入口，只有用户点击时才去原图窗口加载图片。
         var failed = false;
-        button.Click += (_, _) => { if (failed) Update(); else ImageClicked?.Invoke(this, post); };
+        button.Click += (_, _) => { if (failed) { ImageService.Forget(url); Update(); } else ImageClicked?.Invoke(this, post); };
         if (!ShowImages) return;
         if (!IsLoaded) return;
         try

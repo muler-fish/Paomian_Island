@@ -33,6 +33,22 @@ internal static class FloatingActionsChecks
             Require(publish.IsVisible && !reply.IsVisible, "板块/未打开串的按钮状态错误");
             await vm.OpenThreadAsync(101, 1); await Pause();
             Require(reply.IsVisible && reply.IsEnabled, "打开串后没有可用的回应按钮");
+            var tail = (Border)window.FindName("ListTailIndicator");
+            Require(!tail.IsVisible, "没有续页提示时仍显示底部遮挡");
+            CheckAlignment();
+            var viewport = Bounds(list, window);
+            handler.ListGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            handler.FailList = true;
+            var loadingList = vm.LoadMoreListAsync(); await Pause();
+            Require(vm.ListAppending && tail.IsVisible && Bounds(list, window)==viewport, "续页加载提示缺失或改变视口");
+            handler.ListGate.SetResult(); await loadingList; await Pause();
+            Require(vm.ListAppendFailed && tail.IsVisible && Bounds(list, window)==viewport, "续页错误提示缺失或改变视口");
+            capture(window,Path.Combine(output,"floating-list-retry.png"));
+            handler.FailList=false;
+            var retry=UiRefinementChecks.Descendants<Button>(tail).Single();
+            Require(retry.IsVisible && retry.IsEnabled,"重试入口不可用");
+            ((IInvokeProvider)new ButtonAutomationPeer(retry).GetPattern(PatternInterface.Invoke)).Invoke(); await Pause();
+            Require(!vm.ListAppendFailed && vm.ListTailStatus=="已到底" && Bounds(list,window)==viewport,"重试未到末页或改变视口");
             foreach (var (items, button) in new[] { (list, publish), (reader, reply) })
             {
                 var before = Bounds(button, window);
@@ -52,7 +68,7 @@ internal static class FloatingActionsChecks
             list.ScrollIntoView(vm.Posts[^1]); await Pause();
             var oldTail = list.ItemContainerGenerator.ContainerFromIndex(vm.Posts.Count - 2) as ListBoxItem;
             var newTail = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(vm.Posts.Count - 1);
-            Require(oldTail?.Margin.Bottom == 0 && newTail.Margin.Bottom == 80, "续页后尾部留白未转移");
+            Require(oldTail?.Margin.Bottom == 0 && newTail.Margin.Bottom == publish.Margin.Bottom + 64, "续页后尾部留白未转移");
             Console.WriteLine("PASS: pane-fixed positions, last item clearance, append clearance transfer, virtualization.");
 
             await CheckComposer(publish, window, false);
@@ -75,6 +91,7 @@ internal static class FloatingActionsChecks
                 foreach (var width in new[] { 900d, 1280d })
                 {
                     window.Width = width; await Pause();
+                    CheckAlignment();
                     foreach (var (items, button) in new[] { (list, publish), (reader, reply) })
                     {
                         var frame = Bounds(items, window); var action = Bounds(button, window);
@@ -85,9 +102,17 @@ internal static class FloatingActionsChecks
                     capture(window, Path.Combine(output, $"floating-{theme}-{width}.png"));
                 }
             }
+            window.WindowState=WindowState.Maximized; await Pause(); CheckAlignment();
+            capture(window,Path.Combine(output,"floating-dark-maximized.png"));
             App.ApplyTheme("light");
-            await FluentWindowChecks.RunAsync(window, output, capture);
-            Console.WriteLine("PASS: visible contexts, compose/reply targets, loading guard, both themes and compact window, caption controls.");
+            Console.WriteLine("PASS: full-height list, aligned floating actions, loading/failure/retry/end without viewport shift, visible contexts, compose/reply targets, loading guard, both themes, compact and maximized windows.");
+
+            void CheckAlignment()
+            {
+                Require(Math.Abs(Bounds(publish,window).Top-Bounds(reply,window).Top)<1,"发串与回应按钮未对齐");
+                var pane=(Border)window.FindName("ListPane");
+                Require(Math.Abs(Bounds(list,window).Bottom-Bounds(pane,window).Bottom)<1,"串列表底部仍有固定占位条");
+            }
         }
         finally { App.ApplyTheme("light"); window.Close(); }
     }
@@ -105,7 +130,7 @@ internal static class FloatingActionsChecks
             try
             {
                 Require(dialog is not null, "点击悬浮按钮没有打开编辑器");
-                Require(dialog!.Title.StartsWith(isReply ? "参与回应" : "发一个串"), "打开了错误的编辑器");
+                Require(dialog!.Title.StartsWith(isReply ? "参与回应" : "发串"), "打开了错误的编辑器");
                 if (isReply) Require(UiRefinementChecks.Descendants<TextBlock>(dialog).Any(t => t.Text == "No.101"), "回应目标串号错误");
                 else Require(UiRefinementChecks.Descendants<ComboBox>(dialog).Any(c => AutomationProperties.GetName(c) == "发串版块" && c.SelectedItem is Forum { Id: 30 }), "发串没有选中当前板块");
                 result.SetResult();
@@ -126,6 +151,8 @@ internal static class FloatingActionsChecks
     private sealed class Fixture : HttpMessageHandler
     {
         internal TaskCompletionSource? Gate;
+        internal TaskCompletionSource? ListGate;
+        internal bool FailList;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Require(request.Method == HttpMethod.Get, "验证禁止发出写请求");
@@ -136,7 +163,16 @@ internal static class FloatingActionsChecks
                 payload = new { id = 101, fid = 30, title = "悬浮回应验收", user_hash = "test", content = "串首正文", ReplyCount = 12,
                     Replies = Enumerable.Range(1, 12).Select(i => new { id = 101 + i, fid = 30, user_hash = "user", content = $"第 {i} 条回应<br>多行正文用于验证滚动位置。<br>按钮应固定在右下角。", now = "2026-10-27" }) };
             }
-            else payload = Enumerable.Range(1, 12).Select(i => new { id = 200 + i, fid = 30, title = $"第 {i} 个串", user_hash = "test", content = "内容列表滚动检查，末项应该可以滚动到按钮上方。", ReplyCount = 12 });
+            else
+            {
+                var page=System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query)["page"];
+                if(page=="2")
+                {
+                    if(ListGate is not null) await ListGate.Task.WaitAsync(cancellationToken);
+                    if(FailList) return new(HttpStatusCode.ServiceUnavailable) {Content=new StringContent("temporary failure")};
+                }
+                payload = Enumerable.Range(1, page=="2"?0:20).Select(i => new { id = 200 + i, fid = 30, title = $"第 {i} 个串", user_hash = "test", content = "内容列表滚动检查，末项应该可以滚动到按钮上方。", ReplyCount = 12 });
+            }
             return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(payload)) };
         }
     }

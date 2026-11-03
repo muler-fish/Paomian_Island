@@ -4,6 +4,10 @@ namespace Tide.Desktop;
 
 public sealed partial class MainViewModel
 {
+    public void ClearTemporaryCache()
+    {
+        _recentLists.Clear(); _recentThreads.Clear(); ImageService.ClearMemoryCache();
+    }
     // 普通浏览只保留本次运行中最近 40 个结果，30 秒后重新请求；显式刷新总是绕过。
     private readonly Dictionary<(string Identity, string Forum, int Page), (DateTimeOffset At, List<Post> Value)> _recentLists = [];
     private readonly Dictionary<(string Identity, long Id, int Page), (DateTimeOffset At, ThreadPage Value)> _recentThreads = [];

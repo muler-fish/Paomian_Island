@@ -73,7 +73,7 @@ internal sealed class ForumLinkPromptWindow : ChildWindow
     private Forum? _forum;
     private bool _closed;
 
-    public ForumLinkPromptWindow(MainViewModel model, IslandLink link, Action<string> openBrowser) : base("跳转板块 · 潮汐")
+    public ForumLinkPromptWindow(MainViewModel model, IslandLink link, Action<string> openBrowser) : base("跳转板块")
     {
         Width = 480; Height = 260; MinWidth = 360; MinHeight = 230;
         var grid = new Grid { Margin = new(24) };

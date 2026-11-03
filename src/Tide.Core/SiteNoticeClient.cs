@@ -24,10 +24,7 @@ public sealed class SiteNoticeClient : IDisposable
     // 注入客户端也由本类释放，用于固定响应测试。生产环境使用独立无 Cookie 的处理器。
     public SiteNoticeClient(HttpClient? http = null)
     {
-        _http = http ?? new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = DecompressionMethods.All, AllowAutoRedirect = false, UseCookies = false
-        });
+        _http = http ?? NetworkClients.Create();
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("TideIsland/0.2 (+Windows; WPF)");
     }
 

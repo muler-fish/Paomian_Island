@@ -1,0 +1,265 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:local="clr-namespace:Tide.Desktop">
+      <ResourceDictionary.MergedDictionaries><ui:ControlsDictionary/></ResourceDictionary.MergedDictionaries>
+      <BitmapImage x:Key="AppLogo" UriSource="pack://application:,,,/Tide;component/Assets/paomian.png"/>
+      <!-- Exact paths from paomian-mark.svg; bind color on the visual Path so theme updates propagate. -->
+      <PathGeometry x:Key="AppHeaderLogoGeometry" Figures="M92 50H218 M92 72H218 M100 72C100 84 90 88 100 100C110 112 100 121 100 139 M128 72C128 84 118 88 128 100C138 112 128 121 128 139 M156 72C156 84 146 88 156 100C166 112 156 121 156 139 M60 139H196C192 171 164 191 128 191C92 191 64 171 60 139Z M110 208H146"/>
+      <!-- 身份标签使用独立色值；提高饱和度不改变按钮、选中行或 PO 标签。 -->
+      <BooleanToVisibilityConverter x:Key="Visible"/>
+      <local:SameValueConverter x:Key="SameValue"/>
+      <local:ForumFavoriteConverter x:Key="ForumFavorite"/>
+      <x:Static x:Key="ReaderInterfaceFont" Member="local:AppFonts.Family"/>
+      <!-- 与 WPF UI 的菜单、提示等独立弹出层共用字体；不覆盖图标资源。 -->
+      <x:Static x:Key="ContentControlThemeFontFamily" Member="local:AppFonts.Family"/>
+      <Style TargetType="Window">
+        <Setter Property="Icon" Value="{StaticResource AppLogo}"/>
+        <Setter Property="FontFamily" Value="{StaticResource ReaderInterfaceFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="{DynamicResource Canvas}"/>
+        <Setter Property="UseLayoutRounding" Value="True"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+      </Style>
+      <!-- 保留库的 ClientAreaBorder 模板，使最大化仍遵循屏幕工作区。 -->
+      <Style TargetType="ui:FluentWindow" BasedOn="{StaticResource DefaultFluentWindowStyle}">
+        <Setter Property="Icon" Value="{StaticResource AppLogo}"/>
+        <Setter Property="FontFamily" Value="{StaticResource ReaderInterfaceFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="{DynamicResource Canvas}"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+      </Style>
+      <Style x:Key="MutedText" TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="FontSize" Value="12"/></Style>
+      <Style x:Key="FocusRing" TargetType="Control" BasedOn="{StaticResource DefaultControlFocusVisualStyle}"/>
+      <!-- Shared desktop controls: the same geometry and state brushes in every window. -->
+      <Style TargetType="Button">
+        <Setter Property="MinHeight" Value="{x:Static local:UiMetrics.ControlHeight}"/>
+        <Setter Property="Padding" Value="{x:Static local:UiMetrics.ButtonPadding}"/>
+        <Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
+        <Setter Property="BorderThickness" Value="1"/><Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{x:Static local:UiMetrics.ControlCornerRadius}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True"/>
+          </Border>
+        </ControlTemplate></Setter.Value></Setter>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource Pressed}"/></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+        </Style.Triggers>
+      </Style>
+      <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type Button}}"/>
+      <Style x:Key="Quiet" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+      </Style>
+      <Style x:Key="DialogCloseButton" TargetType="Button" BasedOn="{StaticResource Quiet}">
+        <Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="0"/>
+      </Style>
+      <Style x:Key="Primary" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+        <Setter Property="BorderThickness" Value="0"/><Setter Property="FontWeight" Value="SemiBold"/>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource AccentHover}"/></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource AccentPressed}"/></Trigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="SecondaryIconButton" TargetType="ui:Button" BasedOn="{StaticResource Quiet}">
+        <Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="Padding" Value="6"/>
+      </Style>
+      <Style x:Key="RefreshIconButton" TargetType="ui:Button" BasedOn="{StaticResource SecondaryIconButton}"/>
+      <Style x:Key="Navigation" TargetType="Button" BasedOn="{StaticResource Quiet}">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="10,7"/><Setter Property="Margin" Value="0,2"/><Setter Property="MinHeight" Value="36"/>
+      </Style>
+      <Style x:Key="ReaderToggle" TargetType="ToggleButton">
+        <Setter Property="MinWidth" Value="32"/><Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="{x:Static local:UiMetrics.ButtonPadding}"/><Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0" CornerRadius="{x:Static local:UiMetrics.ControlCornerRadius}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate></Setter.Value></Setter>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+          <Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSoft}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter Property="Opacity" Value="0.75"/></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+        </Style.Triggers>
+      </Style>
+      <Style TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
+        <Setter Property="MinHeight" Value="{x:Static local:UiMetrics.ControlHeight}"/><Setter Property="Padding" Value="{x:Static local:UiMetrics.InputPadding}"/><Setter Property="FontSize" Value="13"/>
+      <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="BorderThickness" Value="1"/></Style>
+      <Style TargetType="ui:TextBox" BasedOn="{StaticResource DefaultUiTextBoxStyle}">
+        <Setter Property="MinHeight" Value="{x:Static local:UiMetrics.ControlHeight}"/><Setter Property="Padding" Value="{x:Static local:UiMetrics.InputPadding}"/><Setter Property="FontSize" Value="13"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="ClearButtonEnabled" Value="False"/>
+      <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="BorderThickness" Value="1"/></Style>
+      <!-- 列表继续虚拟化与回收，图片仍在换绑、卸载时取消旧请求。 -->
+      <Style TargetType="ListBox" BasedOn="{StaticResource DefaultListBoxStyle}">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="0"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/>
+      </Style>
+      <Style TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Item" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Item" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Item" Property="Background" Value="{DynamicResource Selected}"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style x:Key="ReadingListItem" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+          <Grid x:Name="Item" Background="Transparent">
+            <ContentPresenter/>
+            <Border x:Name="SelectionLine" Width="2" HorizontalAlignment="Left" Background="{DynamicResource SelectionLine}" Visibility="Collapsed" IsHitTestVisible="False"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Item" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Item" Property="Background" Value="{DynamicResource Selected}"/><Setter TargetName="SelectionLine" Property="Visibility" Value="Visible"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+    <!-- 分组默认收起；整行可点击，细箭头表示方向，ToggleButton 保留空格键操作。 -->
+    <Style TargetType="Expander">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+      <Setter Property="Margin" Value="0,1"/>
+      <Setter Property="IsExpanded" Value="False"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander">
+        <StackPanel>
+          <ToggleButton x:Name="HeaderSite" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}"
+                        IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                        AutomationProperties.Name="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}"
+                        Foreground="{TemplateBinding Foreground}" FocusVisualStyle="{StaticResource FocusRing}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" MinHeight="36">
+            <!-- 显式拉伸标题按钮，避免库的默认对齐使右侧空白落在点击区域之外。 -->
+            <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+              <Border x:Name="HeaderChrome" Background="Transparent" CornerRadius="5" Padding="10,7">
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                  <Path x:Name="Chevron" Data="M1,1 L5,5 L1,9" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.5"
+                        StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="6" Height="10"
+                        HorizontalAlignment="Left" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/>
+                  <ContentPresenter Grid.Column="1" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                </Grid>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="RenderTransform"><Setter.Value><RotateTransform Angle="90"/></Setter.Value></Setter></Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HeaderChrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter TargetName="HeaderChrome" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter TargetName="HeaderChrome" Property="Opacity" Value="0.45"/></Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate></ToggleButton.Template>
+          </ToggleButton>
+          <ContentPresenter x:Name="GroupContent" ContentSource="Content" Visibility="Collapsed" Margin="0,2,0,4"/>
+        </StackPanel>
+        <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="GroupContent" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+
+      <Style TargetType="Separator"><Setter Property="Background" Value="{DynamicResource Line}"/><Setter Property="Margin" Value="0,10"/></Style>
+      <Style TargetType="Hyperlink"><Setter Property="Foreground" Value="{DynamicResource Link}"/></Style>
+
+
+      <Style TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
+        <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="10,6"/><Setter Property="FontSize" Value="13"/>
+      </Style>
+      <Style TargetType="PasswordBox" BasedOn="{StaticResource DefaultPasswordBoxStyle}">
+        <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="10,6"/>
+      </Style>
+      <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="MinHeight" Value="32"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+          <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Border x:Name="Box" Width="18" Height="18" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Muted}" BorderThickness="1" CornerRadius="3" VerticalAlignment="Center">
+              <Path x:Name="Check" Data="M2,6 L5,9 L11,3" Stroke="{DynamicResource OnAccent}" StrokeThickness="1.6" Width="13" Height="12" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter TargetName="Check" Property="Visibility" Value="Visible"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="MinHeight" Value="32"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+          <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Grid Width="18" Height="18" VerticalAlignment="Center"><Ellipse x:Name="Ring" Fill="{DynamicResource Surface}" Stroke="{DynamicResource Muted}"/><Ellipse x:Name="Dot" Width="8" Height="8" Fill="{DynamicResource Accent}" Visibility="Collapsed"/></Grid>
+            <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+          </Grid>
+          <ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Dot" Property="Visibility" Value="Visible"/><Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style x:Key="SliderTrackAction" TargetType="RepeatButton">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Focusable" Value="False"/><Setter Property="Opacity" Value="1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton">
+          <Border Background="{TemplateBinding Background}" Height="4" VerticalAlignment="Center" CornerRadius="2"/>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style TargetType="Slider">
+        <Setter Property="MinHeight" Value="32"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+          <Grid Background="Transparent" Margin="7,0">
+            <Border Background="{DynamicResource Line}" Height="4" VerticalAlignment="Center" CornerRadius="2"/>
+            <Track x:Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{TemplateBinding Value}" IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+              <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource SliderTrackAction}" Command="Slider.DecreaseLarge" Background="{DynamicResource Accent}"/></Track.DecreaseRepeatButton>
+              <Track.Thumb><Thumb Width="16" Height="16" Focusable="False"><Thumb.Template><ControlTemplate TargetType="Thumb"><Ellipse Fill="{DynamicResource Accent}"/><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+              <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource SliderTrackAction}" Command="Slider.IncreaseLarge" Background="Transparent"/></Track.IncreaseRepeatButton>
+            </Track>
+          </Grid>
+          <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style TargetType="TabControl">
+        <Setter Property="Background" Value="{DynamicResource Surface}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl">
+          <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+            <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"><TabPanel IsItemsHost="True" Background="Transparent"/></Border>
+            <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" ContentSource="SelectedContent"/>
+          </Grid>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">
+          <Grid x:Name="Chrome" Background="Transparent" MinHeight="36"><ContentPresenter ContentSource="Header" Margin="12,8" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+            <Border x:Name="Underline" Height="2" VerticalAlignment="Bottom" Background="{DynamicResource Accent}" Visibility="Collapsed"/>
+          </Grid>
+          <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter TargetName="Underline" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style x:Key="ReaderDocument" TargetType="RichTextBox">
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RichTextBox"><ScrollViewer x:Name="PART_ContentHost" Background="Transparent" Padding="0"/></ControlTemplate></Setter.Value></Setter>
+      </Style>
+      <Style x:Key="Editor" TargetType="RichTextBox">
+        <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource BodyText}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="12"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RichTextBox">
+          <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5">
+            <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}"/>
+          </Border>
+          <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+</ResourceDictionary>

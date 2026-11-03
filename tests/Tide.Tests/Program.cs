@@ -5,6 +5,11 @@ using Tide.Core;
 
 // 局部验证入口：仅运行链接及其目录映射，避免重复执行无关功能回归。
 if (args.Contains("--links")) { await LinkRoutingChecks.RunAsync(); return 0; }
+if (args.Contains("--sent-thread")) { await SentThreadChecks.RunAsync(); return 0; }
+if (args.Contains("--settings-services")) { await SettingsServicesChecks.RunAsync(); return 0; }
+if (args.Contains("--branding")) { BrandingChecks.Run(); return 0; }
+if (args.FirstOrDefault() == "--update-helper") { await UpdateHelperChecks.RunAsync(args[1]); return 0; }
+if (args.Contains("--update-parent")) { await Task.Delay(2500); return 0; }
 // 无第三方测试框架的控制台测试入口：注册用例、依次执行，最后通过进程退出码报告是否通过。
 // 所有 HTTP 用例都注入 FakeHandler，只检查构造的请求和模拟响应，不会向真实站点发言。
 var checks = new List<(string Name, Func<Task> Run)>();
@@ -95,7 +100,7 @@ Test("window layout defaults, persistence and invalid saved dimensions", () =>
         layout = store.Load().WindowLayout!;
         Assert(layout.Width == 1280 && layout.Height == 16384 && layout.NavigationWidth == 148 && layout.ListWidth == 16384);
         layout.Width = double.NaN; layout.ListWidth = double.PositiveInfinity; layout.Normalize();
-        Assert(layout.Width == 1280 && layout.ListWidth == 320);
+        Assert(layout.Width == 1280 && layout.ListWidth == 378);
     }
     finally { Cleanup(root); }
 });
@@ -518,8 +523,8 @@ Test("subscription snapshots isolate number and cookie and reject expired or cor
     store.SaveSubscriptions("中文 / ../ 号", "cookie-a", snapshot);
     Assert(store.ReadSubscriptions("中文 / ../ 号", "cookie-a") is { Complete: true, Posts.Count: 1, Uncertain.Count: 1 });
     Assert(store.ReadSubscriptions("中文 / ../ 号", "cookie-b") is null && store.ReadSubscriptions("other", "cookie-a") is null);
-    Assert(Directory.GetFiles(Path.Combine(path, "subscription-cache")).Length == 1);
-    var file = Directory.GetFiles(Path.Combine(path, "subscription-cache")).Single();
+    Assert(Directory.GetFiles(Path.Combine(store.Cache.Root, "subscriptions")).Length == 1);
+    var file = Directory.GetFiles(Path.Combine(store.Cache.Root, "subscriptions")).Single();
     store.SaveSubscriptions("expired", "", snapshot with { UpdatedAt = DateTimeOffset.UtcNow.AddDays(-31) });
     Assert(store.ReadSubscriptions("expired", "") is null);
     File.WriteAllText(file, "broken");

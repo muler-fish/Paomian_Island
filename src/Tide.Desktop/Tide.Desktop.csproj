@@ -4,11 +4,9 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <AssemblyName>Tide</AssemblyName>
-    <Version>0.2.1</Version>
-    <Product>潮汐 · X岛</Product>
-    <Description>X岛匿名版 Windows 客户端</Description>
+    <Version>0.2.2-preview.11</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets/tide.ico</ApplicationIcon>
+    <ApplicationIcon>Assets/paomian.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../Tide.Core/Tide.Core.csproj" /></ItemGroup>
   <ItemGroup><PackageReference Include="WPF-UI" Version="4.3.0" /></ItemGroup>
@@ -17,7 +15,9 @@
   <ItemGroup><InternalsVisibleTo Include="Tide.Desktop.Tests" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoticons.json" LogicalName="Tide.Emoticons.json" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoji-sequences.json" LogicalName="Tide.EmojiSequences.json" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/paomian.png" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.ttf" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/Fonts/*.otf" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.CompositeFont" /></ItemGroup>
 </Project>
 

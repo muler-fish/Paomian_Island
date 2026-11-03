@@ -27,7 +27,9 @@ public sealed class ImageWindow : ChildWindow
     private bool _paging, _advanceAfterPage, _pageFailed, _pagePaused;
     private long _lastAutoPost;
     private readonly Func<string, CancellationToken, Task<byte[]>> _download;
-    private readonly Image _image = new() { Stretch = Stretch.Fill, IsHitTestVisible = false };
+    private readonly Image _image = new() { Stretch = Stretch.Fill };
+    private readonly FeedbackOverlay _imageFeedback = new();
+    private readonly Action<BitmapSource> _copyImage;
     private readonly Canvas _canvas = new() { ClipToBounds = true, Focusable = true };
     private readonly StackPanel _feedback = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _message = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 380, HorizontalAlignment = HorizontalAlignment.Center };
@@ -46,19 +48,14 @@ public sealed class ImageWindow : ChildWindow
 
     public ImageWindow(Post post) : this([post], post.Id) { }
     public ImageWindow(IEnumerable<Post> posts, long selectedId) : this(posts, selectedId, ImageService.BytesAsync) { }
-    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<byte[]>> download, ImagePageCursor? pages = null) : base("图片 · 潮汐")
+    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<byte[]>> download, ImagePageCursor? pages = null, Action<BitmapSource>? copyImage = null) : base("图片", dialogChrome: false)
     {
         _posts = posts.DistinctBy(p => p.Id).ToList(); _pages = pages;
         if (_posts.Count == 0) throw new ArgumentException("图库不能为空。", nameof(posts));
         _index = Math.Max(0, Array.FindIndex(_posts.ToArray(), p => p.Id == selectedId));
         _download = download;
+        _copyImage = copyImage ?? Clipboard.SetImage;
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Tide;component/ImageViewerResources.xaml") });
-        if (SystemParameters.HighContrast)
-        {
-            Resources["Canvas"] = Resources["Sidebar"] = SystemColors.WindowBrush;
-            Resources["Text"] = Resources["Muted"] = SystemColors.WindowTextBrush;
-            Resources["Hover"] = SystemColors.HighlightBrush;
-        }
         Width = 1000; Height = 780; MinWidth = 500; MinHeight = 400;
         var grid = new Grid();
         grid.RowDefinitions.Add(new()); grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
@@ -66,11 +63,22 @@ public sealed class ImageWindow : ChildWindow
         grid.Children.Add(viewport);
         _canvas.SetResourceReference(Panel.BackgroundProperty, "Canvas");
         _canvas.Children.Add(_image); viewport.Children.Add(_canvas);
+        var menu = new ContextMenu(); var copy = new MenuItem { Header = "复制" }; menu.Items.Add(copy);
+        _image.ContextMenu = menu;
+        BitmapSource? copyTarget = null; Point? copyOrigin = null;
+        menu.Opened += (_, _) =>
+        {
+            copyTarget = _image.Source as BitmapSource; copy.IsEnabled = copyTarget is not null;
+            copyOrigin = Mouse.GetPosition(_imageFeedback);
+        };
+        _image.ContextMenuOpening += (_, e) => { if (_image.Source is null) e.Handled = true; };
+        copy.Click += (_, _) => { if (copyTarget is not null) CopyDisplayedImage(copyTarget, copyOrigin); };
+        menu.Closed += (_, _) => { copyTarget = null; copyOrigin = null; };
         viewport.Children.Add(_feedback);
         _retry = ActionButton("重试", "重新加载原图", () =>
         {
             var url = _posts[_index].ImageUrl();
-            if (url is not null) { _cache.Remove(url); _recent.Remove(url); }
+            if (url is not null) { _cache.Remove(url); _recent.Remove(url); ImageService.Forget(url); }
             _ = LoadCurrentAsync();
         });
         _retry.HorizontalAlignment = HorizontalAlignment.Center;
@@ -107,6 +115,7 @@ public sealed class ImageWindow : ChildWindow
         for (var i = 0; i < commands.Length; i++) { Grid.SetColumn(commands[i], i + 1); tools.Children.Add(commands[i]); }
         var footer = new Border { Child = tools }; footer.SetResourceReference(Border.BackgroundProperty, "Sidebar");
         Grid.SetRow(footer, 1); grid.Children.Add(footer);
+        Grid.SetRowSpan(_imageFeedback, 2); Panel.SetZIndex(_imageFeedback, 100); grid.Children.Add(_imageFeedback);
         SetClientContent(grid);
         _canvas.SizeChanged += (_, _) => { if (_fit) Fit(); else Position(); };
         _canvas.PreviewMouseWheel += (_, e) => { ZoomAt(_scale * (e.Delta > 0 ? 1.25 : .8), e.GetPosition(_canvas)); e.Handled = true; };
@@ -314,6 +323,17 @@ public sealed class ImageWindow : ChildWindow
             if (picker.ShowDialog(this) == true) { File.WriteAllBytes(picker.FileName, bytes); Title = $"{post.Number}  ·  已保存"; }
         }
         catch (Exception) { Title = "保存失败，请重试"; }
+    }
+    private void CopyDisplayedImage(BitmapSource bitmap, Point? origin)
+    {
+        try
+        {
+            // Copy full decoded pixels, independent of viewport zoom, pan and rotation.
+            _copyImage(bitmap);
+            _imageFeedback.Show(new("图片已复制", FeedbackArea.General), _canvas, origin: origin);
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException or ArgumentException or IOException)
+        { _imageFeedback.Show(new("复制图片失败，剪贴板可能正被占用，请重试。", FeedbackArea.General, true), _canvas); }
     }
 }
 

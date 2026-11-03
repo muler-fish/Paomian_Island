@@ -4,11 +4,11 @@
              x:Name="IdentityRoot" Focusable="False">
   <!-- 只展示公开的发言人 ID；红名和 SAGE 独立判断，不能由名字或正文猜测。 -->
   <WrapPanel DataContext="{Binding Post, ElementName=IdentityRoot}">
-    <Border x:Name="PoBadge" Background="{DynamicResource PoBackground}" CornerRadius="4" Padding="6,2" Margin="0,0,6,0" VerticalAlignment="Center"
+    <Border x:Name="PoBadge" Background="{DynamicResource PoBackground}" CornerRadius="3" Padding="6,2" Margin="0,0,6,0" VerticalAlignment="Center"
             Visibility="{Binding IsPo, ElementName=IdentityRoot, Converter={StaticResource Visible}}" ToolTip="PO" AutomationProperties.Name="PO">
       <TextBlock Text="PO" Foreground="{DynamicResource PoForeground}" FontSize="12" FontWeight="SemiBold"/>
     </Border>
-    <Border x:Name="CookieBadge" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+    <Border x:Name="CookieBadge" CornerRadius="3" Padding="6,2" VerticalAlignment="Center">
       <Border.Style>
         <Style TargetType="Border">
           <Setter Property="Background" Value="{DynamicResource CookieBackground}"/>
@@ -25,13 +25,13 @@
       </Border.Style>
       <TextBlock Text="{Binding UserHash}" FontSize="12" FontWeight="SemiBold"/>
     </Border>
-    <Border x:Name="SageBadge" Background="{DynamicResource SageBackground}" CornerRadius="4"
+    <Border x:Name="SageBadge" Background="{DynamicResource SageBackground}" CornerRadius="3"
             Padding="6,2" Margin="6,0,0,0" VerticalAlignment="Center"
             ToolTip="SAGE">
       <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers>
         <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsSage}" Value="True"/><Condition Binding="{Binding ShowSage, ElementName=IdentityRoot}" Value="True"/></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible"/></MultiDataTrigger>
       </Style.Triggers></Style></Border.Style>
-      <TextBlock Text="SAGE" Foreground="{DynamicResource OnSage}" FontSize="11" FontWeight="Bold"/>
+      <TextBlock Text="SAGE" Foreground="{DynamicResource OnSage}" FontSize="11" FontWeight="SemiBold"/>
     </Border>
   </WrapPanel>
 </UserControl>

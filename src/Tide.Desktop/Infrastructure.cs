@@ -69,7 +69,7 @@ public static class SecretProtection
         {
             Marshal.Copy(bytes, 0, input.Data, bytes.Length);
             // flags=1 表示禁止系统交互提示；未设置“整机范围”标记，因此使用当前用户范围。
-            var success = encrypt ? CryptProtectData(ref input, "TideIsland cookie", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 1, out output)
+            var success = encrypt ? CryptProtectData(ref input, Tide.Core.AppIdentity.ProtectionDescription, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 1, out output)
                 : CryptUnprotectData(ref input, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 1, out output);
             if (!success) throw new Win32Exception(Marshal.GetLastWin32Error(), "无法使用当前 Windows 用户加解密饼干。");
             var result = new byte[output.Length]; Marshal.Copy(output.Data, result, 0, output.Length); return result;
@@ -104,9 +104,21 @@ public sealed class ForumFavoriteConverter : System.Windows.Data.IMultiValueConv
 /// <summary>只在最后一个列表项下留出悬浮按钮的空间；续页时随 Count 变化转移，不改变正文数据。</summary>
 public sealed class FloatingActionInsetConverter : System.Windows.Data.IMultiValueConverter
 {
-    public object Convert(object[] values, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
-        values.Length == 4 && values[1] is System.Collections.IList { Count: > 0 } items &&
-        values[3] is true && ReferenceEquals(values[0], items[items.Count - 1])
-            ? new System.Windows.Thickness(0, 0, 0, 80) : new System.Windows.Thickness(0);
+    public object Convert(object[] values, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+    {
+        if (values.Length < 4 || values[1] is not System.Collections.IList { Count: > 0 } items ||
+            !ReferenceEquals(values[0], items[items.Count - 1])) return new System.Windows.Thickness(0);
+        var actionBottom = values.Length > 4 && values[4] is double bottom ? bottom : 16;
+        var statusVisible = values.Length > 5 && values[5] is string { Length: > 0 };
+        return new System.Windows.Thickness(0, 0, 0, values[3] is true ? 48 + actionBottom + 16 : statusVisible ? 48 : 0);
+    }
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>发串与回应以阅读底栏的实际高度对齐；额外留白只属于按钮，不截短串列表。</summary>
+public sealed class FloatingActionMarginConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+        new System.Windows.Thickness(0, 0, 22, 16 + (value is double height && double.IsFinite(height) && height > 0 ? height : 49));
+    public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
 }

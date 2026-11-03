@@ -22,13 +22,7 @@ public sealed partial class XIslandApi : IDisposable
     // 注入的 HttpClient 也由本类释放；测试可注入自定义 HttpMessageHandler 替代真实网络。
     public XIslandApi(HttpClient? http = null)
     {
-        _http = http ?? new HttpClient(new HttpClientHandler
-        {
-            AutomaticDecompression = DecompressionMethods.All,
-            // 不自动跟随重定向或存储 Cookie；认证值只在构造指定站点请求时显式附加。
-            AllowAutoRedirect = false,
-            UseCookies = false
-        }) { Timeout = TimeSpan.FromSeconds(25) };
+        _http = http ?? NetworkClients.Create();
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("TideIsland/0.1 (+Windows; WPF)");
     }
     public void SetCookie(string? cookie)

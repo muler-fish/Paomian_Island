@@ -10,8 +10,8 @@ namespace Tide.Desktop.Tests;
 /// <summary>检查实际绘制的字体文件，避免样式声明已改而库控件仍显示系统字体。</summary>
 internal static class TypographyChecks
 {
-    private sealed record Glyphs(string Text, string Font, bool Simulated);
-    private static List<Glyphs> Runs(Visual root)
+    internal sealed record Glyphs(string Text, string Font, bool Simulated);
+    internal static List<Glyphs> Runs(Visual root)
     {
         var result = new List<Glyphs>();
         void Drawing(Drawing? drawing)
@@ -68,8 +68,8 @@ internal static class TypographyChecks
             reports["global"] = globalRuns;
             foreach (var font in new[] { "misansthai.ttf", "misanslao.ttf", "misanstibetan-regular.ttf" })
                 if (!globalRuns.Any(r => r.Font.EndsWith(font))) unexpected.Add("Global 补充字体未生效：" + font);
-            if (regularRuns.Length == 0 || regularRuns.Any(r => !r.Font.EndsWith("misans-regular.ttf") || r.Simulated) ||
-                semiboldRuns.Length == 0 || semiboldRuns.Any(r => !r.Font.EndsWith("misans-semibold.ttf") || r.Simulated))
+            if (regularRuns.Length == 0 || regularRuns.Any(r => !r.Font.EndsWith("misans-regular.otf") || r.Simulated) ||
+                semiboldRuns.Length == 0 || semiboldRuns.Any(r => !r.Font.EndsWith("misans-semibold.otf") || r.Simulated))
                 unexpected.Add("MiSans Regular / Semibold 未按预期选择实际字体文件。");
         }
         finally { sample.Close(); }

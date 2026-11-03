@@ -12,7 +12,7 @@ public sealed class SubscriptionWindow : DialogWindow
     private readonly StackPanel _accounts = new();
     public SubscriptionWindow(MainViewModel vm) : base("订阅号管理")
     {
-        Width = 720; Height = 590;
+        Width = UiMetrics.DialogWidth; Height = 590;
         Body.Children.Add(_accounts);
         foreach (var account in vm.SubscriptionAccounts) AddRow(account.Id, account.Name, account.Value, account.Id == vm.ActiveSubscriptionKey);
         var add = Button("添加订阅号", () => AddRow(Guid.NewGuid().ToString(), "", "", _rows.Count == 0));

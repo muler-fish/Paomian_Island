@@ -9,8 +9,9 @@ public sealed partial class LocalStore
     private readonly string _root;
     private readonly object _gate = new();
     public string Root => _root;
+    public DiskCache Cache { get; }
     public string? LoadWarning { get; private set; }
-    public LocalStore(string root) { _root = Path.GetFullPath(root); Directory.CreateDirectory(_root); }
+    public LocalStore(string root) { _root = Path.GetFullPath(root); Directory.CreateDirectory(_root); Cache = new(_root); }
 
     /// <summary>读取状态并修正缺失或越界的设置；文件损坏时先备份，再使用默认状态。</summary>
     public UserState Load()
@@ -48,6 +49,9 @@ public sealed partial class LocalStore
             state.BlockedThreads = (state.BlockedThreads ?? [])
                 .Where(t => t is not null && t.Id > 0).DistinctBy(t => t.Id)
                 .Select(t => t with { Title = t.Title ?? "" }).ToList();
+            state.BlockedForums = (state.BlockedForums ?? [])
+                .Where(f => f is not null && f.Id > 0).DistinctBy(f => f.Id)
+                .Select(f => f with { Name = string.IsNullOrWhiteSpace(f.Name) ? $"版块 {f.Id}" : f.Name }).ToList();
             state.ActiveCookieId ??= "";
             state.SuppressedNoticeKeys = (state.SuppressedNoticeKeys ?? [])
                 .Where(key => key is { Length: 64 } && key.All(Uri.IsHexDigit))
@@ -78,27 +82,20 @@ public sealed partial class LocalStore
         }
     }
 
-    /// <summary>按串号和页码保存正文；每个身份最多保留最近写入的 200 页。</summary>
+    /// <summary>按身份、串号和页码保存正文，与图片及订阅快照共用磁盘上限。</summary>
     public void SavePage(ThreadPage page, string identityKey)
     {
-        var dir = CacheDirectory(identityKey);
-        Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, $"{page.Original.Id}-{page.Page}.json");
-        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(page));
-        File.Move(path + ".tmp", path, true);
-        // 清理正文缓存不会删除历史摘要，它们独立保存在 state.json 中。
-        foreach (var old in new DirectoryInfo(dir).EnumerateFiles("*.json").OrderByDescending(f => f.LastWriteTimeUtc).Skip(200))
-            old.Delete();
+        Cache.Write(CacheKey(identityKey, page.Original.Id, page.Page), JsonSerializer.SerializeToUtf8Bytes(page));
     }
 
     /// <summary>缓存不存在或损坏时返回 null，由调用方决定是否继续显示网络错误。</summary>
     public ThreadPage? ReadPage(long id, int page, string identityKey)
     {
-        var path = Path.Combine(CacheDirectory(identityKey), $"{id}-{page}.json");
-        if (!File.Exists(path)) return null;
+        var bytes = Cache.Read(CacheKey(identityKey, id, page));
+        if (bytes is null) return null;
         try
         {
-            var cached = JsonSerializer.Deserialize<ThreadPage>(File.ReadAllText(path));
+            var cached = JsonSerializer.Deserialize<ThreadPage>(bytes);
             // 旧版本可能把服务端截断到第 100 页的内容存成任意高页；保留文件但不再读为有效离线页。
             return cached is not null && cached.Original.Id == id && cached.Page == page &&
                 (page <= 100 || cached.PaginationVerified) ? cached : null;
@@ -106,11 +103,11 @@ public sealed partial class LocalStore
         catch (Exception ex) when (ex is JsonException or IOException) { return null; }
     }
 
-    private string CacheDirectory(string identityKey)
+    private string CacheKey(string identityKey, long id, int page)
     {
         // 目录名来自本地身份 ID 的摘要，用于隔离不同饼干的正文缓存；这不是正文加密。
         // 游客使用独立目录，不能直接读取另一身份缓存的受限串页。
         var key = string.IsNullOrEmpty(identityKey) ? "guest" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(identityKey)))[..20];
-        return Path.Combine(_root, "cache", key);
+        return $"{key}/{id}-{page}.json";
     }
 }

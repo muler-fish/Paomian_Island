@@ -1,8 +1,8 @@
 本软件使用 MiSans 字体。
 Copyright © 2020-2025 Beijing Xiaomi Mobile Software Co.,Ltd. All Rights Reserved.
 
-字体来源：用户提供的 D:\MiSans.zip，MiSans/ttf/。
-内嵌文件：MiSans-Regular.ttf、MiSans-Semibold.ttf，版本 4.009。
+主字体来源：用户提供的 MiSans 官方字体包，MiSans/otf/。
+内嵌文件：MiSans-Light.otf、MiSans-Regular.otf、MiSans-Semibold.otf，版本 4.009。
 补充字体来自用户提供的 D:\MiSans_Global_ALL.zip：
 - MiSans Thai /TrueType/MiSansThai.ttf，版本 1.000。
 - MiSans Lao/TrueType/MiSansLao.ttf，版本 1.000。

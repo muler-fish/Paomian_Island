@@ -47,6 +47,9 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public XIslandApi Api { get; }
     public LocalStore Store { get; }
     public UserState State { get; }
+    internal UpdateController Updates { get; }
+    public bool HasUpdate => Updates.Available is not null;
+    public string SettingsHint => HasUpdate ? $"发现新版本 {Updates.Available!.Version} · 设置与关于" : "设置与关于";
     public ObservableCollection<ForumGroup> ForumGroups { get; } = [];
     public ObservableCollection<Forum> FavoriteForums { get; } = [];
     private IReadOnlySet<string> _favoriteForumKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -109,6 +112,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public string HistoryCount => State.History.Count.ToString();
     public double ReadingFontSize => State.FontSize;
     public double PreviewAuthorFontSize => ReadingFontSize - 1;
+    public bool HideSpoilers => State.HideSpoilers;
     public bool ShowImages => State.ShowImages;
     public bool InertialScrolling => State.InertialScrolling;
     public string ThemeLabel => State.Theme == "dark" ? "浅色模式" : "深色模式";
@@ -132,6 +136,14 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public MainViewModel(XIslandApi api, LocalStore store)
     {
         Api = api; Store = store; State = store.Load();
+        NetworkClients.IslandUseProxy = State.IslandUseProxy;
+        NetworkClients.UpdateUseProxy = State.UpdateUseProxy;
+        try { Store.ConfigureCache(State); }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or ArgumentException)
+        { Error = "缓存目录不可用，使用默认目录：" + ex.Message; State.CacheParentPath = ""; Store.ConfigureCache(State); }
+        ImageService.DiskCache = Store.Cache;
+        Updates = new(this);
+        Updates.Changed += () => { Changed(nameof(HasUpdate)); Changed(nameof(SettingsHint)); };
         VisiblePosts = new(Posts); InitializeBlocking();
         App.ApplySpoilerProtection(State.HideSpoilers);
         Posts.CollectionChanged += (_, _) => { Changed(nameof(ListPageLabel)); Changed(nameof(EmptyList)); };
@@ -356,6 +368,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
             }
             NotifyReader(); Changed(nameof(HistoryCount));
             Status = offline ? "离线阅读 · 显示本机缓存，内容可能不是最新" : "正文已更新";
+            if (offline) SetError(Status, FeedbackArea.Reader);
             // 累积加载时保持当前位置；直接打开或跳页时才滚回本次内容顶部。
             if (!extending) ReaderReset?.Invoke();
         }
@@ -416,6 +429,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         App.ApplySpoilerProtection(State.HideSpoilers);
         foreach (var card in Posts) card.SetSpoilerProtection(State.HideSpoilers);
         Changed(nameof(OriginalTitle));
+        Changed(nameof(HideSpoilers));
         Changed(nameof(ReadingFontSize)); Changed(nameof(PreviewAuthorFontSize)); Changed(nameof(ShowImages)); Changed(nameof(InertialScrolling)); Changed(nameof(ThemeLabel)); Changed(nameof(IsDark)); Save();
     }
     public void Save()

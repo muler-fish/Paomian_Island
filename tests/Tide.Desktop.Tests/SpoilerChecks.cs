@@ -48,11 +48,11 @@ internal static class SpoilerChecks
             await Pause();
             Require(EmojiText.Read(body.Document).Contains("秘密😀\r\n第二行 链接") && !EmojiText.Read(body.Document).Contains("另一个隐藏内容"), "键盘展开或多片段独立性错误");
             var shown = body.Document.Blocks.OfType<Paragraph>().Single().Inlines.OfType<Span>().First(s => s is not Hyperlink);
-            Require(shown.Inlines.OfType<Hyperlink>().Count() == 1 && shown.Inlines.OfType<Span>().Any(s => s.FontWeight == FontWeights.Bold), "展开后链接或加粗格式丢失");
+            Require(shown.Inlines.OfType<Hyperlink>().Count() == 1 && shown.Inlines.OfType<Span>().Any(s => s.FontWeight == FontWeights.SemiBold), "展开后链接或加粗格式丢失");
             Require(EmojiChecks.ColorPixels(body) > 30, "展开后 emoji 没有恢复彩色");
             vm.State.FontSize = 20; vm.AppearanceChanged(); App.ApplyTheme("dark"); await Pause();
             Require(EmojiText.Read(body.Document).Contains("秘密😀"), "普通外观设置收起了已展开内容");
-            bars[1].RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window)!, 0, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent });
+            bars[1].RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window)!, 0, Key.Enter) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
             await Pause(); Require(!HiddenLinks(body).Any(), "Enter 不能展开黑条");
             capture(window, Path.Combine(output, "spoiler-revealed.png"));
 
@@ -87,7 +87,7 @@ internal static class SpoilerChecks
         }
         finally { settings?.Close(); window.Close(); vm.State.HideSpoilers = false; vm.State.FontSize = 16; vm.AppearanceChanged(); App.ApplyTheme("light"); }
     }
-    private static IEnumerable<Hyperlink> HiddenLinks(PostBody body) => body.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).OfType<Hyperlink>().Where(h => AutomationProperties.GetName(h) == "显示防剧透内容");
+    private static IEnumerable<SpoilerSpan> HiddenLinks(PostBody body) => body.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).OfType<SpoilerSpan>().Where(h => h.Hidden);
     private static Task Pause() => Task.Delay(120);
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 }

@@ -16,12 +16,17 @@ public sealed class CookieWindow : DialogWindow
     private readonly TextBlock _name = new() { Text = "—", TextWrapping = TextWrapping.Wrap };
     private readonly PasswordBox _value = new();
     private readonly TextBlock _active = new();
+    private readonly TextBlock _empty = Hint("尚未导入饼干。可以继续以游客身份浏览。 ");
     private readonly Button _import;
     private bool _readingQr, _closed;
 
     public CookieWindow(MainViewModel vm) : base("饼干管理")
     {
-        Width = 680; Height = 760; _vm = vm;
+        Width = UiMetrics.DialogWidth; Height = 760; _vm = vm;
+        var rowStyle = new Style(typeof(ListBoxItem), (Style)FindResource(typeof(ListBoxItem)));
+        rowStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(10, 8, 10, 8)));
+        rowStyle.Setters.Add(new Setter(FrameworkElement.MinHeightProperty, 36d));
+        _list.ItemContainerStyle = rowStyle;
         Closed += (_, _) => { _closed = true; _value.Clear(); };
         AutomationProperties.SetName(_name, "饼干名称");
         AutomationProperties.SetName(_value, "完整饼干内容");
@@ -37,19 +42,21 @@ public sealed class CookieWindow : DialogWindow
         Label("饼干内容"); Body.Children.Add(_value);
         Body.Children.Add(Hint("可粘贴完整 userhash、Cookie 或二维码 JSON。饼干在本机加密保存。"));
         Body.Children.Add(Feedback); AutomationProperties.SetName(Feedback, "饼干导入结果"); AutomationProperties.SetLiveSetting(Feedback, AutomationLiveSetting.Polite);
-        Label("已保存的饼干"); Body.Children.Add(_list);
+        Label("已保存的饼干"); Body.Children.Add(_empty); Body.Children.Add(_list);
         var management = new WrapPanel { Margin = new(-8, 10, 0, 0) };
         management.Children.Add(Button("使用选中饼干", () => { if (_list.SelectedItem is CookieIdentity item) Switch(item.Id); }));
         management.Children.Add(Button("切换为游客", () => Switch("")));
         management.Children.Add(Button("移除选中项", Remove)); Body.Children.Add(management);
+        AddAction("完成", Close);
         _import = Button("导入并使用", Import, true); Actions.Children.Add(_import);
-        AddAction("完成", Close); Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Accent"); Refresh();
+        Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Accent"); Refresh();
     }
 
     private void Refresh()
     {
         _list.ItemsSource = _vm.State.Cookies.ToList();
-        _list.Height = _vm.State.Cookies.Count == 0 ? 0 : 96;
+        _list.Height = Math.Min(180, _vm.State.Cookies.Count * 36);
+        _empty.Visibility = _vm.State.Cookies.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         _list.SelectedItem = _vm.State.Cookies.Find(c => c.Id == _vm.State.ActiveCookieId);
         _active.Text = "当前：" + (_vm.State.Cookies.Find(c => c.Id == _vm.State.ActiveCookieId)?.Name ?? "游客");
         UpdateNamePreview();
@@ -129,7 +136,7 @@ public sealed class CookieWindow : DialogWindow
     }
     private void Remove()
     {
-        if (_list.SelectedItem is not CookieIdentity entry || MessageBox.Show(this, $"从本机移除「{entry.Name}」？", "移除饼干", MessageBoxButton.OKCancel) != MessageBoxResult.OK) return;
+        if (_list.SelectedItem is not CookieIdentity entry || !ConfirmWindow.Ask(this, "移除饼干", $"从本机移除「{entry.Name}」？")) return;
         try { Commit(_vm.State.Cookies.Where(c => c.Id != entry.Id).ToList(), _vm.State.ActiveCookieId == entry.Id ? "" : _vm.State.ActiveCookieId); Feedback.Text = "已从本机移除。"; }
         catch (Exception ex) { ShowFailure(ex); }
     }

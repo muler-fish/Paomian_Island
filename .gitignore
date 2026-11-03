@@ -25,8 +25,10 @@ artifacts/
 /state.json
 /cookies.json
 /subscriptions.json
+/sent-posts.json
 
 # Local design, research and acceptance records
+/design/
 /docs/
 /CHANGELOG.md
 /THIRD_PARTY_NOTICES.md

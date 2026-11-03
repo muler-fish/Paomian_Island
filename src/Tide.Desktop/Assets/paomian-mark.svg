@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 32 192 192" width="192" height="192" role="img" aria-labelledby="title">
+  <title id="title">泡面岛 · 挑面 · 单色标记</title>
+  <path d="M92 50H218" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M92 72H218" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M100 72C100 84 90 88 100 100C110 112 100 121 100 139" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M128 72C128 84 118 88 128 100C138 112 128 121 128 139" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M156 72C156 84 146 88 156 100C166 112 156 121 156 139" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60 139H196C192 171 164 191 128 191C92 191 64 171 60 139Z" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M110 208H146" fill="none" stroke="#13765E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

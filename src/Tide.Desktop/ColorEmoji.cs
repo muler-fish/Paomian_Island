@@ -11,6 +11,7 @@ internal static class ColorEmoji
     {
         foreach (var inline in inlines.ToArray())
         {
+            if (inline is SpoilerSpan { Hidden: true }) continue;
             if (inline is Span span) { Render(span.Inlines); continue; }
             if (inline is not Run run) continue;
             var matches = EmojiSequences.Matches(run.Text);

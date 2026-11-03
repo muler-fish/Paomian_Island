@@ -46,12 +46,12 @@ internal static class EmojiChecks
             body.SelectAll();
             var copied = new DataObject(); var copyArgs = new DataObjectCopyingEventArgs(copied, false);
             body.RaiseEvent(copyArgs);
-            Require(copied.GetData(DataFormats.UnicodeText) as string == samples.TrimEnd('\r', '\n') + "\r\n\r\n", "正文复制没有还原 Unicode 和文档换行");
+            Require(copyArgs.CommandCancelled && Clipboard.GetText() == samples.TrimEnd('\r', '\n') + "\r\n\r\n", "正文复制没有还原 Unicode 和文档换行");
             body.Html = "<b>😀</b><a href=\"https://www.nmbxd.com/t/1\">链接❤️</a>[h]隐藏🌈[/h]";
             Require(!EmojiText.Read(body.Document).Contains("隐藏🌈"), "隐藏内容提前进入正文");
             var paragraph = (Paragraph)body.Document.Blocks.FirstBlock;
-            var spoiler = paragraph.Inlines.OfType<Hyperlink>().Last();
-            spoiler.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+            var spoiler = paragraph.Inlines.OfType<SpoilerSpan>().Last();
+            spoiler.Reveal();
             Require(EmojiText.Read(body.Document).Contains("隐藏🌈") && paragraph.Inlines.OfType<Span>().Any(s => s.Inlines.OfType<Emoji.Wpf.EmojiInline>().Any()), "展开隐藏 emoji 失败");
             var label = new EmojiLabel { Text = "😀", Foreground = Brushes.Gray, Background = Brushes.White, FontSize = 36 };
             window.Content = label; await Task.Delay(60);

@@ -48,5 +48,6 @@ try {
     $releaseBytes = (Get-ChildItem -LiteralPath $target -File -Recurse | Measure-Object Length -Sum).Sum
     if ($releaseBytes -ge 100000000) { throw "Release exceeds 100 MB budget: $releaseBytes bytes." }
     Write-Output "Release size: $releaseBytes bytes / 100000000 bytes"
+    if ($SelfContained) { & (Join-Path $PSScriptRoot 'Package.ps1') -ReleaseDirectory $target }
     Get-ChildItem -LiteralPath $target | Select-Object FullName,Length
 } finally { Pop-Location }

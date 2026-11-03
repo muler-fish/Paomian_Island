@@ -18,9 +18,9 @@ namespace Tide.Desktop.Tests;
 /// <summary>仅覆盖 TODO 10–12：菜单、屏蔽显示与续载、按来源反馈，不调用真实网站。</summary>
 internal static class ContextActionChecks
 {
-    public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
+    public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture, bool postMenuOnly = false, bool menuSplitOnly = false)
     {
-        var handler = new FixtureHandler(); var store = new LocalStore(Path.Combine(output, "context-profile"));
+        var handler = new FixtureHandler(); var store = new LocalStore(Path.Combine(output, "context-profile-" + Guid.NewGuid().ToString("N")));
         var vm = new MainViewModel(new XIslandApi(new HttpClient(handler)), store);
         vm.State.ShowImages = false; vm.State.HideSpoilers = true; vm.AppearanceChanged();
         var forum = new Forum(4, "综合版1", "综合", MaxPage: 3);
@@ -41,12 +41,19 @@ internal static class ContextActionChecks
 
             // 菜单是真实 XAML 绑定的实例，复制取显示文档，不能漏出折叠剧透或丢失 emoji。
             body.Selection.Select(body.Document.ContentStart, body.Document.ContentStart);
-            var postMenu = Open(body); Require(Labels(postMenu).SequenceEqual(new[] { "复制", "回应" }), "回应菜单条目错误");
-            Click(postMenu, "复制"); Require(Clipboard.GetText().Contains("😀") && Clipboard.GetText().Contains("\n") && !Clipboard.GetText().Contains("秘密"), "复制正文丢失换行/emoji 或泄露剧透");
-            Require(HasBubble(overlay, "已复制"), "复制没有气泡");
+            var postMenu = Open(body); Require(Labels(postMenu).SequenceEqual(new[] { "复制串号", "复制正文", "回应", "举报" }), "回应菜单条目错误");
+            Click(postMenu, "复制正文");
+            var copied = Clipboard.GetText();
+            Require(copied.Contains("😀") && copied.Contains("\n") && !copied.Contains("秘密"),
+                $"复制正文丢失换行/emoji 或泄露剧透：Emoji={copied.Contains("😀")}, Newline={copied.Contains("\n")}, Spoiler={copied.Contains("秘密")}");
+            Require(HasBubble(overlay, "已复制正文"), "复制没有气泡");
             var run = body.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).OfType<Run>().First(r => r.Text.Contains("正文"));
-            body.Selection.Select(run.ContentStart, run.ContentEnd); var selected = body.Selection.Text;
-            postMenu = Open(body); Click(postMenu, "复制"); Require(Clipboard.GetText() == selected, "菜单复制忽略选区");
+            body.Selection.Select(run.ContentStart, run.ContentEnd);
+            postMenu = Open(body); Click(postMenu, "复制正文"); Require(Clipboard.GetText() == copied, "复制正文被选区截断");
+            postMenu = Open(body); Click(postMenu, "复制串号"); Require(Clipboard.GetText() == "1000", "主楼串号复制错误");
+            var replyBody=UiRefinementChecks.Descendants<PostBody>(reader).First(b=>b.DataContext is ReadPost {Post.Id:3001});
+            var replyMenu=Open(replyBody); Click(replyMenu,"复制串号"); Require(Clipboard.GetText()=="3001","回应复制了父串号");
+            replyMenu=Open(replyBody); Click(replyMenu,"复制正文"); Require(Clipboard.GetText()=="普通回应","回应复制了其他楼正文");
             body.Selection.Select(body.Document.ContentStart, body.Document.ContentStart);
 
             // 回应只打开原有编辑器，目标是当前串，正文引用被右键的楼号，不发送。
@@ -57,7 +64,21 @@ internal static class ContextActionChecks
             Require(vm.State.Drafts.Any(d => d.ThreadId == 1000 && d.Content.Contains(">>No.1000")), "回应草稿目标或引用错误");
             Require(handler.Posts == 0, "专项测试误提交请求");
             var tip = UiRefinementChecks.Descendants<PostBody>(reader).First(b => b.DataContext is ReadPost { IsTip: true });
-            var tipMenu = Open(tip); Require(Labels(tipMenu).SequenceEqual(new[] { "复制" }), "Tips 被当作普通发言回应"); tipMenu.IsOpen = false;
+            var tipMenu = Open(tip); Require(Labels(tipMenu).SequenceEqual(new[] { "复制正文" }), "Tips 被当作普通发言回应"); tipMenu.IsOpen = false;
+
+            // 举报入口只影响串内菜单；单独入口避免连带执行列表屏蔽、系统鼠标定位及气泡计时。
+            if (postMenuOnly)
+            {
+                File.WriteAllText(Path.Combine(output, "post-menu-results.txt"), "PASS: copy post ID/full document even with selection; spoilers and emoji preserved; reply target/draft; report menu; tips excluded; no POST.");
+                Console.WriteLine(File.ReadAllText(Path.Combine(output, "post-menu-results.txt")));
+                return;
+            }
+            if (menuSplitOnly)
+            {
+                await CheckForumBlockingAsync(window,vm,handler,store,output,capture);
+                File.WriteAllText(Path.Combine(output,"menu-split-results.txt"),"PASS: split copy for main/reply, full text + emoji/spoilers, reply/report unaffected, forum-name menu and correct fid, thread/forum independent filters, restart, unblock without network, all-hidden continuation, history/subscriptions preserved; no POST.");
+                Console.WriteLine(File.ReadAllText(Path.Combine(output,"menu-split-results.txt"))); return;
+            }
 
             var card = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(1);
             // 真实鼠标输入验证菜单入口，而不仅是直接设置 IsOpen。
@@ -68,8 +89,8 @@ internal static class ContextActionChecks
             await Task.Delay(80); Require(body.ContextMenu.IsOpen, "菜单键不能打开回应菜单"); body.ContextMenu.IsOpen = false;
             var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right) { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent };
             card.RaiseEvent(down); Require(down.Handled, "右键未阻止默认选串");
-            var threadMenu = Open(card); Require(Labels(threadMenu).Single() == "屏蔽此串", "串列表菜单未绑定");
-            Click(threadMenu, "屏蔽此串"); await Task.Delay(60);
+            var threadMenu = Open(card); Require(Labels(threadMenu).SequenceEqual(new[]{"屏蔽串","屏蔽板块（综合版1）"}), "串列表菜单未绑定");
+            Click(threadMenu, "屏蔽串"); await Task.Delay(60);
             Require(!vm.VisiblePosts.Cast<PostCard>().Any(p => p.Post.Id == 1001) && vm.Posts.Any(p => p.Post.Id == 1001), "屏蔽没有过滤显示或破坏源集合");
             Require(before == (vm.Original!.Id, vm.PageText, vm.State.History.Count, readerScroll.VerticalOffset), "右键/屏蔽打断阅读位置或写入历史");
             Require(HasBubble(overlay, "已屏蔽此串"), "屏蔽无反馈");
@@ -146,6 +167,72 @@ internal static class ContextActionChecks
             foreach (var child in window.OwnedWindows.Cast<Window>().ToArray()) child.Close();
             window.Close(); App.ApplyTheme("light"); if (clipboard is not null) Clipboard.SetDataObject(clipboard, true);
         }
+    }
+
+    private static async Task CheckForumBlockingAsync(MainWindow window,MainViewModel vm,FixtureHandler handler,LocalStore store,string output,Action<Window,string> capture)
+    {
+        vm.State.Forums.Add(new(8,"婆罗门一","综合"));
+        var first=new PostCard(FixtureHandler.Post(9001) with { Fid=8 },"婆罗门一");
+        var second=new PostCard(FixtureHandler.Post(9002) with { Fid=8 },"婆罗门一");
+        vm.Posts.Add(first); vm.Posts.Add(second);
+        var list=(ListBox)window.FindName("ThreadList");
+        var scroll=UiRefinementChecks.Descendants<ScrollViewer>((ListBox)window.FindName("ReaderList")).First();
+        var reading=(vm.Original!.Id,vm.PageText,vm.State.History.Count,scroll.VerticalOffset);
+        // 手动滚动至待操作项前关闭自动续载，保持候选数据固定；随后恢复并检查全隐藏时的手动续载。
+        IncrementalScroll.SetCommand(list,null);
+        async Task<ContextMenu> Menu(PostCard card)
+        {
+            list.ScrollIntoView(card); await Task.Delay(80); window.UpdateLayout();
+            var item=(ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(card);
+            var down=new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Right){RoutedEvent=UIElement.PreviewMouseRightButtonDownEvent};
+            item.RaiseEvent(down); Require(down.Handled,"右键未阻止默认选串"); return Open(item);
+        }
+        var menu=await Menu(first);
+        Require(Labels(menu).SequenceEqual(new[]{"屏蔽串","屏蔽板块（婆罗门一）"}),"屏蔽菜单未显示目标板块名");
+        Click(menu,"屏蔽串");
+        Require(vm.VisiblePostCount==21 && vm.BlockedThreads.Count==1,"屏蔽串影响了其他串");
+        menu=await Menu(second); Click(menu,"屏蔽板块（婆罗门一）");
+        Require(vm.ActiveForum?.Id==4 && vm.VisiblePostCount==20 && vm.Posts.Count==22 && vm.BlockedForums.Single().Id==8,"板块屏蔽误用了当前入口或破坏源数据");
+        Require(reading==(vm.Original!.Id,vm.PageText,vm.State.History.Count,scroll.VerticalOffset),"列表屏蔽打断正文阅读");
+        var loaded=new LocalStore(store.Root).Load();
+        Require(loaded.BlockedForums.Single().Id==8 && loaded.BlockedThreads.Single().Id==9001,"屏蔽状态未持久化");
+        var manager=new BlockedThreadsWindow(vm){Owner=window,ShowInTaskbar=false}; manager.Show();
+        try
+        {
+            foreach(var theme in new[]{"light","dark"})
+            {
+                App.ApplyTheme(theme); await Task.Delay(60); capture(manager,Path.Combine(output,$"block-manager-{theme}.png"));
+            }
+            var requests=handler.ListCalls;
+            UiRefinementChecks.Descendants<Button>(manager).Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)=="取消屏蔽板块 婆罗门一")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Require(vm.VisiblePostCount==21 && vm.BlockedForums.Count==0 && vm.BlockedThreads.Count==1 && handler.ListCalls==requests,"解除板块屏蔽清除了单串屏蔽或重新请求");
+            UiRefinementChecks.Descendants<Button>(manager).Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)=="取消屏蔽 No.9001")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Require(vm.VisiblePostCount==22 && handler.ListCalls==requests,"解除串屏蔽未即时恢复");
+        }
+        finally {manager.Close();App.ApplyTheme("light");}
+
+        vm.BlockForum(first.Post); vm.BlockForum(vm.Posts[0].Post);
+        var before=handler.ListCalls;
+        await Task.Delay(100);
+        Require(vm.EmptyList && vm.HasMoreList && handler.ListCalls==before,"全板块屏蔽误判末页或循环请求");
+        IncrementalScroll.SetCommand(list,vm.LoadMoreListCommand);
+        var more=(Button)window.FindName("EmptyListLoadMore"); Require(more.IsVisible&&more.IsEnabled,"全隐藏后没有继续浏览入口");
+        await vm.LoadMoreListAsync();
+        Require(vm.Posts.Count==42&&vm.VisiblePostCount==0&&handler.ListCalls==before+1,"屏蔽板块没有过滤新增页或破坏分页");
+        using(var restarted=new MainViewModel(new XIslandApi(new HttpClient(new FixtureHandler())),store))
+        {
+            await restarted.SelectForumAsync(new(4,"综合版1","综合"));
+            Require(restarted.BlockedForums.Count==2&&restarted.Posts.Count==20&&restarted.VisiblePostCount==0,"重启未恢复板块过滤");
+        }
+        vm.State.History.Add(new(first.Post,1,DateTimeOffset.Now));
+        vm.State.History.Add(new(FixtureHandler.Post(6001) with {Fid=6},1,DateTimeOffset.Now));
+        vm.ShowLibrary("history");
+        Require(vm.VisiblePostCount==1&&vm.VisiblePosts.Cast<PostCard>().Single().Post.Id==6001,"历史未正确过滤板块");
+        await vm.ShowSubscriptionsAsync(); while(vm.HasMoreList&&vm.LoadMoreListCommand.CanExecute(null)) await vm.LoadMoreListAsync();
+        Require(vm.SubscriptionCount=="15"&&vm.VisiblePostCount==0,"板块屏蔽改变了云端订阅数量");
+        Require(handler.Posts==0,"屏蔽或菜单发送了写请求");
     }
 
     private static async Task CloseComposerAsync(MainWindow window, MainViewModel vm)

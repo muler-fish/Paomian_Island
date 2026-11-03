@@ -45,8 +45,8 @@ internal static class ReadingPolishChecks
             Require(EmojiText.Read(reply.Selection.Start, reply.Selection.End).Contains("😀"), "正文选区丢失彩色 emoji 原文");
             Require(reply.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().SelectMany(p => p.Inlines).Any(i => i is Emoji.Wpf.EmojiInline), "emoji 未保留独立彩色绘制");
             foreach (var target in new DependencyObject[] { preview }.Concat(bodies).Concat(bodies.Select(b => b.Document)))
-                Require(TextOptions.GetTextFormattingMode(target) == TextFormattingMode.Ideal && TextOptions.GetTextRenderingMode(target) == TextRenderingMode.Grayscale
-                    && TextOptions.GetTextHintingMode(target) == TextHintingMode.Fixed, "阅读渲染设置未覆盖预览/正文/文档");
+                Require(TextOptions.GetTextFormattingMode(target) == TextFormattingMode.Ideal && TextOptions.GetTextRenderingMode(target) == TextRenderingMode.Auto
+                    && TextOptions.GetTextHintingMode(target) == TextHintingMode.Animated, "阅读渲染设置未覆盖预览/正文/文档");
             Require(preview.FontFamily.Equals(AppFonts.Family) && bodies.All(b => b.FontFamily.Equals(AppFonts.Family)), "未保留统一 MiSans 复合字体");
             Require(preview.ActualHeight <= preview.FontSize * 12 + 1 && preview.TextTrimming == TextTrimming.CharacterEllipsis, "正文渲染修改破坏八行上限或省略");
             reply.Selection.Select(reply.Document.ContentStart, reply.Document.ContentStart);
@@ -78,7 +78,7 @@ internal static class ReadingPolishChecks
             var toggle = (System.Windows.Controls.Primitives.ToggleButton)window.FindName("OnlyPoButton");
             toggle.IsChecked = true; window.UpdateLayout();
             Require(Fill(toggle.Background) == Fill((Brush)Application.Current.FindResource("PoBackground")), "真正的 PO 开关选中态被去掉");
-            Console.WriteLine("PASS: real click opens thread; hover/leave and selected rows in both themes; keyboard focus and PO state retained; MiSans grayscale reading, eight-line limit, text selection and color emoji preserved.");
+            Console.WriteLine("PASS: real click opens thread; hover/leave and selected rows in both themes; keyboard focus and PO state retained; MiSans Auto/Animated reading, eight-line limit, text selection and color emoji preserved.");
         }
         finally { SetCursorPos(cursor.X, cursor.Y); window.Close(); App.ApplyTheme("light"); }
     }
@@ -145,7 +145,7 @@ internal static class ReadingPolishChecks
     [DllImport("gdi32.dll")] private static extern bool BitBlt(IntPtr dest, int x, int y, int width, int height, IntPtr source, int sx, int sy, uint operation);
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
     [DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr dc);
-    private static void CaptureScreen(Window window, string path)
+    internal static void CaptureScreen(Window window, string path)
     {
         // 只取自有测试窗口范围；RenderTargetBitmap 会降级为灰度，不能用它判断实际 ClearType 色边。
         GetWindowRect(new WindowInteropHelper(window).Handle, out var bounds);
