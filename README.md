@@ -1,8 +1,8 @@
-# 泡面岛（paomian island）
+# 泡面岛（Paomian Island）
 
 ## 项目简介
 
-泡面岛（英文名 **paomian island**）是 X 岛匿名版的非官方 Windows 客户端，使用 **WPF / .NET 10 / WPF UI** 开发。采用板块导航、串列表和串阅读区的三栏布局，面向日常浏览、订阅与发言。项目原名「潮汐」，GitHub 仓库地址暂时沿用 `muler-fish/Tide`。
+泡面岛（英文名 **Paomian Island**）是 X 岛匿名版的非官方 Windows 客户端，使用 **WPF / .NET 10 / WPF UI** 开发。采用板块导航、串列表和串阅读区的三栏布局，面向日常浏览、订阅与发言。项目原名「潮汐」，GitHub 仓库地址暂时沿用 `muler-fish/Tide`。
 
 [下载正式版](https://github.com/muler-fish/Tide/releases/latest) · [待办列表](TODO.md) · [反馈问题](https://github.com/muler-fish/Tide/issues)
 
@@ -21,8 +21,8 @@
 
 运行环境：**Windows 10/11 x64**。本项目采用解压即用的便携包，目前没有单独的安装程序或卸载注册项。
 
-1. 前往 [Releases](https://github.com/muler-fish/Tide/releases/latest)，选择已发布的 Windows x64 版本。更名后的包名为 `泡面岛-版本号-win-x64.zip`；历史版本及旧版更新器兼容包使用 `Tide-版本号-win-x64.zip`。
-2. 解压到任意目录，运行 `Tide.exe`。这是为保留既有快捷方式和自动更新兼容而沿用的技术文件名，窗口及 Windows 产品显示名称为「泡面岛」。
+1. 前往 [Releases](https://github.com/muler-fish/Tide/releases/latest)，选择已发布的 Windows x64 版本。新版包名为 `Paomian Island-版本号-win-x64.zip`。
+2. 解压到任意目录，运行 `Paomian Island.exe`。界面及 Windows 产品显示名称仍为「泡面岛」。`泡面岛-版本号-win-x64.zip` 和 `Tide-版本号-win-x64.zip` 用于兼容旧更新器，包内保留 `Tide.exe`；自动更新沿用已安装的文件名以保持原快捷方式有效。
 3. 更新时先退出旧版，再运行新版。默认资料目录相同，可继续使用原有设置。
 
 发布包已包含 .NET 运行时，无需单独安装。程序、许可及启动时提取的运行时文件以 **100 MB 以内**为目标，个人资料和缓存另计。版本、网络、缓存和更新选项位于设置中；正文预览最多显示 7 行。
@@ -44,7 +44,7 @@
 默认数据继续保存在 `%LOCALAPPDATA%\TideIsland`。此次更名不移动或重建资料目录，原有饼干、订阅号、历史、草稿、发言记录及缓存路径设置会继续使用。需要使用独立资料目录时：
 
 ```powershell
-.\Tide.exe --data-dir "D:\泡面岛资料"
+& ".\Paomian Island.exe" --data-dir "D:\泡面岛资料"
 ```
 
 同一资料目录只允许运行一个实例。饼干和订阅号使用当前 Windows 用户的 DPAPI 加密；订阅号可在管理窗口主动查看、复制。

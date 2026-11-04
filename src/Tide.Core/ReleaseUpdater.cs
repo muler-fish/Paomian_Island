@@ -19,7 +19,7 @@ public sealed class ReleaseUpdater : IDisposable
     {
         _http = http ?? NetworkClients.Create(updates: true);
         _http.Timeout = TimeSpan.FromMinutes(10);
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Tide-Updater/0.2");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Paomian-Island-Updater/0.2");
     }
     public async Task<AppRelease?> CheckAsync(string currentVersion, CancellationToken ct = default)
     {
@@ -44,6 +44,11 @@ public sealed class ReleaseUpdater : IDisposable
         var name = AppIdentity.PackageName(version);
         var assets = root.GetProperty("assets");
         var asset = assets.EnumerateArray().FirstOrDefault(a => a.GetProperty("name").GetString() == name);
+        if (asset.ValueKind == JsonValueKind.Undefined)
+        {
+            name = AppIdentity.ChinesePackageName(version);
+            asset = assets.EnumerateArray().FirstOrDefault(a => a.GetProperty("name").GetString() == name);
+        }
         if (asset.ValueKind == JsonValueKind.Undefined)
         {
             name = AppIdentity.LegacyPackageName(version);
@@ -116,13 +121,14 @@ public sealed class ReleaseUpdater : IDisposable
             CopyLimitedAsync(entry.Open(), output, entry.Length, null, CancellationToken.None).GetAwaiter().GetResult();
             if (output.Length != entry.Length) throw new InvalidDataException("更新文件大小不匹配。");
         }
-        if (!names.Contains(AppIdentity.ExecutableName) || !names.Contains("SHA256SUMS.txt")) throw new InvalidDataException("更新包不完整。");
-        var exeHash = Hash(Path.Combine(destination, AppIdentity.ExecutableName));
+        var executables = names.Where(AppIdentity.IsExecutableName).ToArray();
+        if (executables.Length != 1 || !names.Contains("SHA256SUMS.txt")) throw new InvalidDataException("更新包不完整或存在多个程序文件。");
+        var exeHash = Hash(Path.Combine(destination, executables[0]));
         var manifest = File.ReadAllText(Path.Combine(destination, "SHA256SUMS.txt"));
-        if (!Regex.IsMatch(manifest, @"(?im)^" + exeHash + @"\s+\*?Tide\.exe\s*$")) throw new InvalidDataException("可执行文件校验失败。");
+        if (!Regex.IsMatch(manifest, @"(?im)^" + exeHash + @"\s+\*?" + Regex.Escape(executables[0]) + @"\s*$")) throw new InvalidDataException("可执行文件校验失败。");
         return exeHash;
     }
-    public static bool AllowedFile(string path) => path is AppIdentity.ExecutableName or "SHA256SUMS.txt" || Regex.IsMatch(path, @"^licenses/[a-zA-Z0-9_.-]+\.(?:txt|md|pdf)$");
+    public static bool AllowedFile(string path) => AppIdentity.IsExecutableName(path) || path == "SHA256SUMS.txt" || Regex.IsMatch(path, @"^licenses/[a-zA-Z0-9_.-]+\.(?:txt|md|pdf)$");
     public static string Hash(string path) { using var file = File.OpenRead(path); return Convert.ToHexString(SHA256.HashData(file)); }
     private static async Task CopyLimitedAsync(Stream source, Stream target, long limit, IProgress<int>? progress, CancellationToken ct)
     {

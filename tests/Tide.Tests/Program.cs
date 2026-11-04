@@ -9,6 +9,11 @@ if (args.Contains("--sent-thread")) { await SentThreadChecks.RunAsync(); return 
 if (args.Contains("--cookie-usage")) { CookieUsageChecks.Run(); return 0; }
 if (args.Contains("--settings-services")) { await SettingsServicesChecks.RunAsync(); return 0; }
 if (args.Contains("--branding")) { BrandingChecks.Run(); return 0; }
+if (args.Contains("--executable-rename"))
+{
+    try { ExecutableRenameChecks.Run(); return 0; }
+    catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+}
 if (args.FirstOrDefault() == "--update-helper") { await UpdateHelperChecks.RunAsync(args[1]); return 0; }
 if (args.Contains("--update-parent")) { await Task.Delay(2500); return 0; }
 // 无第三方测试框架的控制台测试入口：注册用例、依次执行，最后通过进程退出码报告是否通过。

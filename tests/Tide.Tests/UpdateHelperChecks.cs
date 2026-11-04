@@ -10,8 +10,8 @@ internal static class UpdateHelperChecks
         var profile = Path.Combine(root, "profile"); var install = Path.Combine(root, "install");
         var stage = Path.Combine(profile, "updates", Guid.NewGuid().ToString("N")); var package = Path.Combine(stage, "package");
         Directory.CreateDirectory(package); Directory.CreateDirectory(install);
-        var target = Path.Combine(install, "Tide.exe"); File.Copy(executable, target); File.Copy(executable, Path.Combine(package, "Tide.exe"));
-        var hash = ReleaseUpdater.Hash(executable); File.WriteAllText(Path.Combine(package, "SHA256SUMS.txt"), hash + "  Tide.exe\n");
+        var target = Path.Combine(install, AppIdentity.ExecutableName); File.Copy(executable, target); File.Copy(executable, Path.Combine(package, AppIdentity.ExecutableName));
+        var hash = ReleaseUpdater.Hash(executable); File.WriteAllText(Path.Combine(package, "SHA256SUMS.txt"), hash + "  " + AppIdentity.ExecutableName + "\n");
         File.WriteAllText(Path.Combine(install, "SHA256SUMS.txt"), "old fixture checksum");
         File.WriteAllText(Path.Combine(profile, "personal.txt"), "keep");
         var planPath = UpdateInstaller.Prepare(new(package, hash), profile, target, false);

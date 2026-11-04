@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <AppDisplayName>泡面岛</AppDisplayName>
-    <AppEnglishName>paomian island</AppEnglishName>
+    <AppEnglishName>Paomian Island</AppEnglishName>
     <Product>$(AppDisplayName)</Product>
     <AssemblyTitle>$(AppDisplayName)</AssemblyTitle>
     <Description>$(AppDisplayName)（$(AppEnglishName)）· X岛匿名版非官方 Windows 客户端</Description>

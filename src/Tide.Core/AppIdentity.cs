@@ -10,12 +10,15 @@ public static class AppIdentity
     public static string EnglishName { get; } = typeof(AppIdentity).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
         .Single(a => a.Key == "EnglishName").Value!;
     public static string WindowTitle => DisplayName + " · X岛";
-    // Changing these would break existing shortcuts, update packages, profiles or parallel-instance protection.
-    public const string ExecutableName = "Tide.exe";
+    public const string ExecutableName = "Paomian Island.exe";
+    public const string LegacyExecutableName = "Tide.exe";
+    public static bool IsExecutableName(string name) => name is ExecutableName or LegacyExecutableName;
+    // Persisted identities remain stable across the public rename.
     public const string DataDirectoryName = "TideIsland";
     public const string MutexPrefix = "Local\\TideIsland-";
     public const string ProtectionDescription = "TideIsland cookie";
     public const string UpdaterExecutableName = "TideUpdater.exe";
-    public static string PackageName(string version) => $"{DisplayName}-{version}-win-x64.zip";
+    public static string PackageName(string version) => $"{EnglishName}-{version}-win-x64.zip";
+    public static string ChinesePackageName(string version) => $"{DisplayName}-{version}-win-x64.zip";
     public static string LegacyPackageName(string version) => $"Tide-{version}-win-x64.zip";
 }

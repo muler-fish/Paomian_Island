@@ -48,7 +48,7 @@ internal static class BrandingUiChecks
     private static async Task BrandAssetsAsync(MainWindow owner, string output, Action<Window, string> capture)
     {
         var vm = owner.Model;
-        Require(AppIdentity.EnglishName == "paomian island", "English name");
+        Require(AppIdentity.EnglishName == "Paomian Island", "English name");
         var logo = (Viewbox)owner.FindName("BrandLogo");
         var appIcon = (ImageSource)owner.FindResource("AppLogo");
         Require(ReferenceEquals(owner.Icon, appIcon), "app icon changed");

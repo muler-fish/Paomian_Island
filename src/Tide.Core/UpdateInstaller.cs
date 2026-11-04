@@ -11,7 +11,8 @@ public static class UpdateInstaller
         profile = Path.GetFullPath(profile); target = Path.GetFullPath(target);
         var stage = Path.GetDirectoryName(Path.GetFullPath(update.Directory))!;
         ValidateLocation(stage, profile);
-        if (Path.GetFileName(target) != AppIdentity.ExecutableName) throw new IOException("自动更新仅支持正式发布的可执行文件。");
+        var targetName = Path.GetFileName(target);
+        if (!AppIdentity.IsExecutableName(targetName)) throw new IOException("自动更新仅支持正式发布的可执行文件。");
         DiskCache.NoLinks(target);
         var files = new Dictionary<string, string>();
         foreach (var file in Directory.EnumerateFiles(update.Directory, "*", SearchOption.AllDirectories))
@@ -20,7 +21,17 @@ public static class UpdateInstaller
             if (!ReleaseUpdater.AllowedFile(name)) throw new IOException("更新文件无效。");
             files[name] = ReleaseUpdater.Hash(file);
         }
-        if (!files.TryGetValue(AppIdentity.ExecutableName, out var hash) || hash != update.ExecutableHash) throw new IOException("暂存更新已变动，请重新下载。");
+        var executables = files.Keys.Where(AppIdentity.IsExecutableName).ToArray();
+        if (executables.Length != 1 || files[executables[0]] != update.ExecutableHash || !files.ContainsKey("SHA256SUMS.txt")) throw new IOException("暂存更新已变动，请重新下载。");
+        // Preserve the installed filename and existing shortcuts, regardless of which compatible asset was downloaded.
+        var packageName = executables[0];
+        if (packageName != targetName)
+        {
+            File.Move(Path.Combine(update.Directory, packageName), Path.Combine(update.Directory, targetName));
+            File.WriteAllText(Path.Combine(update.Directory, "SHA256SUMS.txt"), update.ExecutableHash + "  " + targetName + "\n");
+            files.Remove(packageName); files[targetName] = update.ExecutableHash;
+            files["SHA256SUMS.txt"] = ReleaseUpdater.Hash(Path.Combine(update.Directory, "SHA256SUMS.txt"));
+        }
         using var process = System.Diagnostics.Process.GetCurrentProcess();
         var plan = new UpdatePlan(profile, target, ReleaseUpdater.Hash(target), files, process.Id, process.StartTime.ToUniversalTime().Ticks, restart);
         var planPath = Path.Combine(stage, "plan.json"); File.WriteAllText(planPath, JsonSerializer.Serialize(plan));
@@ -39,8 +50,9 @@ public static class UpdateInstaller
     {
         var stage = Path.GetDirectoryName(Path.GetFullPath(planPath))!; ValidateLocation(stage, plan.Profile);
         var target = Path.GetFullPath(plan.Target); DiskCache.NoLinks(target);
-        if (Path.GetFileName(target) != AppIdentity.ExecutableName || ReleaseUpdater.Hash(target) != plan.OldHash) throw new IOException("原程序已变动，本次更新已取消。");
-        if (!plan.Files.ContainsKey(AppIdentity.ExecutableName) || !plan.Files.ContainsKey("SHA256SUMS.txt") || plan.Files.Count > 100) throw new IOException("更新文件不完整。");
+        var targetName = Path.GetFileName(target);
+        if (!AppIdentity.IsExecutableName(targetName) || ReleaseUpdater.Hash(target) != plan.OldHash) throw new IOException("原程序已变动，本次更新已取消。");
+        if (!plan.Files.ContainsKey(targetName) || plan.Files.Keys.Count(AppIdentity.IsExecutableName) != 1 || !plan.Files.ContainsKey("SHA256SUMS.txt") || plan.Files.Count > 100) throw new IOException("更新文件不完整。");
         var directory = Path.GetDirectoryName(target)!;
         var source = Path.Combine(stage, "package");
         var backup = Path.Combine(stage, "backup");
@@ -53,7 +65,7 @@ public static class UpdateInstaller
         var changed = new List<(string Target, string? Backup)>();
         try
         {
-            foreach (var name in plan.Files.Keys.OrderBy(n => n == AppIdentity.ExecutableName ? 1 : 0))
+            foreach (var name in plan.Files.Keys.OrderBy(n => n == targetName ? 1 : 0))
             {
                 var dest = Path.Combine(directory, name); var old = Path.Combine(backup, name);
                 DiskCache.NoLinks(old);

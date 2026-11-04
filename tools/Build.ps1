@@ -42,8 +42,10 @@ try {
     foreach ($notice in @('Emoji-NOTICE.txt', 'Emoji.Wpf-LICENSE.txt', 'Typography-NOTICES.md', 'Typography-MIT.txt', 'FreeType-LICENSE.txt', 'Unicode-LICENSE.txt', 'JeremyAnsel.HLSL-LICENSE.txt')) {
         Copy-Item -LiteralPath (Join-Path 'licenses' $notice) -Destination (Join-Path $licenses $notice)
     }
-    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $target 'Tide.exe')).Hash
-    Set-Content -LiteralPath (Join-Path $target 'SHA256SUMS.txt') -Value "$hash  Tide.exe" -Encoding utf8
+    [xml]$brand = Get-Content -LiteralPath 'Directory.Build.props' -Raw
+    $exeName = [string]$brand.Project.PropertyGroup.AppEnglishName + '.exe'
+    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $target $exeName)).Hash
+    Set-Content -LiteralPath (Join-Path $target 'SHA256SUMS.txt') -Value "$hash  $exeName" -Encoding utf8
     # 以十进制 100 MB 为硬预算，包含本次发布的全部文件和许可证。
     $releaseBytes = (Get-ChildItem -LiteralPath $target -File -Recurse | Measure-Object Length -Sum).Sum
     if ($releaseBytes -ge 100000000) { throw "Release exceeds 100 MB budget: $releaseBytes bytes." }

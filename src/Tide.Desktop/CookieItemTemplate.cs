@@ -141,4 +141,3 @@ internal static class CookieItemTemplate
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 }
-
