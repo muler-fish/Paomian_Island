@@ -82,6 +82,8 @@ internal static class Program
         if (args.FirstOrDefault() == "--reader-feedback") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reader-feedback");
         if (args.FirstOrDefault() == "--compact-cookie") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/compact-cookie");
         if (args.FirstOrDefault() == "--cookie-manager") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/cookie-manager");
+        if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
+        if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
         Directory.CreateDirectory(output);
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
@@ -95,6 +97,16 @@ internal static class Program
             started = true;
             try
             {
+                if (args.FirstOrDefault() == "--image-notice")
+                {
+                    await ImageViewerChecks.CheckNoticeAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--settings-layout")
+                {
+                    await SettingsLayoutChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
                 if (args.FirstOrDefault() == "--cookie-manager")
                 {
                     await CookieManagerChecks.RunAsync(window, output, Capture);

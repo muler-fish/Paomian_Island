@@ -115,9 +115,9 @@ internal static class RefinedReaderChecks
                     var track=All<System.Windows.Controls.Primitives.Track>(slider).Single();
                     Require(track.DecreaseRepeatButton.ActualWidth>20 && track.DecreaseRepeatButton.Opacity==1,"slider selection track is not visible");
                     slider.Value=oldSize;await Layout(dialog);
-                    foreach(var name2 in new[]{"阅读","外观","网络","缓存","账号与本机记录","关于"})Require(All<TextBlock>(dialog).Any(t=>t.Text==name2),"missing settings group "+name2);
-                    var scroll=All<ScrollViewer>(dialog).First(s=>s.Content is StackPanel);
-                    scroll.ScrollToEnd();await Layout(dialog);Render(dialog,Path.Combine(output,$"settings-about-{theme}.png"));
+                    var navigation=All<ListBox>(dialog).Single(n=>System.Windows.Automation.AutomationProperties.GetName(n)=="设置分类");
+                    foreach(var name2 in new[]{"阅读","外观","网络","缓存","数据与记录","关于"})Require(navigation.Items.Contains(name2),"missing settings group "+name2);
+                    navigation.SelectedItem="关于";await Layout(dialog);Render(dialog,Path.Combine(output,$"settings-about-{theme}.png"));
                 }
                 dialog.Close();await Layout(window);
             }
@@ -169,7 +169,7 @@ internal static class RefinedReaderChecks
                     CheckCloseGlyph(dialog);
                     foreach(var button in All<Button>(dialog).Where(b=>b.IsVisible && b.Content as string is "完成" or "预览并发送" or "导入并使用"))AssertVisibleInWindow(button,dialog);
                     if(dialog is ComposerWindow){All<Expander>(dialog).Single().IsExpanded=true;await Layout(dialog);}
-                    if(dialog is SettingsWindow){All<ScrollViewer>(dialog).First(s=>s.Content is StackPanel).ScrollToEnd();await Layout(dialog);}
+                    if(dialog is SettingsWindow){All<ListBox>(dialog).Single(n=>System.Windows.Automation.AutomationProperties.GetName(n)=="设置分类").SelectedItem="关于";await Layout(dialog);}
                     capture(dialog,Path.Combine(output,$"dpi-{scale*100:0}-{theme}-{dialog.GetType().Name}.png"));
                     dialog.Close();
                 }

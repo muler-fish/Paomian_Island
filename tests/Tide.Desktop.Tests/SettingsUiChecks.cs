@@ -40,33 +40,7 @@ internal static class SettingsUiChecks
         }
         finally { sample.Close(); if (clipboard is not null) Clipboard.SetDataObject(clipboard, true); }
 
-        var settings = new SettingsWindow(owner.Model) { Owner = owner, ShowInTaskbar = false };
-        settings.Show(); await Task.Delay(100);
-        try
-        {
-            foreach (var title in new[] { "阅读", "外观", "网络", "缓存", "关于" })
-                Require(UiRefinementChecks.Descendants<TextBlock>(settings).Any(t => t.Text == title), "settings category absent: " + title);
-            var routes = UiRefinementChecks.Descendants<ComboBox>(settings).Where(c => c.Items.Contains("直连")).ToArray();
-            Require(routes.Length == 2, "independent network controls absent");
-            routes[0].SelectedIndex = 1; routes[1].SelectedIndex = 0;
-            var saved = owner.Model.Store.Load();
-            Require(!saved.IslandUseProxy && saved.UpdateUseProxy && !NetworkClients.IslandUseProxy && NetworkClients.UpdateUseProxy, "proxy choices not independent/persistent");
-            var cacheKey = "images/" + new string('C', 64) + ".bin"; owner.Model.Store.Cache.Write(cacheKey, new byte[125000]);
-            var cacheTitle = UiRefinementChecks.Descendants<TextBlock>(settings).Single(t => t.Text == "缓存");
-            var scroll = UiRefinementChecks.Descendants<ScrollViewer>(settings).First(s => s.Content is StackPanel);
-            scroll.ScrollToVerticalOffset(cacheTitle.TranslatePoint(new Point(), (UIElement)scroll.Content).Y); await Task.Delay(60);
-            var limit = UiRefinementChecks.Descendants<TextBox>(settings).Single(t => t.Width == 90); limit.Text = "2";
-            Click(settings, "应用上限"); await Wait(() => owner.Model.State.CacheLimitMb == 2);
-            Click(settings, "刷新占用"); await Task.Delay(80);
-            Require(UiRefinementChecks.Descendants<TextBlock>(settings).Any(t => t.Text.Contains("0.13 MB / 2 MB")), "cache usage missing");
-            capture(settings, Path.Combine(output, "settings-cache-dark.png"));
-            Click(settings, "清理缓存"); await Wait(() => owner.Model.Store.Cache.SizeBytes() == 0);
-            Require(owner.Model.Store.Load().CacheLimitMb == 2 && Directory.Exists(owner.Model.Store.Root), "cache clear damaged settings");
-            var about = UiRefinementChecks.Descendants<TextBlock>(settings).Single(t => t.Text == "关于"); scroll.ScrollToVerticalOffset(about.TranslatePoint(new Point(), (UIElement)scroll.Content).Y); await Task.Delay(80);
-            capture(settings, Path.Combine(output, "settings-about-dark.png"));
-            App.ApplyTheme("light"); await Task.Delay(60); capture(settings, Path.Combine(output, "settings-about-light.png"));
-        }
-        finally { settings.Close(); }
+        await SettingsLayoutChecks.RunAsync(owner, output, capture);
 
         var pixels = new byte[120 * 80 * 4];
         for (var i = 0; i < pixels.Length; i += 4) { pixels[i] = 50; pixels[i + 1] = 120; pixels[i + 2] = 200; pixels[i + 3] = 255; }

@@ -15,6 +15,36 @@ namespace Tide.Desktop.Tests;
 /// <summary>固定图片与可控制的慢请求，验证真实窗口的切图竞态、重试、缩放拖动和生命周期。</summary>
 internal static class ImageViewerChecks
 {
+    internal static async Task CheckNoticeAsync(MainWindow owner, string output, Action<Window, string> capture)
+    {
+        App.ApplyTheme("dark");
+        var bytes = Picture();
+        var first = new Post { Id = 901, ImagePath = "fixture/901", Extension = ".png" };
+        var last = first with { Id = 902, ImagePath = "fixture/902" };
+        var pages = new ImagePageCursor(900, 3, 3, [901, 902], null, (_, _) => throw new InvalidOperationException("末页不应请求"));
+        var viewer = new ImageWindow([first, last], last.Id, (_, _) => Task.FromResult(bytes), pages) { Owner = owner, ShowInTaskbar = false };
+        viewer.Show();
+        try
+        {
+            await Wait(() => Image(viewer).Source is not null && Text(viewer, "已到最后一张"));
+            capture(viewer, Path.Combine(output, "end-notice-visible.png"));
+            await Task.Delay(2600);
+            capture(viewer, Path.Combine(output, "end-notice-after-wait.png"));
+            Require(!Text(viewer, "已到最后一张"), "已到最后一张提示停留超过 2.6 秒仍未消失");
+            Require(!Buttons(viewer).Single(b => Equals(b.Tag, "›")).IsEnabled && Image(viewer).Source is not null, "提示消失改变了末页或当前图片状态");
+            PressKey(viewer, Key.Right); PressKey(viewer, Key.R); await Pause();
+            Require(!Text(viewer, "已到最后一张"), "边界按键或旋转重新唤起已收起的提示");
+            PressKey(viewer, Key.Left); await Wait(() => Image(viewer).Source is not null);
+            PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "已到最后一张"));
+            PressKey(viewer, Key.Left); await Pause(); Require(!Text(viewer, "已到最后一张"), "离开末图没有立即收起提示");
+            PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "已到最后一张"));
+            await Task.Delay(2600); Require(!Text(viewer, "已到最后一张"), "再次抵达末图后提示未自动收起");
+        }
+        finally { viewer.Close(); }
+        await CheckPaging(owner, bytes, output, capture, checkNoticeLifetime: true);
+        Console.WriteLine("PASS: terminal image notice expires without changing image/end state; related pagination checks passed.");
+    }
+
     public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
     {
         var bytes = Picture();
@@ -88,7 +118,7 @@ internal static class ImageViewerChecks
         File.WriteAllText(Path.Combine(output, "image-results.json"), JsonSerializer.Serialize(new { Loading = true, StaleResponse = true, Cache = true, RetryDownloadAndDecode = true, ZoomAndPan = true, NarrowThemes = true, CloseCancellation = true, ThumbnailRecycling = true, NoImageMode = true, TailPagination = true, ReaderAndIdentityIsolation = true }));
         Console.WriteLine("PASS: image loading, previous/next, temporary cache, stale requests, download/decode retry, zoom/pan bounds, fit, rotation, themes, narrow toolbar without More, close cancellation, thumbnail recycling, no-image mode.");
     }
-    private static async Task CheckPaging(MainWindow owner, byte[] bytes, string output, Action<Window, string> capture)
+    private static async Task CheckPaging(MainWindow owner, byte[] bytes, string output, Action<Window, string> capture, bool checkNoticeLifetime = false)
     {
         var first = new Post { Id = 901, ImagePath = "fixture/page1", Extension = ".png" };
         var last = first with { Id = 902 }; var added = first with { Id = 903 };
@@ -109,6 +139,7 @@ internal static class ImageViewerChecks
         await Wait(() => Image(viewer).Source is not null);
         var retained = Image(viewer).Source;
         Require(Text(viewer, "正在加载下一页图片"), "末图自动续页没有状态");
+        if (checkNoticeLifetime) { await Task.Delay(2600); Require(Text(viewer, "正在加载下一页图片"), "续页加载提示被末图计时提前隐藏"); }
         for (var i = 0; i < 5; i++) PressKey(viewer, Key.Right);
         Require(calls.Count == 1 && Image(viewer).Source == retained, "连点并发请求或清空当前图");
         capture(viewer, Path.Combine(output, "image-page-loading.png"));
@@ -119,11 +150,13 @@ internal static class ImageViewerChecks
         Require(viewer.Title.Contains("No.901"), "续页结果抢走当前图片");
         PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "下一页加载失败") && Image(viewer).Source is not null);
         Require(calls.SequenceEqual(new[] { 2, 3 }), "失败后自动循环重试");
+        if (checkNoticeLifetime) { await Task.Delay(2600); Require(Text(viewer, "下一页加载失败") && Buttons(viewer).Single(b => Equals(b.Tag, "续页重试")).IsVisible, "重试入口被计时隐藏"); }
         capture(viewer, Path.Combine(output, "image-page-retry.png"));
         PressKey(viewer, Key.Right);
         await Wait(() => viewer.Title.Contains("No.903") && Image(viewer).Source is not null);
         Require(calls.SequenceEqual(new[] { 2, 3, 3 }) && viewer.Title.Contains("3 / 3"), "失败重试跳页或图片重复");
         Require(Text(viewer, "已到最后一张") && !Buttons(viewer).Single(b => Equals(b.Tag, "›")).IsEnabled, "末页未停止");
+        if (checkNoticeLifetime) { await Task.Delay(2600); Require(!Text(viewer, "已到最后一张"), "自动续页到末图后提示未消失"); }
         Require(owner.Model.ReadingPosts.Count == readerCount && owner.Model.ThreadPageLabel == readerLabel, "看图续页改变正文阅读位置");
         viewer.Close();
         // 直接从正文末页打开，不应出现从未启动的加载条或无效重试入口。
@@ -138,6 +171,7 @@ internal static class ImageViewerChecks
         viewer = new ImageWindow([first], first.Id, (_, _) => Task.FromResult(bytes), scan) { Owner = owner, ShowInTaskbar = false };
         viewer.Show(); await Wait(() => Text(viewer, "这些页暂无图片"));
         Require(scanCalls == 5, "连续无图页没有限次");
+        if (checkNoticeLifetime) { await Task.Delay(2600); Require(Text(viewer, "这些页暂无图片") && Buttons(viewer).Single(b => Equals(b.Tag, "续页重试")).IsVisible, "继续查找入口被计时隐藏"); }
         await Pause(); Require(scanCalls == 5, "无图页被后台自动读穿");
         Click(viewer, "续页重试"); await Wait(() => scanCalls == 10); viewer.Close();
         var canceled = false; var slow = new TaskCompletionSource<ThreadPage>();

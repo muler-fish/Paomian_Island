@@ -10,12 +10,13 @@
 
 - **连续阅读**：列表自动续页、串内双向续页、页码跳转、阅读位置保存和只看 PO。
 - **订阅管理**：支持多个通用订阅号、备注、切换及中文输入；快照与短期缓存减少重复加载。
-- **三栏布局**：可调栏宽，记住窗口位置和布局；提供浅色、深色主题及阅读字号设置。
+- **三栏布局**：可调栏宽，记住窗口位置和布局；采用 Refined Reader 界面，提供浅色、深色主题及阅读字号、行距、字距设置。
 - **正文交互**：饼干、PO、SAGE 标记，引用小窗、站内串预览、板块跳转确认、官方公告和 tips。
 - **独立看图**：缩放、拖动、旋转、保存原图，右键复制图片到剪贴板，末图自动尝试加载下一页。GIF 当前显示首帧，复制为当前静态图，保存时保留原文件。
 - **发串与回应**：可选标题和名称、附图、草稿、发送前预览、颜文字、防剧透和骰子。
-- **本机管理**：板块收藏、浏览历史、屏蔽串，以及右键复制和回应。
-- **饼干导入**：支持二维码图片、剪贴板图片、完整 userhash、Cookie 头与 JSON。
+- **本机管理**：板块收藏、浏览历史、本机发言记录、屏蔽串和板块，以及右键复制和回应。
+- **饼干管理**：管理与导入分开显示，支持本机备注和默认饼干；发言选择器显示当前串内使用次数。可通过二维码图片、剪贴板图片、完整 userhash、Cookie 头与 JSON 导入。
+- **分类设置**：阅读、外观、网络、缓存、数据与记录、关于六类；阅读效果实时预览，支持缓存容量和路径管理，以及独立的岛内和更新网络选项。
 
 ## 安装步骤
 
@@ -91,9 +92,9 @@ dotnet run --project src/Tide.Desktop -- --data-dir "artifacts/dev-profile"
 
 使用独立资料目录，不要提交个人数据、`bin/`、`obj/`、`artifacts/` 或 `release/`。当前工作项见 [TODO.md](TODO.md)；准备较大的功能改动前，可先在 Issue 中讨论。
 
-构建自包含发布包可运行 `.\tools\Build.ps1 -SelfContained`，该脚本会编译、执行核心测试、复制许可并检查发布目录大小，然后在 `release/packages` 生成中文名发布包及内容相同的旧名更新兼容包。正式发布时需同时附带这两个 ZIP，供旧版更新器过渡使用。
+构建自包含发布包可运行 `.\tools\Build.ps1 -SelfContained`，该脚本会编译、执行核心测试、复制许可并检查发布目录大小，然后在 `release/packages` 生成 `Paomian Island` 英文名发布包，以及 `泡面岛`、`Tide` 两个旧更新器兼容包。三个 ZIP 使用相同程序内容，兼容包仅保留旧可执行文件名并更新对应校验清单；发布到 Releases 时需同时附带三种 ZIP 及各自的 `.sha256` 文件。
 
-中英文名称集中在 `Directory.Build.props`；兼容标识见 `src/Tide.Core/AppIdentity.cs`。Logo 使用已确认的「挑面」A v2，矢量源文件、PNG 与多尺寸 ICO 位于 `src/Tide.Desktop/Assets/paomian.*`。现有色彩和控件样式集中在 `App.xaml` / `App.ApplyTheme`，共用几何参数与预览行数位于 `UiMetrics.cs`。整体视觉方案和品牌色体系待后续确定。
+中英文名称集中在 `Directory.Build.props`；兼容标识见 `src/Tide.Core/AppIdentity.cs`。Logo 使用已确认的「挑面」A v2，矢量源文件、PNG 与多尺寸 ICO 位于 `src/Tide.Desktop/Assets/paomian.*`。Refined Reader 的主题颜色与控件样式集中在 `Themes/`，通过 `App.ApplyTheme` 切换；共用几何参数与预览行数位于 `UiMetrics.cs`，设置行规范位于 `SettingsLayout.cs`。
 
 ## 许可证
 

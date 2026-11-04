@@ -59,7 +59,7 @@ internal static class SpoilerChecks
             // 设置既影响已打开的正文，又影响稍后新建的引用/发送预览，并跨资料重载保存。
             var card = new PostCard(new Post { Id = 123, Title = "[h]秘密[/h]", Content = "正文[h]摘要秘密[/h]" }, "测试"); vm.Posts.Add(card);
             settings = new SettingsWindow(vm) { Owner = window, ShowInTaskbar = false }; settings.Show(); await Pause();
-            var checkbox = UiRefinementChecks.Descendants<CheckBox>(settings).Single(c => Equals(c.Content, "启用防剧透"));
+            var checkbox = UiRefinementChecks.Descendants<CheckBox>(settings).Single(c => System.Windows.Automation.AutomationProperties.GetName(c) == "启用防剧透");
             var toggle = (IToggleProvider)new CheckBoxAutomationPeer(checkbox).GetPattern(PatternInterface.Toggle)!;
             toggle.Toggle(); await Pause();
             Require(!vm.Store.Load().HideSpoilers && !body.HideSpoilers, "设置未保存或没有同步已打开的正文");

@@ -45,9 +45,10 @@ internal static class ReadingAdjustmentsChecks
         try
         {
             Require(!All<CheckBox>(settings).Any(c=>Equals(c.Content,"惯性滚动")) && model.InertialScrolling,"inertial option still present or disabled");
+            var navigation=All<ListBox>(settings).Single(c=>AutomationProperties.GetName(c)=="设置分类"); navigation.SelectedItem="外观"; await Pause();
             var theme=All<ComboBox>(settings).Single(c=>AutomationProperties.GetName(c)=="外观主题");
             theme.SelectedIndex=1;await Pause();Require(model.State.Theme=="dark","theme dropdown not applied");
-            var scroll=All<ScrollViewer>(settings).First(s=>s.Content is StackPanel);scroll.ScrollToTop();await Pause();
+            navigation.SelectedItem="阅读"; await Pause();
             capture(settings,Path.Combine(output,"reading-settings-dark.png"));theme.SelectedIndex=0;await Pause();capture(settings,Path.Combine(output,"reading-settings-light.png"));
             foreach(var slider in All<Slider>(settings).Where(s=>AutomationProperties.GetName(s)=="字间距"))slider.Value=1.25;
             Require(model.State.ReadingLetterSpacing==1.25,"letter-spacing slider did not save");

@@ -9,6 +9,25 @@ internal static class WindowPlacement
 {
     internal readonly record struct StartupBounds(Rect Bounds, Size Minimum);
 
+    // Category dialogs remain resizable, but cannot grow beyond their current monitor's work area.
+    internal static void ConstrainToWorkArea(Window window)
+    {
+        void Update()
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX;
+            if (handle == IntPtr.Zero || !GetMonitorInfo(MonitorFromWindow(handle, 2), ref info)) return;
+            var width = (info.Work.Right - info.Work.Left) / dpi;
+            var height = (info.Work.Bottom - info.Work.Top) / dpi;
+            window.MinWidth = Math.Min(window.MinWidth, width); window.MinHeight = Math.Min(window.MinHeight, height);
+            window.MaxWidth = width; window.MaxHeight = height;
+        }
+        window.SourceInitialized += (_, _) => Update();
+        window.LocationChanged += (_, _) => Update();
+        window.DpiChanged += (_, _) => window.Dispatcher.BeginInvoke((Action)Update);
+    }
+
     // Async reference content arrives after startup placement. Grow/shrink around the current
     // window centre, constrained by the actual monitor work area and its DPI.
     internal static void FitContentHeight(Window window, double preferredHeight)

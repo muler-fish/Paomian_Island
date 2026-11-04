@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using Tide.Core;
 using SymbolIcon = Wpf.Ui.Controls.SymbolIcon;
@@ -24,6 +25,8 @@ public sealed class ImageWindow : ChildWindow
     private readonly TextBlock _pageText = new() { Text = "已到最后一张", MaxWidth = 300, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly ProgressBar _pageProgress = new() { Height = 3, Margin = new(0, 0, 0, 6), Value = 50, Visibility = Visibility.Collapsed };
     private readonly Button _pageRetry;
+    private readonly DispatcherTimer _endNoticeTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private bool _atEnd;
     private bool _paging, _advanceAfterPage, _pageFailed, _pagePaused;
     private long _lastAutoPost;
     private readonly Func<string, CancellationToken, Task<byte[]>> _download;
@@ -117,6 +120,7 @@ public sealed class ImageWindow : ChildWindow
         Grid.SetRow(footer, 1); grid.Children.Add(footer);
         Grid.SetRowSpan(_imageFeedback, 2); Panel.SetZIndex(_imageFeedback, 100); grid.Children.Add(_imageFeedback);
         SetClientContent(grid);
+        _endNoticeTimer.Tick += (_, _) => { _endNoticeTimer.Stop(); UpdateNavigation(); };
         _canvas.SizeChanged += (_, _) => { if (_fit) Fit(); else Position(); };
         _canvas.PreviewMouseWheel += (_, e) => { ZoomAt(_scale * (e.Delta > 0 ? 1.25 : .8), e.GetPosition(_canvas)); e.Handled = true; };
         _canvas.MouseLeftButtonDown += (_, e) =>
@@ -135,7 +139,7 @@ public sealed class ImageWindow : ChildWindow
         _canvas.LostMouseCapture += (_, _) => _dragging = false;
         PreviewKeyDown += ViewerKeyDown;
         Loaded += async (_, _) => { await LoadCurrentAsync(); if (!_closed) _canvas.Focus(); };
-        Closed += (_, _) => { _closed = true; ++_generation; _lifetime.Cancel(); _lifetime.Dispose(); _request?.Cancel(); _request?.Dispose(); _cache.Clear(); _recent.Clear(); _bytes = null; _image.Source = null; };
+        Closed += (_, _) => { _closed = true; _endNoticeTimer.Stop(); ++_generation; _lifetime.Cancel(); _lifetime.Dispose(); _request?.Cancel(); _request?.Dispose(); _cache.Clear(); _recent.Clear(); _bytes = null; _image.Source = null; };
     }
 
     private static Button ActionButton(string text, string hint, Action action)
@@ -209,7 +213,13 @@ public sealed class ImageWindow : ChildWindow
         _next.ToolTip = hint; AutomationProperties.SetName(_next, hint);
         Title = $"{_posts[_index].Number}  ·  {_index + 1} / {_posts.Count}" + (_pages?.HasMore == true ? "+" : "")
             + (_posts[_index].Extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ? "  ·  GIF 首帧" : "");
-        _pageNotice.Visibility = tail && (_paging || _pageFailed || _pagePaused || _pages is not null && !_pages.HasMore)
+        // End-of-gallery is a transient hint, not a persistent paging action. Start once per arrival;
+        // repeated navigation refreshes must not re-show it after expiry or hide loading/retry controls.
+        var atEnd = tail && _pages is { HasMore: false } && !_paging && !_pageFailed && !_pagePaused && _image.Source is not null;
+        if (atEnd && !_atEnd) _endNoticeTimer.Start();
+        else if (!atEnd) _endNoticeTimer.Stop();
+        _atEnd = atEnd;
+        _pageNotice.Visibility = tail && (_paging || _pageFailed || _pagePaused || _endNoticeTimer.IsEnabled)
             ? Visibility.Visible : Visibility.Collapsed;
     }
     private async Task LoadMoreImagesAsync(bool advance)
