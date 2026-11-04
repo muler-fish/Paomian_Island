@@ -35,7 +35,8 @@ internal static class CookieImportChecks
             Require(store.Load().History[0].Page == 99 && store.ReadPage(51288554, 200, "") is null, "错误高页污染进度或离线缓存。");
 
             dialog = new CookieWindow(vm) { Owner = main, ShowInTaskbar = false }; dialog.Show(); await Task.Delay(100);
-            Require(NameBlock(dialog).Text == "—" && !UiRefinementChecks.Descendants<TextBox>(dialog).Any(), "名称仍可编辑或空内容显示了旧名称。");
+            await Invoke(FindButton(dialog, "导入饼干"));
+            Require(NameBlock(dialog).Text == "—" && !UiRefinementChecks.Descendants<TextBox>(dialog).Any(t => AutomationProperties.GetName(t) == "饼干名称"), "名称仍可编辑或空内容显示了旧名称。");
             var qr = Qr(JsonSerializer.Serialize(new { cookie = SyntheticCookie, name = "测试饼干" }));
             var path = Path.Combine(output, "synthetic-cookie-qr.png");
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(qr)); using (var file = File.Create(path)) encoder.Save(file);
@@ -53,28 +54,36 @@ internal static class CookieImportChecks
             await Invoke(import); await Task.Delay(100);
             Require(vm.State.Cookies.Count == 1 && vm.ActiveCookie() == SyntheticCookie && vm.State.ActiveCookieId.Length > 0 && vm.State.Cookies[0].Name == "测试饼干", "二维码未保存原名或没有立即使用。");
             Require(!File.ReadAllText(Path.Combine(store.Root, "state.json")).Contains(SyntheticCookie), "饼干以明文写入状态文件。");
+            var remark = UiRefinementChecks.Descendants<TextBox>(dialog).Single(t => AutomationProperties.GetName(t) == "饼干备注");
+            remark.Text = "我的常用饼干"; await Invoke(FindButton(dialog, "保存备注"));
+            Require(store.Load().Cookies.Single().Remark == "我的常用饼干" && vm.State.Cookies[0].Name == "测试饼干" && vm.ActiveCookie() == SyntheticCookie, "备注未保存或修改了饼干原名/认证内容。");
             capture(dialog, Path.Combine(output, "cookie-import-light.png"));
             App.ApplyTheme("dark"); await Task.Delay(100); capture(dialog, Path.Combine(output, "cookie-import-dark.png")); App.ApplyTheme("light");
             dialog.Width = dialog.MinWidth; await Task.Delay(100); capture(dialog, Path.Combine(output, "cookie-import-narrow.png"));
 
             // 剪贴板图片走相同的冻结副本解码入口；不读取或覆盖用户的真实剪贴板。
+            await Invoke(FindButton(dialog, "导入饼干"));
             var rotated = new TransformedBitmap(qr, new RotateTransform(90));
             await dialog.ReadQrAsync(() => CookieImport.ReadImageAsync(rotated)); await Invoke(import);
             Require(vm.State.Cookies.Count == 1, "重复导入同一饼干产生了重复身份。");
             var originalId = vm.State.ActiveCookieId;
+            await Invoke(FindButton(dialog, "导入饼干"));
             ValueBox(dialog).Password = JsonSerializer.Serialize(new { cookie = SyntheticCookie, name = "源名称更新" }); await Invoke(import);
             Require(vm.State.Cookies.Count == 1 && vm.State.ActiveCookieId == originalId && vm.State.Cookies[0].Name == "源名称更新", "重复导入没有保留身份并使用源名称。");
+            Require(vm.State.Cookies[0].Remark == "我的常用饼干", "重复导入覆盖了本地备注。");
+            await Invoke(FindButton(dialog, "导入饼干"));
             ValueBox(dialog).Password = SyntheticCookie;
             Require(NameBlock(dialog).Text == "源名称更新", "重复导入无名称文本时预览丢失已保存名称。");
             await Invoke(import);
             Require(vm.State.Cookies[0].Name == "源名称更新", "无名称文本覆盖了已有名称。");
+            await Invoke(FindButton(dialog, "导入饼干"));
             var white = BitmapSource.Create(200, 200, 96, 96, PixelFormats.Gray8, null, Enumerable.Repeat((byte)255, 40000).ToArray(), 200);
             await dialog.ReadQrAsync(() => CookieImport.ReadImageAsync(white));
             Require(Result(dialog).Contains("没有识别到二维码") && vm.State.Cookies.Count == 1, "空图片没有明确失败或改变身份。");
-            ValueBox(dialog).Password = "{bad json"; await Invoke(import);
-            Require(Result(dialog).Contains("JSON") && vm.State.Cookies.Count == 1 && NameBlock(dialog).Text == "—", "坏 JSON 被导入或显示了旧名称。");
-            ValueBox(dialog).Password = "1234567"; await Invoke(import);
-            Require(Result(dialog).Contains("7 位") && vm.State.Cookies.Count == 1, "公开短 ID 被当成完整饼干。");
+            ValueBox(dialog).Password = "{bad json";
+            Require(!import.IsEnabled && NameBlock(dialog).Text.Contains("JSON") && vm.State.Cookies.Count == 1, "坏 JSON 未禁用导入或显示了旧名称。");
+            ValueBox(dialog).Password = "1234567";
+            Require(!import.IsEnabled && NameBlock(dialog).Text.Contains("7 位") && vm.State.Cookies.Count == 1, "公开短 ID 被当成完整饼干。");
             await dialog.ReadQrAsync(() => CookieImport.ReadImageAsync(Qr("https://example.invalid/qr")));
             Require(Result(dialog).Contains("网页链接"), "普通网页二维码被当成饼干。");
             dialog.Close(); dialog = null;
@@ -89,6 +98,7 @@ internal static class CookieImportChecks
 
             dialog = new CookieWindow(vm) { Owner = main, ShowInTaskbar = false }; dialog.Show();
             await Invoke(FindButton(dialog, "切换为游客")); Require(vm.State.ActiveCookieId == "", "游客切换未立即生效。");
+            await Invoke(FindButton(dialog, "导入饼干"));
             var gate = new TaskCompletionSource<CookieImport.Value>(); var pending = dialog.ReadQrAsync(() => gate.Task);
             dialog.Close(); dialog = null; gate.SetResult(new(SyntheticCookie, "迟到识别")); await pending;
             Require(vm.State.ActiveCookieId == "", "关闭窗口后迟到识别改变了身份。");
@@ -101,7 +111,7 @@ internal static class CookieImportChecks
         }
         finally { dialog?.Close(); main.Close(); App.ApplyTheme("light"); }
     }
-    private static BitmapSource Qr(string text)
+    internal static BitmapSource Qr(string text)
     {
         var writer = new BarcodeWriterPixelData { Format = BarcodeFormat.QR_CODE, Options = new QrCodeEncodingOptions { Width = 320, Height = 320, Margin = 4, CharacterSet = "UTF-8" } };
         var pixels = writer.Write(text);
@@ -109,7 +119,7 @@ internal static class CookieImportChecks
     }
     private static PasswordBox ValueBox(CookieWindow window) => UiRefinementChecks.Descendants<PasswordBox>(window).Single();
     private static TextBlock NameBlock(CookieWindow window) => UiRefinementChecks.Descendants<TextBlock>(window).Single(t => AutomationProperties.GetName(t) == "饼干名称");
-    private static string Result(CookieWindow window) => UiRefinementChecks.Descendants<TextBlock>(window).Single(t => AutomationProperties.GetName(t) == "饼干导入结果").Text;
+    private static string Result(CookieWindow window) => UiRefinementChecks.Descendants<TextBlock>(window).Single(t => AutomationProperties.GetName(t) == "饼干操作结果").Text;
     private static Button FindButton(Window window, string name) => UiRefinementChecks.Descendants<Button>(window).Single(b => b.Content?.ToString() == name);
     private static async Task Invoke(Button button)
     {

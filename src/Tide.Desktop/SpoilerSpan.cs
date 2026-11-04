@@ -17,6 +17,7 @@ internal sealed class SpoilerSpan : Span
         ToolTip = interactive ? "点击显示防剧透内容" : null;
         System.Windows.Automation.AutomationProperties.SetName(this, "显示防剧透内容");
         PostBody.AppendHtml(Inlines, html); ColorEmoji.Render(Inlines);
+        ReadingTypography.Space(Inlines, ReadingTypography.CurrentSpacing);
         Mask(this);
         if (!interactive) return;
         PreviewMouseLeftButtonDown += (_, e) => { if (Hidden) { Reveal(); e.Handled = true; } };
@@ -39,6 +40,7 @@ internal sealed class SpoilerSpan : Span
         ClearValue(ForegroundProperty); ClearValue(BackgroundProperty); ClearValue(TextDecorationsProperty);
         Cursor = null; ToolTip = null; Focusable = false;
         PostBody.AppendHtml(Inlines, _html); ColorEmoji.Render(Inlines);
+        ReadingTypography.Space(Inlines, ReadingTypography.CurrentSpacing);
     }
     internal static SpoilerSpan? HiddenAncestor(DependencyObject? value)
     {

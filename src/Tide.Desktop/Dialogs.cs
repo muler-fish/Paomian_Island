@@ -16,6 +16,8 @@ public class DialogWindow : ChildWindow
     protected StackPanel Body { get; } = new() { Margin = UiMetrics.DialogBodyMargin };
     protected WrapPanel Actions { get; } = new() { HorizontalAlignment = HorizontalAlignment.Right, Margin = UiMetrics.DialogActionsMargin };
     protected TextBlock Feedback { get; } = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 8) };
+    private readonly Border _bodyHost = new();
+    protected void SetBodyContent(UIElement content) => _bodyHost.Child = content;
     public DialogWindow(string title, string subtitle = "", double subtitleFontSize = 12) : base(title)
     {
         Width = UiMetrics.DialogWidth; Height = 660; MinWidth = 420; MinHeight = 240;
@@ -24,7 +26,8 @@ public class DialogWindow : ChildWindow
         var heading = new StackPanel { Margin = new(24, 0, 24, 0) };
         if (subtitle.Length > 0) { var text = Hint(subtitle); text.FontSize = subtitleFontSize; text.LineHeight = subtitleFontSize * 1.5; heading.Children.Add(text); }
         grid.Children.Add(heading);
-        var scroll = new ScrollViewer { Content = Body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled }; Grid.SetRow(scroll, 1); grid.Children.Add(scroll);
+        var scroll = new ScrollViewer { Content = Body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        _bodyHost.Child = scroll; Grid.SetRow(_bodyHost, 1); grid.Children.Add(_bodyHost);
         UseReadingScroll(scroll);
         var footer = new Border { Child = Actions }; Grid.SetRow(footer, 2); grid.Children.Add(footer);
         Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Danger");
@@ -57,13 +60,32 @@ public class DialogWindow : ChildWindow
 public sealed class TextWindow : DialogWindow
 {
     private readonly PostBody _body = new() { FontSize = 16 };
-    public TextWindow(string title, string html) : base(title)
+    private readonly bool _referencePreview;
+    private bool _fitQueued, _fitting, _closed;
+    public TextWindow(string title, string html, bool referencePreview = false, double readingFontSize = 16) : base(title)
     {
+        _referencePreview = referencePreview;
+        _body.FontSize = readingFontSize;
+        if (referencePreview)
+        {
+            _body.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            _body.SizeChanged += (_, _) => QueueReferenceFit();
+            _body.LayoutUpdated += (_, _) =>
+            {
+                var lineHeight = _body.Document.LineHeight;
+                if (double.IsFinite(lineHeight) && Math.Abs(_body.MaxHeight - (lineHeight * 10 + 4)) > .1) QueueReferenceFit();
+            };
+            Body.SizeChanged += (_, _) => QueueReferenceFit();
+            Loaded += (_, _) => QueueReferenceFit();
+            SizeChanged += (_, e) => { if (e.WidthChanged) QueueReferenceFit(); };
+            Closed += (_, _) => _closed = true;
+        }
         Body.Children.Add(_body); SetHtml(html); AddAction("关闭", Close);
     }
-    public void SetHtml(string html) => _body.Html = html;
+    public void SetHtml(string html) { _body.Html = html; QueueReferenceFit(); }
     public void SetPost(Post post)
     {
+        Body.Children.Clear(); Body.Children.Add(_body);
         SetHtml(post.Content);
         Body.Children.Insert(0, new PostIdentity { Post = post, Margin = new(0, 0, 0, 6) });
         var timestamp = Hint($"{PostTime.Format(post.Time, includeSeconds: true)}  ·  {post.Number}");
@@ -71,7 +93,29 @@ public sealed class TextWindow : DialogWindow
         Body.Children.Insert(1, timestamp);
         var author = PostCard.Optional(post.Name, "无名氏", Application.Current.Resources["HideSpoilers"] is true);
         if (author.Length > 0) Body.Children.Insert(2, new EmojiLabel { Text = author, Margin = new(0,0,0,8), Foreground = (Brush)FindResource("Muted") });
-        if (post.HasImage) Body.Children.Add(new PostImage { Post = post, Margin = new(0, 20, 0, 0) });
+        if (post.HasImage) Body.Children.Add(new PostImage { Post = post, PreviewHeight = _referencePreview ? 160 : 240, Margin = new(0, 20, 0, 0) });
+        QueueReferenceFit();
+    }
+    private void QueueReferenceFit()
+    {
+        if (!_referencePreview || _closed || _fitting || _fitQueued) return;
+        _fitQueued = true;
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, (Action)(() =>
+        {
+            _fitQueued = false;
+            if (_closed || !IsLoaded || WindowState != WindowState.Normal) return;
+            _fitting = true;
+            try
+            {
+                var lineHeight = _body.Document.LineHeight;
+                if (!double.IsFinite(lineHeight) || lineHeight <= 0) lineHeight = _body.FontSize * UiMetrics.BodyLineHeightRatio;
+                _body.MaxHeight = lineHeight * 10 + 4;
+                Body.Measure(new Size(Math.Max(1, ActualWidth - 2), double.PositiveInfinity));
+                var desired = Body.DesiredSize.Height + Actions.ActualHeight + Actions.Margin.Top + Actions.Margin.Bottom + UiMetrics.ChildTitleHeight + 4;
+                WindowPlacement.FitContentHeight(this, desired);
+            }
+            finally { _fitting = false; }
+        }));
     }
 }
 

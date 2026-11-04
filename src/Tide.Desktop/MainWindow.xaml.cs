@@ -216,7 +216,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private async void Reference(long id)
     {
         // 先展示占位窗口再异步读取，用户不必等待网络即可关闭弹窗。
-        var dialog = new TextWindow($"引用 · No.{id}", "正在读取引用…") { Owner = this };
+        var dialog = new TextWindow($"引用 · No.{id}", "正在读取引用…", referencePreview: true, Model.ReadingFontSize) { Owner = this };
         dialog.Show();
         // 取消源跟随弹窗生命周期；保存 Token 供 await 后检查，不能在此方法返回时提前 Dispose。
         var cts = new CancellationTokenSource(); var ct = cts.Token;
@@ -226,8 +226,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             var post = await Model.Api.GetReferenceAsync(id, ct);
             if (ct.IsCancellationRequested) return;
             dialog.SetPost(post);
-            // 引用可能只是回复，只有用户选择此操作时才尝试把同一 ID 当主串打开。
-            dialog.AddAction("尝试作为主串打开", async () => { dialog.Close(); await Model.OpenThreadAsync(id); });
+            // ref 接口不保证返回所属主串；只给已经确认的串首提供打开入口。
+            // 回复与类型未知的引用不再显示必然或可能失败的试探性跳转按钮。
+            if (Model.IsKnownThreadRoot(id))
+                dialog.AddAction("打开串", async () => { dialog.Close(); await Model.OpenThreadAsync(id); });
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!ct.IsCancellationRequested) dialog.SetHtml(System.Net.WebUtility.HtmlEncode(ex.Message)); }

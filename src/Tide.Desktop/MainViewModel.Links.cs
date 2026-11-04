@@ -4,6 +4,11 @@ namespace Tide.Desktop;
 
 public sealed partial class MainViewModel
 {
+    internal bool IsKnownThreadRoot(long id) => id > 0 &&
+        (Original?.Id == id || Posts.Any(card => card.Post.Id == id) || State.History.Any(entry => entry.Post.Id == id) ||
+         _recentThreads.Values.Any(entry => entry.Value.Original.Id == id) ||
+         _recentLists.Values.Any(entry => entry.Value.Any(post => post.Id == id)));
+
     /// <summary>预览只读取串首，不改正文、页码、PO 筛选或历史；关闭小窗即可取消。</summary>
     internal async Task<Post> ReadLinkPreviewAsync(long id, bool refresh, CancellationToken ct)
     {

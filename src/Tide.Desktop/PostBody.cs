@@ -12,8 +12,7 @@ namespace Tide.Desktop;
 /// <summary>把帖子正文转换成可选择复制的 WPF 文档，只支持有限的格式和安全链接，不执行 HTML。</summary>
 public sealed class PostBody : System.Windows.Controls.RichTextBox
 {
-    // 行高随字号变化；1.5 倍用于中文正文及多行颜文字，避免正文过松。
-    private const double LineHeightRatio = UiMetrics.BodyLineHeightRatio;
+    private double LineHeightRatio => ReadingTypography.GetLineHeight(this);
     // 依赖属性使控件可直接在 XAML 中绑定正文；列表复用控件并换绑内容时会重新渲染。
     public static readonly DependencyProperty HtmlProperty = DependencyProperty.Register(nameof(Html), typeof(string), typeof(PostBody), new PropertyMetadata("", (d, _) => ((PostBody)d).Render()));
     public string Html { get => (string)GetValue(HtmlProperty); set => SetValue(HtmlProperty, value); }
@@ -34,6 +33,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         SetResourceReference(StyleProperty, "ReaderDocument");
         AppFonts.ApplyReadingRendering(this);
         SetResourceReference(HideSpoilersProperty, "HideSpoilers");
+        ReadingTypography.Bind(this);
         DataObject.AddCopyingHandler(this, (_, e) =>
         {
             var text = EmojiText.Read(Selection.Start, Selection.End);
@@ -64,6 +64,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
             AppendHtml(paragraph.Inlines, piece);
         }
         RenderEmoji();
+        ReadingTypography.Space(paragraph.Inlines, ReadingTypography.GetLetterSpacing(this));
     }
 
     private void AddSpoiler(InlineCollection target, string hiddenHtml) => target.Add(new SpoilerSpan(hiddenHtml, true));
@@ -135,19 +136,30 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         base.OnPropertyChanged(e);
         if (e.Property == FontSizeProperty && Document is not null) Document.LineHeight = FontSize * LineHeightRatio;
     }
+    internal void RefreshTypography(bool rebuild)
+    {
+        if (rebuild) Render();
+        else if (Document is not null) Document.LineHeight = FontSize * LineHeightRatio;
+    }
 
     private static void AddText(InlineCollection target, string text)
     {
-        // 没有包在 HTML 链接中的引用号和网址也可以点击，其余文本保持普通 Run。
-        var matches = Regex.Matches(text, @">>\s*(?:No\.)?(\d+)|https?://[^\s<>""'\u3000]+", RegexOptions.IgnoreCase);
+        // 先匹配完整网址，避免其中的数字被拆成引用。显式 >>No. 保留短楼号兼容；
+        // 其他连续八位及以上数字只给数字加链接，No. 等前缀仍是原文。
+        var matches = Regex.Matches(text, @"https?://[^\s<>""'\u3000，。；！？]+|>>\s*No\.(?<id>[0-9]+)(?![0-9])|(?<![0-9])(?<id>[0-9]{8,})(?![0-9])", RegexOptions.IgnoreCase);
         var start = 0;
         foreach (Match match in matches)
         {
             target.Add(new Run(text[start..match.Index]));
-            var value = match.Value; var link = new Hyperlink(new Run(value));
+            var value = match.Value;
+            // 超出 ID 范围的整段数字保留原文，不截出一个较短的、错误的目标。
+            long id = 0;
+            if (match.Groups["id"].Success && (!long.TryParse(match.Groups["id"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out id) || id <= 0))
+            { target.Add(new Run(value)); start = match.Index + match.Length; continue; }
+            var link = new Hyperlink(new Run(value));
             link.SetResourceReference(ForegroundProperty, "Link");
-            link.ToolTip = match.Groups[1].Success ? "查看引用" : value;
-            if (match.Groups[1].Success && long.TryParse(match.Groups[1].Value, out var id)) link.Click += (_, _) => ReferenceClicked?.Invoke(id);
+            link.ToolTip = match.Groups["id"].Success ? "查看引用" : value;
+            if (match.Groups["id"].Success) link.Click += (_, _) => ReferenceClicked?.Invoke(id);
             else link.Click += (_, _) => Navigate(link, value);
             target.Add(link); start = match.Index + match.Length;
         }

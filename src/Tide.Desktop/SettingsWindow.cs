@@ -30,15 +30,24 @@ public sealed class SettingsWindow : DialogWindow
         var current = Hint($"正文字号（含串列表预览） · {vm.State.FontSize:0} px"); reading.Children.Add(current);
         var size = new Slider { Minimum = 13, Maximum = 24, TickFrequency = 1, IsSnapToTickEnabled = true, Value = vm.State.FontSize, Margin = new(0, 10, 0, 10) };
         size.ValueChanged += (_, _) => { vm.State.FontSize = size.Value; current.Text = $"正文字号（含串列表预览） · {size.Value:0} px"; vm.AppearanceChanged(); }; reading.Children.Add(size);
+        void Spacing(string label, double value, double min, double max, double step, string suffix, Action<double> save)
+        {
+            var hint = Hint($"{label} · {value:0.##}{suffix}"); reading.Children.Add(hint);
+            var slider = new Slider { Minimum = min, Maximum = max, TickFrequency = step, IsSnapToTickEnabled = true, Value = value, Margin = new(0, 6, 0, 10) };
+            System.Windows.Automation.AutomationProperties.SetName(slider, label);
+            slider.ValueChanged += (_, _) => { hint.Text = $"{label} · {slider.Value:0.##}{suffix}"; save(slider.Value); vm.AppearanceChanged(); };
+            reading.Children.Add(slider);
+        }
+        Spacing("行间距", vm.State.ReadingLineHeight, 1.3, 2.5, .05, " 倍", value => vm.State.ReadingLineHeight = value);
+        Spacing("字间距", vm.State.ReadingLetterSpacing, 0, 3, .25, " px", value => vm.State.ReadingLetterSpacing = value);
         var sample = new PostPreview { Html = "正文预览 Aa 123", Margin = new(0, 8, 0, 12) };
         sample.SetBinding(TextBlock.FontSizeProperty, new System.Windows.Data.Binding(nameof(MainViewModel.ReadingFontSize)) { Source = vm }); reading.Children.Add(sample);
         Toggle(reading, "启用防剧透", vm.State.HideSpoilers, value => { vm.State.HideSpoilers = value; vm.AppearanceChanged(); }, "黑条保留原文排版，串内点击展开。");
-        Toggle(reading, "惯性滚动", vm.State.InertialScrolling, value => { vm.State.InertialScrolling = value; vm.AppearanceChanged(); });
 
         var appearance = Section("外观");
-        var themes = new WrapPanel();
-        foreach (var (label, theme) in new[] { ("浅色", "light"), ("深色", "dark") })
-            themes.Children.Add(Button(label, () => { vm.State.Theme = theme; App.ApplyTheme(theme); vm.AppearanceChanged(); }));
+        var themes = new ComboBox { ItemsSource = new[] { "浅色", "深色" }, SelectedIndex = vm.State.Theme == "dark" ? 1 : 0, MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left };
+        System.Windows.Automation.AutomationProperties.SetName(themes, "外观主题");
+        themes.SelectionChanged += (_, _) => { vm.State.Theme = themes.SelectedIndex == 1 ? "dark" : "light"; App.ApplyTheme(vm.State.Theme); vm.AppearanceChanged(); };
         appearance.Children.Add(themes);
         Toggle(appearance, "自动加载正文缩略图", vm.State.ShowImages, value => { vm.State.ShowImages = value; vm.AppearanceChanged(); });
 

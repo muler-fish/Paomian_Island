@@ -23,6 +23,9 @@ public sealed partial class LocalStore
             var state = JsonSerializer.Deserialize<UserState>(File.ReadAllText(path), Options) ?? throw new JsonException("空数据");
             // 兼容旧版本或手动编辑过的 JSON，让界面收到的集合和外观设置保持可用。
             state.FontSize = double.IsFinite(state.FontSize) ? Math.Clamp(state.FontSize, 13, 24) : 16;
+            state.ReadingLineHeight = double.IsFinite(state.ReadingLineHeight) ? Math.Clamp(state.ReadingLineHeight, 1.3, 2.5) : 1.85;
+            state.ReadingLetterSpacing = double.IsFinite(state.ReadingLetterSpacing) ? Math.Clamp(state.ReadingLetterSpacing, 0, 3) : 0;
+            state.InertialScrolling = true;
             state.WindowLayout?.Normalize();
             state.Cookies ??= []; state.Forums ??= []; state.History ??= []; state.Drafts ??= [];
             state.Drafts = state.Drafts.Where(d => d is not null).Select(d => d with { Name = d.Name ?? "" }).ToList();

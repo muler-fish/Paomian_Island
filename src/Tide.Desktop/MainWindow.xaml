@@ -218,13 +218,12 @@
                 <!-- 串列表区共用正文设置；标题用字重区分，作者比正文小一号。 -->
                 <local:EmojiLabel x:Name="CardTitle" Text="{Binding Title}" ToolTip="{Binding Title}" FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ReadingTypeScale}, ConverterParameter=-2}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" Visibility="{Binding HasTitle, Converter={StaticResource Visible}}"/>
                 <local:EmojiLabel x:Name="CardAuthor" Text="{Binding Author}" ToolTip="{Binding Author}" FontSize="{Binding DataContext.PreviewAuthorFontSize, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" Visibility="{Binding HasAuthor, Converter={StaticResource Visible}}"/>
-                <!-- 有图时放到文字右侧；无图或无图模式时由控件决定折叠/手动打开。 -->
-                <DockPanel>
-                  <local:PostImage DockPanel.Dock="Right" Post="{Binding Post}" ShowImages="{Binding DataContext.ShowImages, RelativeSource={RelativeSource AncestorType=Window}}" PreviewHeight="72" PreviewMaxWidth="72" MaxWidth="84" Margin="10,0,0,0" VerticalAlignment="Top"/>
+                <StackPanel>
                   <local:PostPreview x:Name="CardBody" Html="{Binding Post.Content}" FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ReadingTypeScale}, ConverterParameter=-2}">
                     <local:PostPreview.Style><Style TargetType="local:PostPreview"><Style.Triggers><DataTrigger Binding="{Binding Excerpt}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></local:PostPreview.Style>
                   </local:PostPreview>
-                </DockPanel>
+                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ShowImages, RelativeSource={RelativeSource AncestorType=Window}}" PreviewHeight="180" PreviewMaxWidth="360" MaxWidth="372" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+                </StackPanel>
                 <WrapPanel Margin="0,10,0,0">
                   <Border x:Name="CardSage" Background="{DynamicResource SageBackground}" CornerRadius="3" Padding="6,2" Margin="0,0,8,0" Visibility="{Binding Post.IsSage, Converter={StaticResource Visible}}"><TextBlock Text="SAGE" Foreground="{DynamicResource OnSage}" FontSize="11" FontWeight="SemiBold"/></Border>
                   <TextBlock Text="{Binding Number}" FontSize="11" Foreground="{DynamicResource Faint}" VerticalAlignment="Center"/>
@@ -239,14 +238,14 @@
             <TextBlock Text="暂无串" FontSize="16" HorizontalAlignment="Center"/>
             <Button x:Name="EmptyListLoadMore" Content="加载下一页" Command="{Binding LoadMoreListCommand}" Visibility="{Binding HasMoreList, Converter={StaticResource Visible}}" Margin="0,12,0,0"/>
           </StackPanel>
-          <!-- 续载提示按需悬浮，不改变滚动视口。 -->
-          <Border x:Name="ListTailIndicator" Grid.Row="2" Margin="16,4" Padding="12,4" HorizontalAlignment="Center" VerticalAlignment="Bottom" Background="{DynamicResource Surface}" CornerRadius="4">
-            <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding ListTailStatus}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Border.Style>
+          <!-- 续页与串阅读区共用整栏细进度条；不再显示黑色悬浮加载框。 -->
+          <ProgressBar x:Name="ListContinuationProgress" Grid.Row="2" Style="{StaticResource ContinuationProgress}" Visibility="{Binding ListAppending, Converter={StaticResource Visible}}" AutomationProperties.Name="正在加载下一页串列表"/>
+          <Border x:Name="ListTailIndicator" Grid.Row="2" Margin="16,4" Padding="12,4" HorizontalAlignment="Center" VerticalAlignment="Bottom" Background="{DynamicResource ListSurface}" CornerRadius="4">
+            <Border.Style><Style TargetType="Border"><Style.Triggers><DataTrigger Binding="{Binding ListTailStatus}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding ListAppending}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Border.Style>
           <StackPanel>
-            <ProgressBar Height="3" IsIndeterminate="{x:Static SystemParameters.ClientAreaAnimation}" Value="50" Visibility="{Binding ListAppending, Converter={StaticResource Visible}}"/>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
               <TextBlock Text="{Binding ListTailStatus}" Style="{StaticResource MutedText}" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite"/>
-              <Button Content="重试" Command="{Binding RetryListLoadCommand}" Visibility="{Binding ListAppendFailed, Converter={StaticResource Visible}}" Margin="8,0,0,0" MinHeight="24" Padding="10,2" AutomationProperties.Name="重试加载串列表"/>
+              <Button Content="重试" Command="{Binding RetryListLoadCommand}" Visibility="{Binding ListAppendFailed, Converter={StaticResource Visible}}" Margin="8,0,0,0" Padding="10,4" AutomationProperties.Name="重试加载串列表"/>
             </StackPanel>
           </StackPanel>
           </Border>
@@ -332,7 +331,7 @@
               </DataTemplate.Triggers>
             </DataTemplate></ListBox.ItemTemplate>
           </ListBox>
-          <ProgressBar Grid.Row="1" Height="3" IsIndeterminate="{x:Static SystemParameters.ClientAreaAnimation}" Value="50" VerticalAlignment="Bottom" Visibility="{Binding ThreadAppending, Converter={StaticResource Visible}}"/>
+          <ProgressBar x:Name="ThreadContinuationProgress" Grid.Row="1" Style="{StaticResource ContinuationProgress}" Visibility="{Binding ThreadAppending, Converter={StaticResource Visible}}" AutomationProperties.Name="正在加载下一页回复"/>
           <ProgressBar Grid.Row="1" Height="3" IsIndeterminate="{x:Static SystemParameters.ClientAreaAnimation}" Value="50" VerticalAlignment="Top" Visibility="{Binding ThreadPrepending, Converter={StaticResource Visible}}" AutomationProperties.Name="正在加载上一页回复"/>
           <Button Grid.Row="1" Content="重试上一页" Command="{Binding RetryPreviousThreadCommand}" Visibility="{Binding ThreadPrependFailed, Converter={StaticResource Visible}}" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,6" Padding="12,4" AutomationProperties.Name="重试加载上一页回复"/>
           <Border x:Name="ReaderFooter" Grid.Row="2" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" MinHeight="52">

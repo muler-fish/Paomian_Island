@@ -114,7 +114,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public double PreviewAuthorFontSize => ReadingFontSize - 1;
     public bool HideSpoilers => State.HideSpoilers;
     public bool ShowImages => State.ShowImages;
-    public bool InertialScrolling => State.InertialScrolling;
+    public bool InertialScrolling => true;
     public string ThemeLabel => State.Theme == "dark" ? "浅色模式" : "深色模式";
     public bool IsDark => State.Theme == "dark";
     public bool IsLibrary => _library.Length > 0;
@@ -136,6 +136,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public MainViewModel(XIslandApi api, LocalStore store)
     {
         Api = api; Store = store; State = store.Load();
+        ReadingTypography.Apply(State);
         NetworkClients.IslandUseProxy = State.IslandUseProxy;
         NetworkClients.UpdateUseProxy = State.UpdateUseProxy;
         try { Store.ConfigureCache(State); }
@@ -426,6 +427,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     }
     public void AppearanceChanged()
     {
+        ReadingTypography.Apply(State);
         App.ApplySpoilerProtection(State.HideSpoilers);
         foreach (var card in Posts) card.SetSpoilerProtection(State.HideSpoilers);
         Changed(nameof(OriginalTitle));

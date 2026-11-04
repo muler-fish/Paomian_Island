@@ -15,7 +15,7 @@ public sealed partial class MainViewModel
         var entry = new SentPost(Guid.NewGuid().ToString("N"), request.ThreadId > 0,
             request.ThreadId > 0 ? request.ThreadId : result.ThreadId is > 0 ? result.ThreadId : null,
             request.ForumId, ForumName(request.ForumId), cookie.Name, request.Title, request.Name,
-            request.Content, request.ImageFile.Length > 0, DateTimeOffset.Now);
+            request.Content, request.ImageFile.Length > 0, DateTimeOffset.Now) { CookieId = cookie.Id };
         try { Store.AddSentPost(entry); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -34,7 +34,8 @@ public sealed partial class MainViewModel
         SentPostsChanged?.Invoke();
         try
         {
-            var identities = State.Cookies.Where(c => c.Name == entry.CookieName).ToArray();
+            var identities = State.Cookies.Where(c => string.IsNullOrEmpty(entry.CookieId)
+                ? c.Name == entry.CookieName : c.Id == entry.CookieId).ToArray();
             identity ??= identities.Length == 1 ? identities[0] : null;
             if (identity is null) return "请先导入发送这条主题时使用的饼干，再查找串号。";
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));

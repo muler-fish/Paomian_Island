@@ -65,7 +65,11 @@ public sealed record ReadingPosition(long PostId, int Index, double Offset, bool
 /// <summary>未发送的编辑内容；举报也是新串，ReportPostId 保存被举报楼号，Content 单独保存理由。</summary>
 public sealed record Draft(string Key, int ForumId, long ThreadId, string Title, string Content, string ImageFile, bool Watermark, string Name = "", long ReportPostId = 0);
 /// <summary>本机饼干身份；Id 是本地生成的标识，EncryptedValue 由 Windows 层加密后保存。</summary>
-public sealed record CookieIdentity(string Id, string Name, string EncryptedValue);
+public sealed record CookieIdentity(string Id, string Name, string EncryptedValue)
+{
+    // 备注只保存在本机，不覆盖二维码/服务端提供的原名称，也不参与认证。
+    public string Remark { get; init; } = "";
+}
 /// <summary>订阅号的本地身份；备注不参与服务端请求，号码由 Windows 层加密。</summary>
 public sealed record SubscriptionIdentity(string Id, string Name, string EncryptedValue);
 /// <summary>可丢弃的订阅快照；Complete 只在读到末页后成立，未知写入需重新核对。</summary>
@@ -85,6 +89,8 @@ public sealed class UserState
     public int SchemaVersion { get; set; } = 1;
     public string Theme { get; set; } = "light";
     public double FontSize { get; set; } = 16;
+    public double ReadingLineHeight { get; set; } = 1.85;
+    public double ReadingLetterSpacing { get; set; }
     public bool IslandUseProxy { get; set; } = true;
     public bool UpdateUseProxy { get; set; } = true;
     public bool AutoCheckUpdates { get; set; } = true;

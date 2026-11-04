@@ -20,7 +20,7 @@ public sealed class ComposerWindow : DialogWindow
     private string ReportPrefix => $">>No.{_reportPostId}\n举报理由：";
     private readonly string _key;
     private readonly ComboBox _forum = new() { DisplayMemberPath = "Name", MinHeight = 36, Padding = new(8) };
-    private readonly ComboBox _cookie = new() { DisplayMemberPath = "Name", MinHeight = 36, Padding = new(8) };
+    private readonly ComboBox _cookie = new() { MinHeight = 36, Padding = new(8), MaxDropDownHeight = 256, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Wpf.Ui.Controls.TextBox _title = new() { MaxLength = 100 };
     private readonly Wpf.Ui.Controls.TextBox _name = new() { MaxLength = 100 };
     private readonly EmojiEditor _content = new() { MinHeight = 180, MaxHeight = 320, VerticalContentAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 10000, FontSize = 16 };
@@ -51,6 +51,14 @@ public sealed class ComposerWindow : DialogWindow
         _content.FontFamily = AppFonts.Family;
         System.Windows.Automation.AutomationProperties.SetName(_forum, "发串版块");
         System.Windows.Automation.AutomationProperties.SetName(_cookie, "发言使用的饼干");
+        _cookie.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "CookieChoiceItem");
+        ScrollViewer.SetHorizontalScrollBarVisibility(_cookie, ScrollBarVisibility.Disabled);
+        _cookie.DropDownOpened += (_, _) =>
+        {
+            // Constrain the menu surface, not WPF UI's outer shadow decorator.
+            if (_cookie.Template.FindName("DropDownBorder", _cookie) is FrameworkElement menu)
+                menu.SetBinding(WidthProperty, new System.Windows.Data.Binding(nameof(ActualWidth)) { Source = _cookie });
+        };
         var defaultForum = _reportPostId > 0 ? DutyRoomId : vm.ActiveForum is { IsTimeline: false } active ? active.Id : 4;
         // 草稿键在本次编辑期间保持不变，切换发串版块时更新同一草稿，不额外留下重复项。
         _key = existing?.Key ?? (_reportPostId > 0 ? $"report:{_reportPostId}" : threadId > 0 ? $"reply:{threadId}" : $"new:{defaultForum}");
@@ -61,7 +69,9 @@ public sealed class ComposerWindow : DialogWindow
         Label("使用的饼干");
         var identityBar = new DockPanel(); var manage = Button("管理饼干", () =>
         {
-            new CookieWindow(vm) { Owner = this }.ShowDialog(); RefreshCookies();
+            var manager = new CookieWindow(vm, (_cookie.SelectedItem as CookieIdentity)?.Id ?? "") { Owner = this };
+            manager.ShowDialog(); RefreshCookies();
+            if (manager.RequestedCookieId is { } requested) _cookie.SelectedItem = vm.State.Cookies.Find(c => c.Id == requested);
         }); DockPanel.SetDock(manage, Dock.Right); identityBar.Children.Add(manage); identityBar.Children.Add(_cookie); Body.Children.Add(identityBar); RefreshCookies();
         var optional = new StackPanel { Margin = new(8, 4, 0, 8) };
         optional.Children.Add(new TextBlock { Text = "标题", Margin = new(0, 4, 0, 6) }); optional.Children.Add(_title);
@@ -108,7 +118,18 @@ public sealed class ComposerWindow : DialogWindow
     }
     private void RefreshCookies()
     {
-        _cookie.ItemsSource = _vm.State.Cookies.ToList(); _cookie.SelectedItem = _vm.State.Cookies.Find(c => c.Id == _vm.State.ActiveCookieId);
+        var selectedId = (_cookie.SelectedItem as CookieIdentity)?.Id ?? _vm.State.ActiveCookieId;
+        IReadOnlyDictionary<string, CookieThreadUsage>? usage = null;
+        var unavailable = false;
+        if (_threadId > 0)
+        {
+            try { usage = CookieThreadUsage.ForThread(_vm.State.Cookies, _vm.Store.ReadSentPosts(), _threadId); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { unavailable = true; }
+        }
+        _cookie.ItemTemplate = CookieItemTemplate.CreateChoice(_vm.State.ActiveCookieId, usage, unavailable);
+        _cookie.ToolTip = _threadId > 0 ? "只统计通过本机成功发送到当前串的回应。临时选择不会改变默认饼干。" : "临时选择不会改变默认饼干。";
+        _cookie.ItemsSource = _vm.State.Cookies.ToList();
+        _cookie.SelectedItem = _vm.State.Cookies.Find(c => c.Id == selectedId) ?? _vm.State.Cookies.Find(c => c.Id == _vm.State.ActiveCookieId);
     }
     private void OpenEmoticons()
     {

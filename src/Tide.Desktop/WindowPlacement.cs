@@ -9,6 +9,23 @@ internal static class WindowPlacement
 {
     internal readonly record struct StartupBounds(Rect Bounds, Size Minimum);
 
+    // Async reference content arrives after startup placement. Grow/shrink around the current
+    // window centre, constrained by the actual monitor work area and its DPI.
+    internal static void FitContentHeight(Window window, double preferredHeight)
+    {
+        var handle = new WindowInteropHelper(window).Handle;
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        var dpi = GetDpiForWindow(handle);
+        if (dpi == 0 || !GetMonitorInfo(MonitorFromWindow(handle, 2), ref info)) return;
+        var scale = dpi / 96d;
+        var top = info.Work.Top / scale;
+        var bottom = info.Work.Bottom / scale;
+        var height = Math.Clamp(preferredHeight, Math.Min(window.MinHeight, bottom - top), bottom - top);
+        var center = window.Top + window.ActualHeight / 2;
+        window.Height = height;
+        window.Top = Math.Clamp(center - height / 2, top, bottom - height);
+    }
+
     public static void FitOnStartup(Window window, bool restoreSize = false, bool maximized = false)
     {
         // 此时 WPF 已选定显示器并创建 HWND，但窗口内容尚未呈现，可以在首次显示前修正位置。

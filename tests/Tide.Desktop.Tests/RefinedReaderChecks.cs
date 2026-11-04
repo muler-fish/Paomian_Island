@@ -108,7 +108,7 @@ internal static class RefinedReaderChecks
                 }
                 if(dialog is SettingsWindow)
                 {
-                    var slider=All<Slider>(dialog).Single();
+                    var slider=All<Slider>(dialog).First();
                     var oldSize=vm.State.FontSize;
                     Slider.IncreaseLarge.Execute(null,slider);await Layout(dialog);
                     Require(vm.State.FontSize>oldSize,"slider command did not update reading size");
@@ -167,7 +167,7 @@ internal static class RefinedReaderChecks
                     SetDpi(dialog,scale,Math.Min(640,1240/scale),Math.Min(740,740/scale));await Layout(dialog);
                     Require(Math.Abs(VisualTreeHelper.GetDpi(dialog).DpiScaleX-scale)<.01,"child DPI did not update");
                     CheckCloseGlyph(dialog);
-                    foreach(var button in All<Button>(dialog).Where(b=>b.Content as string is "完成" or "预览并发送" or "导入并使用"))AssertVisibleInWindow(button,dialog);
+                    foreach(var button in All<Button>(dialog).Where(b=>b.IsVisible && b.Content as string is "完成" or "预览并发送" or "导入并使用"))AssertVisibleInWindow(button,dialog);
                     if(dialog is ComposerWindow){All<Expander>(dialog).Single().IsExpanded=true;await Layout(dialog);}
                     if(dialog is SettingsWindow){All<ScrollViewer>(dialog).First(s=>s.Content is StackPanel).ScrollToEnd();await Layout(dialog);}
                     capture(dialog,Path.Combine(output,$"dpi-{scale*100:0}-{theme}-{dialog.GetType().Name}.png"));

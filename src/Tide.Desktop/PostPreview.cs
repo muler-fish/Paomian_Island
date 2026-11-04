@@ -29,6 +29,7 @@ public sealed class PostPreview : TextBlock
         IsHitTestVisible = false; Focusable = false;
         SetResourceReference(ForegroundProperty, "BodyText");
         SetResourceReference(HideSpoilersProperty, "HideSpoilers");
+        ReadingTypography.Bind(this);
         Loaded += (_, _) => UpdateLineLimit();
         UpdateLineLimit();
     }
@@ -44,6 +45,7 @@ public sealed class PostPreview : TextBlock
             else PostBody.AppendHtml(Inlines, piece);
         }
         ColorEmoji.Render(Inlines);
+        ReadingTypography.Space(Inlines, ReadingTypography.GetLetterSpacing(this));
         // 文本内有 Hyperlink 也不能形成隐蔽的 Tab 入口，列表项本身保留键盘入口。
         DisableLinkFocus(Inlines);
     }
@@ -62,9 +64,14 @@ public sealed class PostPreview : TextBlock
 
     private void UpdateLineLimit()
     {
-        LineHeight = FontSize * UiMetrics.BodyLineHeightRatio;
+        LineHeight = FontSize * ReadingTypography.GetLineHeight(this);
         var scale = System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleY;
         // Round upward to a device pixel: rounding 189 DIP down at 125% makes WPF omit the seventh wrapped line.
         MaxHeight = Math.Ceiling(LineHeight * UiMetrics.PreviewLines * scale) / scale;
+    }
+    internal void RefreshTypography(bool rebuild)
+    {
+        if (rebuild) Render();
+        UpdateLineLimit();
     }
 }

@@ -6,6 +6,7 @@ using Tide.Core;
 // 局部验证入口：仅运行链接及其目录映射，避免重复执行无关功能回归。
 if (args.Contains("--links")) { await LinkRoutingChecks.RunAsync(); return 0; }
 if (args.Contains("--sent-thread")) { await SentThreadChecks.RunAsync(); return 0; }
+if (args.Contains("--cookie-usage")) { CookieUsageChecks.Run(); return 0; }
 if (args.Contains("--settings-services")) { await SettingsServicesChecks.RunAsync(); return 0; }
 if (args.Contains("--branding")) { BrandingChecks.Run(); return 0; }
 if (args.FirstOrDefault() == "--update-helper") { await UpdateHelperChecks.RunAsync(args[1]); return 0; }
