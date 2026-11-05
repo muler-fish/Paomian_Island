@@ -84,6 +84,8 @@ internal static class Program
         if (args.FirstOrDefault() == "--cookie-manager") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/cookie-manager");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
+        if (args.FirstOrDefault() == "--gif") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-playback");
+        if (args.FirstOrDefault() == "--gif-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-copy");
         Directory.CreateDirectory(output);
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
@@ -97,6 +99,16 @@ internal static class Program
             started = true;
             try
             {
+                if (args.FirstOrDefault() == "--gif-copy")
+                {
+                    await GifClipboardChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--gif")
+                {
+                    await GifChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
                 if (args.FirstOrDefault() == "--image-notice")
                 {
                     await ImageViewerChecks.CheckNoticeAsync(window, output, Capture);

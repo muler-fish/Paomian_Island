@@ -30,9 +30,11 @@ public sealed class ImageWindow : ChildWindow
     private bool _paging, _advanceAfterPage, _pageFailed, _pagePaused;
     private long _lastAutoPost;
     private readonly Func<string, CancellationToken, Task<byte[]>> _download;
-    private readonly Image _image = new() { Stretch = Stretch.Fill };
+    private Image _image = new() { Stretch = Stretch.Fill };
+    private GifPlayback? _playback;
     private readonly FeedbackOverlay _imageFeedback = new();
     private readonly Action<BitmapSource> _copyImage;
+    private readonly Action<byte[], long> _copyGif;
     private readonly Canvas _canvas = new() { ClipToBounds = true, Focusable = true };
     private readonly StackPanel _feedback = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _message = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 380, HorizontalAlignment = HorizontalAlignment.Center };
@@ -51,13 +53,14 @@ public sealed class ImageWindow : ChildWindow
 
     public ImageWindow(Post post) : this([post], post.Id) { }
     public ImageWindow(IEnumerable<Post> posts, long selectedId) : this(posts, selectedId, ImageService.BytesAsync) { }
-    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<byte[]>> download, ImagePageCursor? pages = null, Action<BitmapSource>? copyImage = null) : base("图片", dialogChrome: false)
+    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<byte[]>> download, ImagePageCursor? pages = null, Action<BitmapSource>? copyImage = null, Action<byte[], long>? copyGif = null) : base("图片", dialogChrome: false)
     {
         _posts = posts.DistinctBy(p => p.Id).ToList(); _pages = pages;
         if (_posts.Count == 0) throw new ArgumentException("图库不能为空。", nameof(posts));
         _index = Math.Max(0, Array.FindIndex(_posts.ToArray(), p => p.Id == selectedId));
         _download = download;
         _copyImage = copyImage ?? Clipboard.SetImage;
+        _copyGif = copyGif ?? ((bytes, id) => GifClipboard.Copy(bytes, id));
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Tide;component/ImageViewerResources.xaml") });
         Width = 1000; Height = 780; MinWidth = 500; MinHeight = 400;
         var grid = new Grid();
@@ -66,17 +69,7 @@ public sealed class ImageWindow : ChildWindow
         grid.Children.Add(viewport);
         _canvas.SetResourceReference(Panel.BackgroundProperty, "Canvas");
         _canvas.Children.Add(_image); viewport.Children.Add(_canvas);
-        var menu = new ContextMenu(); var copy = new MenuItem { Header = "复制" }; menu.Items.Add(copy);
-        _image.ContextMenu = menu;
-        BitmapSource? copyTarget = null; Point? copyOrigin = null;
-        menu.Opened += (_, _) =>
-        {
-            copyTarget = _image.Source as BitmapSource; copy.IsEnabled = copyTarget is not null;
-            copyOrigin = Mouse.GetPosition(_imageFeedback);
-        };
-        _image.ContextMenuOpening += (_, e) => { if (_image.Source is null) e.Handled = true; };
-        copy.Click += (_, _) => { if (copyTarget is not null) CopyDisplayedImage(copyTarget, copyOrigin); };
-        menu.Closed += (_, _) => { copyTarget = null; copyOrigin = null; };
+        ConfigureImageMenu(_image);
         viewport.Children.Add(_feedback);
         _retry = ActionButton("重试", "重新加载原图", () =>
         {
@@ -139,7 +132,25 @@ public sealed class ImageWindow : ChildWindow
         _canvas.LostMouseCapture += (_, _) => _dragging = false;
         PreviewKeyDown += ViewerKeyDown;
         Loaded += async (_, _) => { await LoadCurrentAsync(); if (!_closed) _canvas.Focus(); };
-        Closed += (_, _) => { _closed = true; _endNoticeTimer.Stop(); ++_generation; _lifetime.Cancel(); _lifetime.Dispose(); _request?.Cancel(); _request?.Dispose(); _cache.Clear(); _recent.Clear(); _bytes = null; _image.Source = null; };
+        Closed += (_, _) => { _closed = true; _endNoticeTimer.Stop(); ++_generation; _lifetime.Cancel(); _lifetime.Dispose(); _request?.Cancel(); _request?.Dispose(); _playback?.Dispose(); _playback = null; _cache.Clear(); _recent.Clear(); _bytes = null; _image.Source = null; };
+    }
+
+    private void ConfigureImageMenu(Image target)
+    {
+        var menu = new ContextMenu(); var copy = new MenuItem { Header = "复制" }; menu.Items.Add(copy);
+        target.ContextMenu = menu;
+        BitmapSource? copyTarget = null; byte[]? gifTarget = null; long copyPostId = 0; Point? copyOrigin = null;
+        menu.Opened += (_, _) =>
+        {
+            // 捕获打开菜单时的原文件，GIF 不经过位图转换，缩放或旋转也不改变复制的动画。
+            gifTarget = _bytes is { } bytes && XIslandApi.DetectImage(bytes) == "image/gif" ? bytes : null;
+            copyPostId = _posts[_index].Id;
+            copyTarget = gifTarget is null ? (target.Source as BitmapSource)?.CloneCurrentValue() : null; copyTarget?.Freeze();
+            copy.IsEnabled = gifTarget is not null || copyTarget is not null; copyOrigin = Mouse.GetPosition(_imageFeedback);
+        };
+        target.ContextMenuOpening += (_, e) => { if (target.Source is null) e.Handled = true; };
+        copy.Click += (_, _) => { if (gifTarget is not null || copyTarget is not null) CopyDisplayedImage(copyTarget, gifTarget, copyPostId, copyOrigin); };
+        menu.Closed += (_, _) => { copyTarget = null; gifTarget = null; copyOrigin = null; };
     }
 
     private static Button ActionButton(string text, string hint, Action action)
@@ -155,7 +166,11 @@ public sealed class ImageWindow : ChildWindow
     private async Task LoadCurrentAsync()
     {
         _request?.Cancel(); _request?.Dispose(); _request = new(); var token = _request.Token; var generation = ++_generation;
-        _canvas.ReleaseMouseCapture(); _bytes = null; _image.Source = null; _rotation = 0; _save.IsEnabled = false;
+        _canvas.ReleaseMouseCapture(); _bytes = null; _rotation = 0; _save.IsEnabled = false;
+        _playback?.Dispose(); _playback = null;
+        _image.ContextMenu.IsOpen = false; _canvas.Children.Remove(_image);
+        // 每次切图拥有独立播放实例，旧解码任务不会把迟到帧或错误写入新图片。
+        _image = new() { Stretch = Stretch.Fill }; ConfigureImageMenu(_image); _canvas.Children.Add(_image);
         foreach (var button in _zoomButtons) button.IsEnabled = false;
         _zoomText.Text = ""; UpdateNavigation();
         var post = _posts[_index];
@@ -171,9 +186,17 @@ public sealed class ImageWindow : ChildWindow
             if (generation != _generation || token.IsCancellationRequested || _closed) return;
             Remember(url, bytes); _bytes = bytes; _save.IsEnabled = true;
             // 图片解码不占用界面线程；切图和关闭均可中断等待，迟到结果不覆盖新图。
-            var bitmap = await Task.Run(() => ImageService.Decode(bytes), token);
+            var decoded = await Task.Run(() => ImageService.DecodeImage(bytes), token);
             if (generation != _generation || token.IsCancellationRequested || _closed) return;
+            var bitmap = decoded.Poster;
             _image.Source = bitmap; _image.Width = bitmap.PixelWidth; _image.Height = bitmap.PixelHeight;
+            if (decoded.Gif is not null)
+            {
+                var playback = new GifPlayback(_image, decoded.Gif, () => { if (generation == _generation && !_closed) ShowImageError(); });
+                _playback = playback; await playback.StartAsync(token);
+                if (generation != _generation || token.IsCancellationRequested || _closed) return;
+                _image.Width = BitConverter.ToUInt16(bytes, 6); _image.Height = BitConverter.ToUInt16(bytes, 8);
+            }
             _feedback.Visibility = Visibility.Collapsed;
             _zoomText.ToolTip = $"{bitmap.PixelWidth} × {bitmap.PixelHeight}";
             UpdateNavigation();
@@ -184,9 +207,15 @@ public sealed class ImageWindow : ChildWindow
         catch (Exception)
         {
             if (generation != _generation || _closed) return;
-            _feedback.Children.Clear(); _message.Text = _bytes is null ? "图片加载失败" : "无法预览，可保存原图";
-            _feedback.Children.Add(_message); _feedback.Children.Add(_retry);
+            ShowImageError();
         }
+    }
+
+    private void ShowImageError()
+    {
+        _feedback.Children.Clear(); _message.Text = _bytes is null ? "图片加载失败" : "无法预览，可保存原图";
+        _feedback.Children.Add(_message); _feedback.Children.Add(_retry); _feedback.Visibility = Visibility.Visible;
+        foreach (var button in _zoomButtons) button.IsEnabled = false;
     }
 
     private void Remember(string url, byte[] bytes)
@@ -212,7 +241,7 @@ public sealed class ImageWindow : ChildWindow
         var hint = tail && _pages?.HasMore == true ? (_pageFailed ? "重试加载下一页（→）" : "加载下一页图片（→）") : "下一张（→）";
         _next.ToolTip = hint; AutomationProperties.SetName(_next, hint);
         Title = $"{_posts[_index].Number}  ·  {_index + 1} / {_posts.Count}" + (_pages?.HasMore == true ? "+" : "")
-            + (_posts[_index].Extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ? "  ·  GIF 首帧" : "");
+            + (_posts[_index].Extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ? "  ·  GIF" : "");
         // End-of-gallery is a transient hint, not a persistent paging action. Start once per arrival;
         // repeated navigation refreshes must not re-show it after expiry or hide loading/retry controls.
         var atEnd = tail && _pages is { HasMore: false } && !_paging && !_pageFailed && !_pagePaused && _image.Source is not null;
@@ -334,15 +363,15 @@ public sealed class ImageWindow : ChildWindow
         }
         catch (Exception) { Title = "保存失败，请重试"; }
     }
-    private void CopyDisplayedImage(BitmapSource bitmap, Point? origin)
+    private void CopyDisplayedImage(BitmapSource? bitmap, byte[]? gif, long postId, Point? origin)
     {
         try
         {
-            // Copy full decoded pixels, independent of viewport zoom, pan and rotation.
-            _copyImage(bitmap);
-            _imageFeedback.Show(new("图片已复制", FeedbackArea.General), _canvas, origin: origin);
+            if (gif is not null) _copyGif(gif, postId);
+            else _copyImage(bitmap!);
+            _imageFeedback.Show(new(gif is not null ? "GIF 已复制" : "图片已复制", FeedbackArea.General), _canvas, origin: origin);
         }
-        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException or ArgumentException or IOException)
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException)
         { _imageFeedback.Show(new("复制图片失败，剪贴板可能正被占用，请重试。", FeedbackArea.General, true), _canvas); }
     }
 }

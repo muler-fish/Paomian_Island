@@ -1,0 +1,7 @@
+XamlAnimatedGif 2.3.2
+Author: Thomas Levesque
+Source: https://github.com/XamlAnimatedGif/XamlAnimatedGif/tree/2.3.2
+License: Apache License 2.0 (see XamlAnimatedGif-LICENSE.txt).
+
+Used without modifications to decode and animate GIF images in WPF.
+Image downloads, local caching and application settings remain managed by Paomian Island.

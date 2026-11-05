@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <AssemblyName>Tide</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.3.1-preview.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/paomian.ico</ApplicationIcon>
   </PropertyGroup>
@@ -12,12 +12,12 @@
   <ItemGroup><PackageReference Include="WPF-UI" Version="4.3.0" /></ItemGroup>
   <ItemGroup><PackageReference Include="ZXing.Net" Version="0.16.11" /></ItemGroup>
   <ItemGroup><PackageReference Include="Emoji.Wpf" Version="0.3.4" /></ItemGroup>
+  <ItemGroup><PackageReference Include="XamlAnimatedGif" Version="2.3.2" /></ItemGroup>
   <ItemGroup><InternalsVisibleTo Include="Tide.Desktop.Tests" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoticons.json" LogicalName="Tide.Emoticons.json" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoji-sequences.json" LogicalName="Tide.EmojiSequences.json" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/paomian.png" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.ttf" /></ItemGroup>
-  <ItemGroup><Resource Include="Assets/Fonts/*.otf" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.CompositeFont" /></ItemGroup>
   <!-- Keep assembly/resource identifiers stable; only the distributed app host is renamed. -->
   <Target Name="RenamePublishedAppHost" AfterTargets="Publish" Condition="Exists('$(PublishDir)$(AssemblyName).exe')">

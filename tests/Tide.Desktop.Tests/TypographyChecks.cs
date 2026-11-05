@@ -7,7 +7,7 @@ using Tide.Desktop;
 
 namespace Tide.Desktop.Tests;
 
-/// <summary>检查实际绘制的字体文件，避免样式声明已改而库控件仍显示系统字体。</summary>
+/// <summary>检查实际绘制的字体文件，避免主字体声明与控件实际显示不一致。</summary>
 internal static class TypographyChecks
 {
     internal sealed record Glyphs(string Text, string Font, bool Simulated);
@@ -36,12 +36,14 @@ internal static class TypographyChecks
         void Inspect(Window window, string key)
         {
             var runs = Runs(window);
-            // 仅检查普通界面文字；图标由原有 Fluent 字体绘制，不能被 MiSans 覆盖。
-            var wrong = runs.Where(r => r.Text.Any(c => char.IsLetterOrDigit(c)) && !r.Font.Contains("misans", StringComparison.OrdinalIgnoreCase)).ToArray();
+            // 仅检查普通界面文字；图标由原有 Fluent 字体绘制，特殊语种使用补充字体。
+            var wrong = runs.Where(r => r.Text.Any(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or >= '\u4e00' and <= '\u9fff') && !r.Font.Contains("/msyh", StringComparison.OrdinalIgnoreCase)).ToArray();
             unexpected.AddRange(wrong.Select(r => key + ": " + r.Text + " => " + r.Font));
             reports[key] = new { Fonts = runs.Select(r => r.Font).Distinct(), Unexpected = wrong };
             capture(window, Path.Combine(output, key + ".png"));
         }
+        await main.Model.OpenThreadAsync(101, 1);
+        foreach (var post in main.Model.ReadingPosts) main.Model.Posts.Add(new(post.Post, "综合版1"));
         foreach (var theme in new[] { "light", "dark" })
         {
             App.ApplyTheme(theme); main.UpdateLayout(); await Task.Delay(100); Inspect(main, "main-" + theme);
@@ -52,7 +54,7 @@ internal static class TypographyChecks
             }
         }
         App.ApplyTheme("light");
-        var normal = new TextBlock { Text = "中文阅读 MiSans 123", FontFamily = AppFonts.Family, FontSize = 20 };
+        var normal = new TextBlock { Text = "中文阅读 Microsoft YaHei 123", FontFamily = AppFonts.Family, FontSize = 20 };
         var strong = new TextBlock { Text = normal.Text, FontFamily = AppFonts.Family, FontSize = 20, FontWeight = FontWeights.SemiBold };
         var panel = new StackPanel(); panel.Children.Add(normal); panel.Children.Add(strong);
         var global = new TextBlock { Text = "ฅ ง ว ໒ ༝", FontFamily = AppFonts.Family, FontSize = 20 };
@@ -66,11 +68,11 @@ internal static class TypographyChecks
             reports["weights"] = new { Regular = regularRuns, Semibold = semiboldRuns };
             var globalRuns = Runs(global).Where(r => !string.IsNullOrWhiteSpace(r.Text)).ToArray();
             reports["global"] = globalRuns;
-            foreach (var font in new[] { "misansthai.ttf", "misanslao.ttf", "misanstibetan-regular.ttf" })
-                if (!globalRuns.Any(r => r.Font.EndsWith(font))) unexpected.Add("Global 补充字体未生效：" + font);
-            if (regularRuns.Length == 0 || regularRuns.Any(r => !r.Font.EndsWith("misans-regular.otf") || r.Simulated) ||
-                semiboldRuns.Length == 0 || semiboldRuns.Any(r => !r.Font.EndsWith("misans-semibold.otf") || r.Simulated))
-                unexpected.Add("MiSans Regular / Semibold 未按预期选择实际字体文件。");
+            foreach (var font in new[] { "leelawui.ttf", "himalaya.ttf" })
+                if (!globalRuns.Any(r => r.Font.EndsWith(font, StringComparison.OrdinalIgnoreCase))) unexpected.Add("系统补充字体未生效：" + font);
+            if (regularRuns.Length == 0 || regularRuns.Any(r => !r.Font.Contains("/msyh.ttc", StringComparison.OrdinalIgnoreCase) || r.Simulated) ||
+                semiboldRuns.Length == 0 || semiboldRuns.Any(r => !r.Font.Contains("/msyhbd.ttc", StringComparison.OrdinalIgnoreCase) || r.Simulated))
+                unexpected.Add("微软雅黑常规 / 粗体未按预期选择实际字体文件。");
         }
         finally { sample.Close(); }
         void ResourceFonts(ResourceDictionary dictionary)
@@ -83,6 +85,6 @@ internal static class TypographyChecks
         ResourceFonts(Application.Current.Resources);
         File.WriteAllText(Path.Combine(output, "typography-results.json"), JsonSerializer.Serialize(new { Reports = reports, Unexpected = unexpected }, new JsonSerializerOptions { WriteIndented = true }));
         if (unexpected.Count > 0) throw new InvalidOperationException(string.Join("\n", unexpected));
-        Console.WriteLine("PASS: MiSans light/dark main and four dialogs, actual Regular/Semibold glyph files.");
+        Console.WriteLine("PASS: Microsoft YaHei light/dark main and four dialogs, actual regular/bold glyphs without simulation, special-script fallbacks.");
     }
 }

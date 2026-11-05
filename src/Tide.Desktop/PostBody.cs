@@ -97,7 +97,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
                 if (tag is not ("b" or "strong" or "i" or "em" or "s" or "del" or "u" or "span" or "font" or "a")) continue;
                 // 仅将已知标签和少量样式映射到 WPF 属性，不把服务端样式直接交给解析器。
                 Span span = new();
-                // 半粗体使用真实 Semibold 字形；Bold(700) 会再模拟加粗，使骰子数字和强调文字过黑。
+                // 强调与标题沿用半粗请求，由当前字体匹配可用字重，避免额外叠加加粗效果。
                 if (tag is "b" or "strong") span.FontWeight = FontWeights.SemiBold;
                 if (tag is "i" or "em") span.FontStyle = FontStyles.Italic;
                 if (tag is "s" or "del") span.TextDecorations = TextDecorations.Strikethrough;

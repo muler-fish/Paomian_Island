@@ -35,7 +35,7 @@ internal static class EmoticonFontChecks
         {
             picker.Show();
             var preview = UiRefinementChecks.Descendants<EmojiEditor>(picker).Single(t => AutomationProperties.GetName(t) == "发言正文");
-            preview.Text = "(`ᝫ´ )\r\n₍₍(ง`ᝫ´ )ว⁾\r\n/̵͇̿̿/’̿’̿ ̿ ̿̿ ̿̿ ̿̿\r\n( ﾟᯅ 。)\r\n҉( ﾟ∀。)\r\nฅ ง ว ໒ ༝";
+            preview.Text = "颜文字与正文 · 微软雅黑\r\n(=ﾟωﾟ)=  (ﾟ∀ﾟ)  (´･ω･`)  ↙(`ヮ´ )↗ 开摆！\r\n(`ᝫ´ )  ₍₍(ง`ᝫ´ )ว⁾\r\n/̵͇̿̿/’̿’̿ ̿ ̿̿ ̿̿ ̿̿\r\n( ﾟᯅ 。)  ҉( ﾟ∀。)\r\nฅ ง ว ໒ ༝";
             var sample = preview.Text;
             await Task.Delay(200); capture(picker, Path.Combine(output, "font-rendering.png"));
             var missing = MissingGlyphs(preview);
@@ -60,11 +60,17 @@ internal static class EmoticonFontChecks
             var postBody = UiRefinementChecks.Descendants<PostBody>(reading).Single();
             var readingMissing = MissingGlyphs(postBody);
             capture(reading, Path.Combine(output, "font-reading.png")); reading.Close();
+            foreach (var theme in new[] { "light", "dark" })
+            {
+                App.ApplyTheme(theme); picker.Emoticons.Toggle(); await Task.Delay(100);
+                EmoticonChecks.CapturePopup(picker, Path.Combine(output, "emoticons-" + theme + ".png"));
+                picker.Emoticons.Toggle();
+            }
             var fontNames = Fonts.SystemFontFamilies.Where(f => new Typeface(f, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal).TryGetGlyphTypeface(out var g) && g.CharacterToGlyphMap.ContainsKey(0x176B)).Select(f => f.Source).ToArray();
             File.WriteAllText(Path.Combine(output, "font-probe.json"), JsonSerializer.Serialize(new { preview.Text, Font = preview.FontFamily.Source, Language = preview.Language.IetfLanguageTag, Missing = missing, ReadingMissing = readingMissing, CatalogEntries = EmoticonCatalog.Entries.Count, CatalogMissing = catalogMissing, InstalledFontsFor176B = fontNames }));
             if (missing.Count > 0) throw new InvalidOperationException("颜文字实际绘制了缺字方框：" + string.Join(" / ", missing));
             if (readingMissing.Count > 0 || catalogMissing.Count > 0) throw new InvalidOperationException("阅读区或颜文字库仍有缺字：" + string.Join(" / ", readingMissing.Concat(catalogMissing)));
         }
-        finally { picker.Close(); }
+        finally { picker.Close(); App.ApplyTheme("light"); }
     }
 }

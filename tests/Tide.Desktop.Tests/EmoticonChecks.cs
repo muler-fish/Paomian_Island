@@ -96,7 +96,7 @@ internal static class EmoticonChecks
         finally { composer?.Close(); App.ApplyTheme("light"); }
     }
     private static List<Button> EmoticonButtons(ComposerWindow composer) => UiRefinementChecks.Descendants<Button>(composer.Emoticons.Popup.Child).Where(b => b.Tag is EmoticonEntry).ToList();
-    private static void CapturePopup(ComposerWindow composer, string path)
+    internal static void CapturePopup(ComposerWindow composer, string path)
     {
         // Popup 有独立 HWND，主窗口截图不包含它，直接保存已布局的弹出层。
         var surface = (FrameworkElement)composer.Emoticons.Popup.Child;

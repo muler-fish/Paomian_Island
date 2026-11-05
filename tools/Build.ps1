@@ -37,8 +37,8 @@ try {
     Copy-Item -LiteralPath 'licenses\NotoSansTagbanwa-OFL.txt' -Destination (Join-Path $licenses 'NotoSansTagbanwa-OFL.txt')
     Copy-Item -LiteralPath 'licenses\NotoSansBatak-OFL.txt' -Destination (Join-Path $licenses 'NotoSansBatak-OFL.txt')
     Copy-Item -LiteralPath 'licenses\EmoticonData-NOTICE.txt' -Destination (Join-Path $licenses 'EmoticonData-NOTICE.txt')
-    Copy-Item -LiteralPath 'licenses\MiSans-LICENSE.pdf' -Destination (Join-Path $licenses 'MiSans-LICENSE.pdf')
-    Copy-Item -LiteralPath 'licenses\MiSans-NOTICE.txt' -Destination (Join-Path $licenses 'MiSans-NOTICE.txt')
+    Copy-Item -LiteralPath 'licenses\XamlAnimatedGif-LICENSE.txt' -Destination (Join-Path $licenses 'XamlAnimatedGif-LICENSE.txt')
+    Copy-Item -LiteralPath 'licenses\XamlAnimatedGif-NOTICE.txt' -Destination (Join-Path $licenses 'XamlAnimatedGif-NOTICE.txt')
     foreach ($notice in @('Emoji-NOTICE.txt', 'Emoji.Wpf-LICENSE.txt', 'Typography-NOTICES.md', 'Typography-MIT.txt', 'FreeType-LICENSE.txt', 'Unicode-LICENSE.txt', 'JeremyAnsel.HLSL-LICENSE.txt')) {
         Copy-Item -LiteralPath (Join-Path 'licenses' $notice) -Destination (Join-Path $licenses $notice)
     }

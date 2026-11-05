@@ -9,6 +9,8 @@ using Tide.Core;
 
 namespace Tide.Desktop;
 
+internal sealed record LoadedImage(BitmapSource Poster, byte[]? Gif = null);
+
 /// <summary>下载与解码图片；独立 HttpClient 不附带饼干，下载并发限制为 4。</summary>
 public static class ImageService
 {
@@ -23,7 +25,8 @@ public static class ImageService
     private static string ImageKey(string url) => "images/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url))) + ".bin";
     private static readonly SemaphoreSlim Slots = new(4);
     // 缩略图仅缓存在内存，当前调用方在 WPF 界面线程上访问此字典。
-    private static readonly Dictionary<string, BitmapSource> Cache = [];
+    private static readonly Dictionary<string, LoadedImage> Cache = [];
+    private static long CacheBytes => Cache.Values.Sum(i => (long)i.Poster.PixelWidth * i.Poster.PixelHeight * 4 + (i.Gif?.Length ?? 0));
 
     public static async Task<byte[]> BytesAsync(string url, CancellationToken ct = default)
     {
@@ -55,15 +58,24 @@ public static class ImageService
         }
         finally { Slots.Release(); }
     }
-    public static async Task<BitmapSource> LoadAsync(string url, CancellationToken ct)
+    internal static async Task<LoadedImage> LoadPreviewAsync(string url, CancellationToken ct)
     {
         if (Cache.TryGetValue(url, out var cached)) return cached;
         var bytes = await BytesAsync(url, ct);
         // 列表缩略图限制解码宽度并最多保留 80 项，减少长期阅读时的内存占用。
-        var bitmap = await Task.Run(() => Decode(bytes, 700), ct);
+        var image = await Task.Run(() => DecodeImage(bytes, 700), ct);
         ct.ThrowIfCancellationRequested();
-        if (Cache.Count >= 80) Cache.Remove(Cache.Keys.First());
-        Cache[url] = bitmap; return bitmap;
+        Cache[url] = image;
+        while (Cache.Count > 80 || CacheBytes > 64L * 1024 * 1024) Cache.Remove(Cache.Keys.First());
+        return image;
+    }
+    internal static LoadedImage DecodeImage(byte[] bytes, int width = 0)
+    {
+        var gif = XIslandApi.DetectImage(bytes) == "image/gif";
+        // GIF 合成需完整画布；限制像素数量，避免压缩文件很小而解码占用失控。
+        if (gif && (bytes.Length < 10 || (long)BitConverter.ToUInt16(bytes, 6) * BitConverter.ToUInt16(bytes, 8) > 16_777_216))
+            throw new InvalidDataException("GIF 画布过大，无法播放。");
+        return new(Decode(bytes, width), gif ? bytes : null);
     }
     public static BitmapSource Decode(byte[] bytes, int width = 0)
     {
@@ -88,22 +100,26 @@ public sealed class PostImage : ContentControl
     public double PreviewHeight { get => (double)GetValue(PreviewHeightProperty); set => SetValue(PreviewHeightProperty, value); }
     public double PreviewMaxWidth { get => (double)GetValue(PreviewMaxWidthProperty); set => SetValue(PreviewMaxWidthProperty, value); }
     public static event Action<PostImage, Post>? ImageClicked;
-    private readonly Func<string, CancellationToken, Task<BitmapSource>> _load;
+    private readonly Func<string, CancellationToken, Task<LoadedImage>> _load;
+    private GifPlayback? _playback;
     private CancellationTokenSource? _cts;
     private int _version;
-    public PostImage() : this(ImageService.LoadAsync) { }
-    internal PostImage(Func<string, CancellationToken, Task<BitmapSource>> load)
+    public PostImage() : this(ImageService.LoadPreviewAsync) { }
+    internal PostImage(Func<string, CancellationToken, Task<BitmapSource>> load) : this(async (url, ct) => new LoadedImage(await load(url, ct))) { }
+    internal PostImage(Func<string, CancellationToken, Task<LoadedImage>> load)
     {
         _load = load;
         Loaded += (_, _) => Update();
-        Unloaded += (_, _) => { _cts?.Cancel(); ++_version; };
+        Unloaded += (_, _) => { _cts?.Cancel(); ++_version; _playback?.Dispose(); _playback = null; Content = null; };
     }
     private static void Changed(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((PostImage)d).Update();
     private async void Update()
     {
         // 同一个控件可能换绑到另一帖子；取消旧请求并更新版本，避免慢图显示到新帖子上。
         _cts?.Cancel(); _cts?.Dispose(); _cts = new(); var version = ++_version; var ct = _cts.Token;
-        var post = Post; var url = post?.ImageUrl(true);
+        _playback?.Dispose(); _playback = null;
+        // 站点缩略图可能只有首帧，GIF 预览通过同一缓存读取原文件。
+        var post = Post; var url = post?.ImageUrl(!post.Extension.Equals(".gif", StringComparison.OrdinalIgnoreCase));
         Visibility = url is null ? Visibility.Collapsed : Visibility.Visible;
         if (url is null || post is null) { Content = null; return; }
         var button = new Button
@@ -116,6 +132,12 @@ public sealed class PostImage : ContentControl
         Content = button;
         // 无图模式保留手动打开入口，只有用户点击时才去原图窗口加载图片。
         var failed = false;
+        void Fail()
+        {
+            if (version != _version) return;
+            failed = true; button.Content = "重试"; button.ToolTip = "图片加载失败，点击重试";
+            System.Windows.Automation.AutomationProperties.SetName(button, $"重新加载 {post.Number} 的图片");
+        }
         button.Click += (_, _) => { if (failed) { ImageService.Forget(url); Update(); } else ImageClicked?.Invoke(this, post); };
         if (!ShowImages) return;
         if (!IsLoaded) return;
@@ -123,21 +145,23 @@ public sealed class PostImage : ContentControl
         {
             var image = await _load(url, ct);
             if (version != _version || ct.IsCancellationRequested) return;
-            button.Content = new Image
+            var visual = new Image
             {
-                Source = image, Stretch = Stretch.Uniform,
+                Source = image.Poster, Stretch = Stretch.Uniform,
                 MaxHeight = double.IsNaN(PreviewHeight) ? 260 : Math.Max(1, PreviewHeight - 10),
                 MaxWidth = PreviewMaxWidth, HorizontalAlignment = HorizontalAlignment.Left
             };
+            button.Content = visual;
+            if (image.Gif is not null)
+            {
+                var playback = new GifPlayback(visual, image.Gif, Fail); _playback = playback;
+                await playback.StartAsync(ct);
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception)
         {
-            if (version != _version) return;
-            failed = true;
-            button.Content = "重试";
-            button.ToolTip = "图片加载失败，点击重试";
-            System.Windows.Automation.AutomationProperties.SetName(button, $"重新加载 {post.Number} 的图片");
+            Fail();
         }
     }
 }

@@ -140,7 +140,7 @@ public sealed class SettingsWindow : DialogWindow
         about.Children.Add(SettingsLayout.Text("版本 " + UpdateController.Version + " · X 岛匿名版非官方 Windows 客户端", true));
         var links = new WrapPanel { Margin = new(0, 12, 0, 4) }; about.Children.Add(links);
         links.Children.Add(Action("作者 · muler-fish", () => Open("https://github.com/muler-fish"))); links.Children.Add(Action("项目仓库", () => Open(ReleaseUpdater.Repository))); links.Children.Add(Action("反馈问题", () => Open(ReleaseUpdater.Repository + "/issues")));
-        about.Children.Add(SettingsLayout.Text("使用 MiSans 字体。第三方组件及字体许可见程序目录下的 licenses 文件夹。", true));
+        about.Children.Add(SettingsLayout.Text("优先使用 Windows 自带的微软雅黑，特殊字符由备用字体补足。第三方组件及随包字体许可见程序目录下的 licenses 文件夹。", true));
         SettingsLayout.Section(about, "软件更新");
         var updateStatus = SettingsLayout.Text(vm.Updates.Status, true); updateStatus.Margin = new(0, 8, 0, 12); about.Children.Add(updateStatus);
         var updateButtons = new WrapPanel(); about.Children.Add(updateButtons);
