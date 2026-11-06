@@ -22,7 +22,8 @@ $actual = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
 $manifest = Get-Content -LiteralPath (Join-Path $source 'SHA256SUMS.txt') -Raw
 if ($manifest -notmatch "(?im)^$actual\s+\*?$exePattern\s*$") { throw 'Executable checksum mismatch.' }
 New-Item -ItemType Directory -Path $output -Force | Out-Null
-$package = Join-Path $output "$name-$version-win-x64.zip"
+# GitHub release assets cannot contain spaces; keep the file name identical to AppIdentity.PackageName.
+$package = Join-Path $output "$($name.Replace(' ', '-'))-$version-win-x64.zip"
 $checksum = $package -replace '\.zip$', '.sha256'
 if ((Test-Path -LiteralPath $package) -or (Test-Path -LiteralPath $checksum)) { throw "Package already exists: $package" }
 [IO.Compression.ZipFile]::CreateFromDirectory($source, $package, [IO.Compression.CompressionLevel]::Optimal, $false)

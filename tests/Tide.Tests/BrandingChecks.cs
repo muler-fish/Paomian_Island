@@ -10,6 +10,7 @@ internal static class BrandingChecks
         Require(AppIdentity.DataDirectoryName == "TideIsland" && AppIdentity.MutexPrefix == "Local\\TideIsland-" && AppIdentity.ProtectionDescription == "TideIsland cookie", "legacy data identity");
         object Asset(string name, bool escaped) => new { name, browser_download_url = ReleaseUpdater.Repository + "/releases/download/v9.0.0/" + (escaped ? Uri.EscapeDataString(name) : name), digest = "sha256:" + new string('a', 64), size = 100 };
         byte[] Release(params object[] assets) => JsonSerializer.SerializeToUtf8Bytes(new { tag_name = "v9.0.0", draft = false, prerelease = false, assets });
+        Require(AppIdentity.PackageName("9.0.0") == "Paomian-Island-9.0.0-win-x64.zip", "package name without spaces");
         var branded = AppIdentity.PackageName("9.0.0"); var legacy = AppIdentity.LegacyPackageName("9.0.0");
         foreach (var escaped in new[] { false, true })
         {

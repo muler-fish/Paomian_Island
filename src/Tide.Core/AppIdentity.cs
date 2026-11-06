@@ -18,7 +18,8 @@ public static class AppIdentity
     public const string MutexPrefix = "Local\\TideIsland-";
     public const string ProtectionDescription = "TideIsland cookie";
     public const string UpdaterExecutableName = "TideUpdater.exe";
-    public static string PackageName(string version) => $"{EnglishName}-{version}-win-x64.zip";
+    // GitHub release assets cannot contain spaces, so the English name is hyphenated in package file names.
+    public static string PackageName(string version) => $"{EnglishName.Replace(' ', '-')}-{version}-win-x64.zip";
     public static string ChinesePackageName(string version) => $"{DisplayName}-{version}-win-x64.zip";
     public static string LegacyPackageName(string version) => $"Tide-{version}-win-x64.zip";
 }

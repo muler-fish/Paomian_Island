@@ -16,7 +16,7 @@
 
 ## 快速开始
 
-1. 打开 [Releases](https://github.com/muler-fish/Paomian_Island/releases/latest)，下载 `Paomian Island-版本号-win-x64.zip`。
+1. 打开 [Releases](https://github.com/muler-fish/Paomian_Island/releases/latest)，下载 `Paomian-Island-版本号-win-x64.zip`。
 2. 解压到任意文件夹，双击 `Paomian Island.exe`。
 
 - 系统要求：Windows 10 / 11 x64。
