@@ -1,4 +1,4 @@
-# 从任意工作目录执行均可；传入 -SelfContained 时生成带 .NET 运行时的单文件版本。
+﻿# 从任意工作目录执行均可；传入 -SelfContained 时生成带 .NET 运行时的单文件版本。
 param([switch]$SelfContained, [string]$OutputDirectory, [switch]$NoRestore)
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -33,6 +33,8 @@ try {
     Copy-Item -LiteralPath (Join-Path $package 'LICENSE.md') -Destination (Join-Path $licenses 'WPF-UI-LICENSE.md')
     Copy-Item -LiteralPath (Join-Path $package 'ThirdPartyNotices.txt') -Destination (Join-Path $licenses 'WPF-UI-ThirdPartyNotices.txt')
     # 二维码识别使用 ZXing.Net；许可证随自包含 EXE 交付，构建时不再联网下载。
+    # 项目自身以 GPL-3.0 发布，许可全文随程序一同交付。
+    Copy-Item -LiteralPath 'LICENSE' -Destination (Join-Path $licenses 'PaomianIsland-GPL-3.0.txt')
     Copy-Item -LiteralPath 'licenses\ZXing.Net-LICENSE.txt' -Destination (Join-Path $licenses 'ZXing.Net-LICENSE.txt')
     Copy-Item -LiteralPath 'licenses\NotoSansTagbanwa-OFL.txt' -Destination (Join-Path $licenses 'NotoSansTagbanwa-OFL.txt')
     Copy-Item -LiteralPath 'licenses\NotoSansBatak-OFL.txt' -Destination (Join-Path $licenses 'NotoSansBatak-OFL.txt')

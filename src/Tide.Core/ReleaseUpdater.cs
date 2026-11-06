@@ -12,8 +12,10 @@ public sealed record StagedUpdate(string Directory, string ExecutableHash);
 /// <summary>Stable releases from the project's own repository, downloaded without island credentials.</summary>
 public sealed class ReleaseUpdater : IDisposable
 {
-    public const string Repository = "https://github.com/muler-fish/Tide";
-    public const string Endpoint = "https://api.github.com/repos/muler-fish/Tide/releases/latest";
+    public const string Repository = "https://github.com/muler-fish/Paomian_Island";
+    // GitHub keeps redirecting the pre-rename repository; accept assets reported under either name.
+    public const string LegacyRepository = "https://github.com/muler-fish/Tide";
+    public const string Endpoint = "https://api.github.com/repos/muler-fish/Paomian_Island/releases/latest";
     private readonly HttpClient _http;
     public ReleaseUpdater(HttpClient? http = null)
     {
@@ -56,8 +58,8 @@ public sealed class ReleaseUpdater : IDisposable
         }
         if (asset.ValueKind == JsonValueKind.Undefined) throw new InvalidDataException("新版本尚未提供 Windows x64 更新包。");
         var url = new Uri(asset.GetProperty("browser_download_url").GetString()!);
-        var expected = new Uri($"{Repository}/releases/download/{tag}/{Uri.EscapeDataString(name)}");
-        if (!string.Equals(url.AbsoluteUri, expected.AbsoluteUri, StringComparison.Ordinal)) throw new InvalidDataException("更新包不属于本项目。");
+        var path = $"/releases/download/{tag}/{Uri.EscapeDataString(name)}";
+        if (!new[] { Repository, LegacyRepository }.Any(r => string.Equals(url.AbsoluteUri, new Uri(r + path).AbsoluteUri, StringComparison.Ordinal))) throw new InvalidDataException("更新包不属于本项目。");
         var digest = asset.TryGetProperty("digest", out var d) ? d.GetString() ?? "" : "";
         if (!Regex.IsMatch(digest, "^sha256:[a-fA-F0-9]{64}$")) throw new InvalidDataException("更新包缺少 SHA-256 校验信息，请在仓库手动下载。");
         var size = asset.GetProperty("size").GetInt64();

@@ -19,7 +19,11 @@ internal static class BrandingChecks
         Require(ReleaseUpdater.ParseRelease(Release(Asset(legacy, false)), "0.2.2-preview.8") is not null, "legacy package fallback");
         Require(ReleaseUpdater.ParseRelease(Release(Asset(AppIdentity.ChinesePackageName("9.0.0"), true)), "0.2.2-preview.8") is not null, "Chinese package fallback");
         Require(ReleaseUpdater.ParseRelease(Release(Asset(legacy, false)), "9.0.0") is null, "no downgrade");
-        Console.WriteLine("PASS public English name/executable, stable profile/crypto/mutex identifiers, English/Chinese/legacy update packages");
+        object Hosted(string repository) => new { name = branded, browser_download_url = repository + "/releases/download/v9.0.0/" + Uri.EscapeDataString(branded), digest = "sha256:" + new string('a', 64), size = 100 };
+        Require(ReleaseUpdater.ParseRelease(Release(Hosted(ReleaseUpdater.LegacyRepository)), "0.3.1") is not null, "pre-rename repository assets");
+        try { ReleaseUpdater.ParseRelease(Release(Hosted("https://github.com/someone/Paomian_Island")), "0.3.1"); throw new Exception("foreign repository accepted"); }
+        catch (InvalidDataException) { }
+        Console.WriteLine("PASS public English name/executable, stable profile/crypto/mutex identifiers, English/Chinese/legacy update packages, renamed repository");
     }
     private static void Require(bool value, string message) { if (!value) throw new Exception(message); }
 }

@@ -1,103 +1,110 @@
-# 泡面岛（Paomian Island）
+<div align="center">
 
-## 项目简介
+<img src="src/Tide.Desktop/Assets/paomian.png" width="96" alt="泡面岛 Logo">
 
-泡面岛（英文名 **Paomian Island**）是 X 岛匿名版的非官方 Windows 客户端，使用 **WPF / .NET 10 / WPF UI** 开发。采用板块导航、串列表和串阅读区的三栏布局，面向日常浏览、订阅与发言。项目原名「潮汐」，GitHub 仓库地址暂时沿用 `muler-fish/Tide`。
+# 泡面岛 · Paomian Island
 
-[下载正式版](https://github.com/muler-fish/Tide/releases/latest) · [待办列表](TODO.md) · [反馈问题](https://github.com/muler-fish/Tide/issues)
+**X 岛匿名版的非官方 Windows 客户端**
 
-## 功能特点
+安静、顺手地刷岛：三栏阅读、连续翻页、订阅、发串，一个窗口里完成。
 
-- **连续阅读**：列表自动续页、串内双向续页、页码跳转、阅读位置保存和只看 PO。
-- **订阅管理**：支持多个通用订阅号、备注、切换及中文输入；快照与短期缓存减少重复加载。
-- **三栏布局**：可调栏宽，记住窗口位置和布局；采用 Refined Reader 界面，提供浅色、深色主题及阅读字号、行距、字距设置。
-- **正文交互**：饼干、PO、SAGE 标记，引用小窗、站内串预览、板块跳转确认、官方公告和 tips。
-- **独立看图**：缩放、拖动、旋转、保存原图，右键复制图片到剪贴板，末图自动尝试加载下一页。串列表、串内图片与看图窗口支持 GIF 动画；GIF 复制与保存均保留完整原文件，复制时同时提供动图数据及文件粘贴格式。
-- **发串与回应**：可选标题和名称、附图、草稿、发送前预览、颜文字、防剧透和骰子。
-- **本机管理**：板块收藏、浏览历史、本机发言记录、屏蔽串和板块，以及右键复制和回应。
-- **饼干管理**：管理与导入分开显示，支持本机备注和默认饼干；发言选择器显示当前串内使用次数。可通过二维码图片、剪贴板图片、完整 userhash、Cookie 头与 JSON 导入。
-- **分类设置**：阅读、外观、网络、缓存、数据与记录、关于六类；阅读效果实时预览，支持缓存容量和路径管理，以及独立的岛内和更新网络选项。
+[下载最新版](https://github.com/muler-fish/Paomian_Island/releases/latest) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
-## 安装步骤
+</div>
 
-运行环境：**Windows 10/11 x64**。本项目采用解压即用的便携包，目前没有单独的安装程序或卸载注册项。
+---
 
-1. 前往 [Releases](https://github.com/muler-fish/Tide/releases/latest)，选择已发布的 Windows x64 版本。新版包名为 `Paomian Island-版本号-win-x64.zip`。
-2. 解压到任意目录，运行 `Paomian Island.exe`。界面及 Windows 产品显示名称仍为「泡面岛」。`泡面岛-版本号-win-x64.zip` 和 `Tide-版本号-win-x64.zip` 用于兼容旧更新器，包内保留 `Tide.exe`；自动更新沿用已安装的文件名以保持原快捷方式有效。
-3. 更新时先退出旧版，再运行新版。默认资料目录相同，可继续使用原有设置。
+## 快速开始
 
-发布包已包含 .NET 运行时，无需单独安装。程序、许可及启动时提取的运行时文件以 **100 MB 以内**为目标，个人资料和缓存另计。版本、网络、缓存和更新选项位于设置中；正文预览最多显示 7 行。
+1. 打开 [Releases](https://github.com/muler-fish/Paomian_Island/releases/latest)，下载 `Paomian Island-版本号-win-x64.zip`。
+2. 解压到任意文件夹，双击 `Paomian Island.exe`。
 
-## 使用示例
+- 系统要求：Windows 10 / 11 x64。
+- 不需要安装 .NET，也没有安装程序，解压就能用。不想用了，删掉文件夹即可。
+- 只是看串的话不需要饼干；要发言，先在左下角的「饼干管理」里导入饼干。
 
-### 浏览与跳串
+> 有新版本时，程序会在设置入口提示，可以直接在程序里更新，设置和数据都会保留。
 
-在左侧选择板块，点击中间的串预览即可阅读。按 **Ctrl+L** 输入串号或 X 岛链接，按 Enter 打开；在串内的页码框输入目标页后跳转。
+## 它能做什么
 
-### 订阅与发言
+**阅读**
+- 三栏布局：板块、串列表、正文，栏宽和窗口位置都会记住。
+- 串列表滚到底会自动加载下一页，串内往上往下都能续页，也支持跳到指定页和只看 PO。
+- 会保存阅读进度，再打开同一个串时回到上次看到的位置。
+- 引用可以在小窗里预览，站内链接也能直接预览，还支持防剧透黑条。
+- 有浅色和深色主题，正文字号、行间距、字间距都能调，调的时候实时预览。
 
-首次启动会自动生成并保存一个随机订阅号，重启后继续使用。打开“我的订阅”管理订阅号，支持查看、修改、备注与切换。在串内点击星形按钮或按 **Ctrl+D** 订阅。
+**看图**
+- 独立的看图窗口：缩放、拖动、旋转、保存原图。
+- 支持 GIF 动图播放；复制和保存的都是完整原文件。
+- 看到最后一张时，会自动尝试加载下一页的图片。
 
-普通浏览无需导入饼干；发言及受限内容需要有效饼干。在左下角“饼干管理”导入后，点击对应内容区的发串或回应按钮。标题和名称位于默认折叠的可选项中，发送前可预览内容。
+**发言**
+- 发串、回应，可以附图，有草稿箱、发送前预览、颜文字、防剧透和骰子。
+- 管理多个饼干：给饼干写本机备注、设默认饼干，回应时能看到这个饼干在当前串里用过几次。
+- 饼干导入方式：二维码图片、剪贴板图片、userhash、Cookie 头或 JSON。
+- 「我的发言」保存在本机发送成功的主题和回复。
+- 右键可以举报楼层，内容经过预览确认后才会发到值班室。
 
-### 独立资料目录
+**整理**
+- 支持多个订阅号，每个可以写备注、随时切换。
+- 板块收藏、浏览历史、屏蔽串和屏蔽板块。
+- 缓存可以设容量上限和存放位置；访问 X 岛和检查更新可以分别选择走系统代理或直连。
+- 检查更新的来源是 GitHub Releases，下载后会核对 SHA-256 校验值。
 
-默认数据继续保存在 `%LOCALAPPDATA%\TideIsland`。此次更名不移动或重建资料目录，原有饼干、订阅号、历史、草稿、发言记录及缓存路径设置会继续使用。需要使用独立资料目录时：
+## 快捷键
 
-```powershell
-& ".\Paomian Island.exe" --data-dir "D:\泡面岛资料"
-```
-
-同一资料目录只允许运行一个实例。饼干和订阅号使用当前 Windows 用户的 DPAPI 加密；订阅号可在管理窗口主动查看、复制。
-
-### 常用快捷键
-
-| 快捷键 | 操作 |
+| 按键 | 作用 |
 | --- | --- |
-| Ctrl+L | 聚焦跳串框 |
-| F5 | 刷新串列表 |
-| Ctrl+R | 刷新正文 |
-| Ctrl+D | 订阅 / 取消订阅 |
-| Esc | 关闭子窗口 |
-| 看图时滚轮 / + / − | 缩放 |
-| 看图时 ← / → | 切换图片 |
-| 看图时 1 / 0 / R | 原始比例 / 适应窗口 / 向左旋转 |
+| `Ctrl+L` | 输入串号或 X 岛链接，按 Enter 打开 |
+| `F5` | 刷新串列表 |
+| `Ctrl+R` | 刷新正文 |
+| `Ctrl+D` | 订阅或取消订阅当前串 |
+| `Esc` | 关闭子窗口 |
+| 看图时 `←` / `→` | 上一张 / 下一张 |
+| 看图时滚轮、`+` / `−` | 缩放 |
+| 看图时 `1` / `0` / `R` | 原始大小 / 适应窗口 / 向左旋转 |
 
-## 贡献指南
+## 数据与隐私
 
-欢迎通过 [Issues](https://github.com/muler-fish/Tide/issues) 提交问题或建议。报告问题时请提供程序版本、Windows 版本、显示缩放、复现步骤和必要截图，并隐去饼干密钥、订阅号等个人信息。
+- 所有数据只存在你的电脑上，默认放在 `%LOCALAPPDATA%\TideIsland`。
+- 饼干和订阅号用 Windows DPAPI 加密，只有当前 Windows 用户能读取。
+- 程序只连接 X 岛的服务器（包括图片和公告）和 GitHub（检查更新用），没有统计或遥测。
+- 想把资料放在别的地方，比如多开、做成便携版：
 
-### 本地开发
+  ```powershell
+  & ".\Paomian Island.exe" --data-dir "D:\泡面岛资料"
+  ```
 
-需要 Windows 和 **.NET 10 SDK**：
+  同一个资料目录同时只能运行一个泡面岛。
+
+## 参与开发
+
+需要 Windows 和 [.NET 10 SDK](https://dotnet.microsoft.com/download)：
 
 ```powershell
-git clone https://github.com/muler-fish/Tide.git
-cd Tide
-dotnet restore Tide.slnx
-dotnet build Tide.slnx -c Release --no-restore
+git clone https://github.com/muler-fish/Paomian_Island.git
+cd Paomian_Island
+dotnet build Tide.slnx -c Release
 dotnet run --project src/Tide.Desktop -- --data-dir "artifacts/dev-profile"
 ```
 
-- `src/Tide.Core`：API、数据模型、缓存与本地存储。
-- `src/Tide.Desktop`：WPF 界面、视图模型和阅读交互。
-- `tests`：核心测试及桌面专项检查。
-- `tools`：发布和资源生成脚本；`licenses`：第三方许可。
+| 目录 | 内容 |
+| --- | --- |
+| `src/Tide.Core` | X 岛接口、数据模型、缓存、本地存储、更新 |
+| `src/Tide.Desktop` | WPF 界面（WPF UI）、视图模型、主题与交互 |
+| `tests` | 核心测试和按功能划分的桌面专项检查 |
+| `tools` | 构建、打包、图标和颜文字资源脚本 |
+| `docs` | 设计记录、开发指南、验证记录 |
 
-提交改动时说明修改原因与验证结果。按改动范围运行相关专项，避免重复执行无关测试；例如点击状态与正文渲染的验证入口：
+测试、发布和打包的具体做法见[开发指南](docs/development.md)，当前的工作项见 [TODO.md](TODO.md)。
 
-```powershell
-.\tests\Tide.Desktop.Tests\bin\Release\net10.0-windows\Tide.Desktop.Tests.exe --reading-polish artifacts/reading-polish
-```
+欢迎提交 Issue 和 PR。报告问题时，请写上版本号、Windows 版本、显示缩放比例和复现步骤，**截图前请遮住饼干和订阅号**。改动比较大的话，建议先开个 Issue 讨论一下。
 
-使用独立资料目录，不要提交个人数据、`bin/`、`obj/`、`artifacts/` 或 `release/`。当前工作项见 [TODO.md](TODO.md)；准备较大的功能改动前，可先在 Issue 中讨论。
+## 致谢与许可
 
-构建自包含发布包可运行 `.\tools\Build.ps1 -SelfContained`，该脚本会编译、执行核心测试、复制许可并检查发布目录大小，然后在 `release/packages` 生成 `Paomian Island` 英文名发布包，以及 `泡面岛`、`Tide` 两个旧更新器兼容包。三个 ZIP 使用相同程序内容，兼容包仅保留旧可执行文件名并更新对应校验清单；发布到 Releases 时需同时附带三种 ZIP 及各自的 `.sha256` 文件。
+- 交互参考了记忆中老 A 岛的一款 Windows (不知道是不是第三方的)客户端，接口参考了[雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。
+- 用到了 [WPF UI](https://github.com/lepoco/wpfui)、ZXing.Net、Emoji.Wpf、XamlAnimatedGif 等开源组件，它们各自的许可放在 [licenses](licenses) 目录，详情见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- 泡面岛以 [GPL-3.0](LICENSE) 许可证开源。
 
-中英文名称集中在 `Directory.Build.props`；兼容标识见 `src/Tide.Core/AppIdentity.cs`。Logo 使用已确认的「挑面」A v2，矢量源文件、PNG 与多尺寸 ICO 位于 `src/Tide.Desktop/Assets/paomian.*`。Refined Reader 的主题颜色与控件样式集中在 `Themes/`，通过 `App.ApplyTheme` 切换；共用几何参数与预览行数位于 `UiMetrics.cs`，设置行规范位于 `SettingsLayout.cs`。
-
-## 许可证
-
-项目自身的源码暂未指定开源许可证。第三方组件、字体和资料遵循各自的许可；相关文件位于 [licenses](licenses)，发布包中也附带许可文件。WPF UI 的许可及第三方声明由构建脚本从还原的 NuGet 包中复制。
-
-交互参考 [摸鱼岛](https://github.com/junbluedd/Moyu-Island)，接口约定参考 [雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。本项目不是 X 岛官方软件。
+泡面岛不是 X 岛的官方软件。
