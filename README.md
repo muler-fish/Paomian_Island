@@ -95,16 +95,15 @@ dotnet run --project src/Tide.Desktop -- --data-dir "artifacts/dev-profile"
 | `src/Tide.Desktop` | WPF 界面（WPF UI）、视图模型、主题与交互 |
 | `tests` | 核心测试和按功能划分的桌面专项检查 |
 | `tools` | 构建、打包、图标和颜文字资源脚本 |
-| `docs` | 设计记录、开发指南、验证记录 |
 
-测试、发布和打包的具体做法见[开发指南](docs/development.md)，当前的工作项见 [TODO.md](TODO.md)。
+发布包用 `pwsh -File tools/Build.ps1 -SelfContained` 生成，当前的工作项见 [TODO.md](TODO.md)。
 
 欢迎提交 Issue 和 PR。报告问题时，请写上版本号、Windows 版本、显示缩放比例和复现步骤，**截图前请遮住饼干和订阅号**。改动比较大的话，建议先开个 Issue 讨论一下。
 
 ## 致谢与许可
 
 - 交互参考了记忆中老 A 岛的一款 Windows (不知道是不是第三方的)客户端，接口参考了[雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。
-- 用到了 [WPF UI](https://github.com/lepoco/wpfui)、ZXing.Net、Emoji.Wpf、XamlAnimatedGif 等开源组件，它们各自的许可放在 [licenses](licenses) 目录，详情见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- 用到了 [WPF UI](https://github.com/lepoco/wpfui)、ZXing.Net、Emoji.Wpf、XamlAnimatedGif 等开源组件，它们各自的许可放在 [licenses](licenses) 目录。
 - 泡面岛以 [GPL-3.0](LICENSE) 许可证开源。
 
 泡面岛不是 X 岛的官方软件。
