@@ -43,7 +43,7 @@ internal static class SentPostsChecks
             }
             finally { if(editor.IsVisible) editor.Close(); }
             var first=store.ReadSentPosts().Single();
-            Require(!first.IsReply && first.ThreadId==101 && first.Title=="主题标题" && first.Name=="自定义作者" && first.Content.Contains("😀\n第二行"),"主题发送快照缺失");
+            Require(!first.IsReply && first.ThreadId==101 && first.Title=="主题标题" && first.Name=="自定义作者" && first.Content.Contains("😀\r\n第二行"),"主题发送快照缺失"); // 编辑器按行分段，换行统一读回为 \r\n，与按 Enter 输入一致
             handler.Result="no-id";
             var reply=Editor(101,"","","我的回复"); await Send(reply,true); await Until(()=>reply.Delivered);
             var noId=Editor(0,"没有返回地址","","成功但没有串号"); await Send(noId,true); await Until(()=>noId.Delivered);

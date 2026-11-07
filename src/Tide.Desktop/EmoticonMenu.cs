@@ -79,7 +79,8 @@ internal sealed class EmoticonMenu
         footer.Children.Add(_hiddenEntry); footer.Children.Add(_message); DockPanel.SetDock(footer, Dock.Bottom); root.Children.Add(footer);
         var scroll = new ScrollViewer {
             Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            MaxHeight = Math.Clamp(_owner.ActualHeight - 200, 160, 400)
+            // 固定高度：各分类内容多少不同，若随内容伸缩，弹出层会变高变矮，甚至被系统改放到按钮另一侧。
+            Height = Math.Clamp(_owner.ActualHeight - 200, 160, 400)
         };
         Detach(_list); panel.Children.Add(_list); root.Children.Add(scroll);
         Detach(Preview); root.Children.Add(Preview);
@@ -117,7 +118,8 @@ internal sealed class EmoticonMenu
         _list.Children.Clear();
         var hiddenCount = state.HiddenEmoticons.Count(t => EmoticonCatalog.Entries.Any(e => e.Text == t));
         _hiddenEntry.Content = _category == HiddenCategory ? "‹ 返回全部" : $"已隐藏 {hiddenCount} 个内置颜文字";
-        _hiddenEntry.Visibility = hiddenCount > 0 || _category == HiddenCategory ? Visibility.Visible : Visibility.Collapsed;
+        // 没有隐藏条目时只是不可见、仍占位，保持弹出层高度不变。
+        _hiddenEntry.Visibility = hiddenCount > 0 || _category == HiddenCategory ? Visibility.Visible : Visibility.Hidden;
         switch (_category)
         {
             case RecentCategory:

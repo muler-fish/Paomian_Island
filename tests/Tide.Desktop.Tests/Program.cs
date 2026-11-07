@@ -83,6 +83,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--compact-cookie") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/compact-cookie");
         if (args.FirstOrDefault() == "--cookie-manager") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/cookie-manager");
         if (args.FirstOrDefault() == "--emoticon-custom") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-custom");
+        if (args.FirstOrDefault() == "--real-ime") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/real-ime");
         if (args.FirstOrDefault() == "--composer-input") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-input");
         if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
@@ -130,6 +131,12 @@ internal static class Program
                 if (args.FirstOrDefault() == "--composer-input")
                 {
                     await ComposerInputChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                // 使用真实的系统输入法并发送按键，会占用键盘；只在显式指定时运行。
+                if (args.FirstOrDefault() == "--real-ime")
+                {
+                    await RealImeProbe.RunAsync(window, output);
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--subscription-display")

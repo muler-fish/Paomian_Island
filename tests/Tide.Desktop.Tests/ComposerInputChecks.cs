@@ -55,11 +55,12 @@ internal static class ComposerInputChecks
             await Check("ime-commit", "拼音：中文", 5);
             await Enter(editor); await Type(editor, "下一行");
             await Check("ime-then-enter", "拼音：中文\r\n下一行", 10);
-            // 4b. 组合被取消（不会收到 PreviewTextInput）后按 Enter：仍是软换行，不会生成新段落把光标带回上一行。
+            // 4b. 组合被取消（不会收到 PreviewTextInput）后按 Enter：仍由编辑器处理，光标在新行。
             TextCompositionManager.StartComposition(new TextComposition(InputManager.Current, editor, "x", TextCompositionAutoComplete.Off)); await Pause();
             await Enter(editor); await Type(editor, "续");
             await Check("cancelled-ime-then-enter", "拼音：中文\r\n下一行\r\n续", 13);
-            Require(editor.Document.Blocks.Count == 1, "取消组合后的 Enter 生成了新段落");
+            // Enter 产生段落，不在段落末尾留下后面没有文字的 LineBreak：TSF 输入法会把组合文字插到这种 LineBreak 之前。
+            Require(editor.Document.Blocks.OfType<Paragraph>().All(p => p.Inlines.LastInline is not LineBreak), "段落末尾留下了 LineBreak");
             // 5. 粘贴多行（结尾带换行，会生成多个段落）
             editor.Text = "开头"; editor.CaretIndex = 2; await Pause();
             Clipboard.SetText("甲\r\n乙\r\n"); editor.Paste(); await Pause();

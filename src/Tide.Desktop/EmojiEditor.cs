@@ -19,8 +19,14 @@ public sealed class EmojiEditor : RichTextBox
         get => EmojiText.Read(Document);
         set
         {
+            // 每行一个段落，与 Enter、粘贴产生的结构一致；段落之间读回为 \r\n。
             BeginChange();
-            try { Document.Blocks.Clear(); Document.Blocks.Add(new Paragraph(new Run(value)) { Margin = new(0) }); }
+            try
+            {
+                Document.Blocks.Clear();
+                foreach (var line in value.Replace("\r\n", "\n").Split('\n'))
+                    Document.Blocks.Add(new Paragraph(new Run(line)) { Margin = new(0) });
+            }
             finally { EndChange(); }
         }
     }
@@ -55,14 +61,15 @@ public sealed class EmojiEditor : RichTextBox
         TextCompositionManager.AddPreviewTextInputStartHandler(this, (_, _) => _composing = true);
         TextCompositionManager.AddPreviewTextInputUpdateHandler(this, (_, _) => _composing = true);
         LostKeyboardFocus += (_, _) => { _composing = false; RenderEmoji(); };
-        // Enter 采用软换行；原生选区和撤销仍由 WPF 管理。
+        // Enter 插入新段落：段落末尾若留下后面没有文字的 LineBreak，微软拼音等 TSF 输入法会把组合文字
+        // 按字符偏移插到 LineBreak 之前，即上一行末尾。原生选区和撤销仍由 WPF 管理。
         PreviewKeyDown += (_, e) =>
         {
             // 输入法组合期间按键以 ImeProcessed 送达，候选确认键不会到这里。收到真实按键说明没有组合在进行：
             // 组合被取消（Esc、删光拼音）时不会有 PreviewTextInput，需在此复位，否则 Enter 会落到默认的分段处理。
             if (e.Key == Key.ImeProcessed) return;
             _composing = false;
-            if (e.Key == Key.Enter) { if (Text.Length - SelectionLength + 2 <= MaxLength) EditingCommands.EnterLineBreak.Execute(null, this); e.Handled = true; }
+            if (e.Key == Key.Enter) { if (Text.Length - SelectionLength + 2 <= MaxLength) EditingCommands.EnterParagraphBreak.Execute(null, this); e.Handled = true; }
         };
         CommandManager.AddPreviewExecutedHandler(this, CopyCommand);
         Loaded += (_, _) => RenderEmoji();

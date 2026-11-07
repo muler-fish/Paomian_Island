@@ -39,8 +39,19 @@ internal static class EmoticonCustomChecks
                 Require(button.Height == 32 && button.Background is SolidColorBrush { Color.A: 0 }, "工具按钮规格不统一：" + tool);
             }
 
+            // 切换分类时弹出层尺寸和位置不变（全部 197 条、最近使用和自定义为空），不跳到按钮另一侧。
+            await Open(composer);
+            Rect? first = null;
+            foreach (var tab in new[] { "全部", "最近使用", "自定义", "全部" })
+            {
+                await Category(menu, tab);
+                var bounds = ScreenRect((FrameworkElement)menu.Popup.Child);
+                first ??= bounds;
+                Require(Math.Abs(bounds.Top - first.Value.Top) < 0.5 && Math.Abs(bounds.Left - first.Value.Left) < 0.5 && Math.Abs(bounds.Height - first.Value.Height) < 0.5 && Math.Abs(bounds.Width - first.Value.Width) < 0.5,
+                    $"切换到「{tab}」后弹出层尺寸或位置变化：{bounds} / {first}");
+            }
             // 空的自定义分类
-            await Open(composer); await Category(menu, "自定义");
+            await Category(menu, "自定义");
             Require(Texts(menu).Any(t => t.StartsWith("还没有自定义颜文字")), "空的自定义分类没有提示");
             Snapshot(menu.Popup, Path.Combine(output, "custom-empty-light.png"));
 
