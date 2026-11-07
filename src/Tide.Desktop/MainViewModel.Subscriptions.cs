@@ -8,10 +8,12 @@ public sealed class SubscriptionProfile(string id, string name, string value) : 
     public string Id { get; } = id;
     public string Name { get; private set; } = name;
     public string Value { get; private set; } = value;
-    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? Value : $"{Name} · {Value}";
+    // 备注是用户自填的普通名称：有备注时作主名称，号码退为次级文字；没有备注时直接显示号码。
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? Value : Name.Trim();
+    public string Detail => string.IsNullOrWhiteSpace(Name) ? "" : Value;
     public void Update(string name, string value)
     {
-        Name = name; Value = value; Changed(nameof(Name)); Changed(nameof(Value)); Changed(nameof(DisplayName));
+        Name = name; Value = value; Changed(nameof(Name)); Changed(nameof(Value)); Changed(nameof(DisplayName)); Changed(nameof(Detail));
     }
 }
 
@@ -260,12 +262,12 @@ public sealed partial class MainViewModel
             if (previous >= 0)
             {
                 if (previous != index) Posts.Move(previous, index);
-                if (Posts[index].Post != post) Posts[index] = Card(post, Posts[index].Progress);
+                if (Posts[index].Post != post) Posts[index] = Card(post, Posts[index].Progress, showReplies: false);
             }
             else
             {
                 var history = State.History.Find(h => h.Post.Id == post.Id);
-                Posts.Insert(index, Card(post, history is null ? "" : $"读至第 {history.Page} 页"));
+                Posts.Insert(index, Card(post, history is null ? "" : $"读至第 {history.Page} 页", showReplies: false));
             }
         }
         while (Posts.Count > desired.Count) Posts.RemoveAt(Posts.Count - 1);

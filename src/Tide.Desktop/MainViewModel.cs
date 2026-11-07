@@ -7,7 +7,7 @@ namespace Tide.Desktop;
 
 // 把核心数据包装成界面需要的分组、摘要和阅读项，避免把显示细节写进 API 模型。
 public sealed record ForumGroup(string Name, List<Forum> Items);
-public sealed class PostCard(Post post, string forumName, string progress = "") : Observable
+public sealed class PostCard(Post post, string forumName, string progress = "", bool showReplies = true) : Observable
 {
     public Post Post { get; } = post;
     public string ForumName { get; } = forumName;
@@ -31,6 +31,8 @@ public sealed class PostCard(Post post, string forumName, string progress = "") 
     }
     // 纯文本用于自动化描述；实际预览由 PostPreview 保留富文本和原始空行。
     public string Excerpt => ContentText.Plain(Post.Content, _hideSpoilers);
+    // 订阅接口（feed）不返回回复数，订阅列表里不显示，避免一律显示「0 回复」。
+    public bool ShowReplies { get; } = showReplies;
     public string ReplyLabel => $"{Post.ReplyCount} 回复";
     public string Number => Post.Number;
 }
@@ -395,9 +397,9 @@ public sealed partial class MainViewModel : Observable, IDisposable
         if (_threadStartPage == 1) ReadingPosts.Add(new(_original, true, true));
         AppendReading(_readingPages.Values.SelectMany(p => p));
     }
-    private PostCard Card(Post p, string progress = "")
+    private PostCard Card(Post p, string progress = "", bool showReplies = true)
     {
-        var card = new PostCard(p, ForumName(p.Fid), progress); card.SetSpoilerProtection(State.HideSpoilers); return card;
+        var card = new PostCard(p, ForumName(p.Fid), progress, showReplies); card.SetSpoilerProtection(State.HideSpoilers); return card;
     }
     public string ForumName(int id) => State.Forums.Find(f => !f.IsTimeline && f.Id == id)?.Name ?? $"版块 {id}";
     public string ActiveCookie()

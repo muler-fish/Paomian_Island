@@ -97,7 +97,8 @@ internal static class CookieImportChecks
                 Require(reopened.ActiveCookie() == SyntheticCookie && reopened.State.Cookies[0].Name == "源名称更新", "重启后饼干身份或源名称没有保留。");
 
             dialog = new CookieWindow(vm) { Owner = main, ShowInTaskbar = false }; dialog.Show();
-            await Invoke(FindButton(dialog, "切换为游客")); Require(vm.State.ActiveCookieId == "", "游客切换未立即生效。");
+            UiRefinementChecks.Descendants<ComboBox>(dialog).Single(c => AutomationProperties.GetName(c) == "默认发言身份").SelectedValue = ""; await Task.Delay(150);
+            Require(vm.State.ActiveCookieId == "" && store.Load().ActiveCookieId == "", "游客切换未立即生效。");
             await Invoke(FindButton(dialog, "导入饼干"));
             var gate = new TaskCompletionSource<CookieImport.Value>(); var pending = dialog.ReadQrAsync(() => gate.Task);
             dialog.Close(); dialog = null; gate.SetResult(new(SyntheticCookie, "迟到识别")); await pending;

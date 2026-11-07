@@ -82,6 +82,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--reader-feedback") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reader-feedback");
         if (args.FirstOrDefault() == "--compact-cookie") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/compact-cookie");
         if (args.FirstOrDefault() == "--cookie-manager") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/cookie-manager");
+        if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
         if (args.FirstOrDefault() == "--gif") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-playback");
@@ -117,6 +118,11 @@ internal static class Program
                 if (args.FirstOrDefault() == "--settings-layout")
                 {
                     await SettingsLayoutChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--subscription-display")
+                {
+                    await SubscriptionDisplayChecks.RunAsync(window, output, Capture);
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--cookie-manager")

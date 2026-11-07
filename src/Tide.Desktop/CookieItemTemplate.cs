@@ -101,6 +101,15 @@ internal static class CookieItemTemplate
         }
     }
 
+    // 默认身份下拉只显示「原 ID（备注）」；游客项的备注为空，只显示名称。
+    internal static DataTemplate CreateName()
+    {
+        var converter = new CookieTextConverter("", null, false);
+        var name = NameWithRemark(converter);
+        name.SetBinding(FrameworkElement.ToolTipProperty, new Binding { Converter = converter, ConverterParameter = "choiceTip" });
+        return new DataTemplate(typeof(CookieIdentity)) { VisualTree = name };
+    }
+
     private static FrameworkElementFactory NameWithRemark(CookieTextConverter converter)
     {
         var name = new FrameworkElementFactory(typeof(TextBlock));

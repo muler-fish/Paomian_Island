@@ -25,7 +25,8 @@ internal static class CookieManagerChecks
         {
             var list = All<ListBox>(window).Single();
             var import = Button(window, "导入并使用");
-            Require(!All<PasswordBox>(window).Any(p => p.IsVisible) && list.Items.Count == 0 && !Button(window, "切换为游客").IsEnabled, "空管理页暴露导入表单或游客操作状态错误");
+            Require(!All<PasswordBox>(window).Any(p => p.IsVisible) && list.Items.Count == 0 && !Default(window).IsEnabled && Default(window).SelectedValue as string == "", "空管理页暴露导入表单或默认身份不是游客");
+            Require(!All<Button>(window).Any(b => b.Content is "切换为游客" or "设置为默认饼干"), "仍保留与默认身份下拉重复的操作");
             capture(window, Path.Combine(output, "manager-empty-light.png"));
             App.ApplyTheme("dark"); await Pause(); capture(window, Path.Combine(output, "manager-empty-dark.png")); App.ApplyTheme("light");
             Click(window, "导入饼干"); await Pause();
@@ -50,6 +51,7 @@ internal static class CookieManagerChecks
             Require(!value.IsVisible && value.Password == "" && vm.State.Cookies.Count == 1 && vm.ActiveCookie() == secret, "导入成功未返回管理、清除敏感输入或使用身份");
             Require(!File.ReadAllText(Path.Combine(vm.Store.Root, "state.json")).Contains(secret), "凭据明文保存");
             Require(!All<TextBlock>(window).Any(t => t.Text.Contains(secret)), "凭据回显到普通文字");
+            Require(Default(window).IsEnabled && Default(window).SelectedValue as string == vm.State.ActiveCookieId, "导入后默认身份下拉未显示新饼干");
             var id = vm.State.ActiveCookieId;
             var remark = All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "饼干备注");
             remark.Text = "常用"; Click(window, "保存备注");
@@ -81,9 +83,11 @@ internal static class CookieManagerChecks
             var list = All<ListBox>(many).Single(); list.SelectedIndex = 2; await Pause();
             Require(vm.State.ActiveCookieId == "item1" && list.SelectedItem is CookieIdentity { Id: "item3" }, "列表选中改变了默认身份");
             Require(All<TextBlock>(many).Any(t => t.Text == "当前发言：Cookie2"), "当前发言身份与默认混淆");
-            Click(many, "设置为默认饼干");
-            Require(vm.State.ActiveCookieId == "item3" && All<TextBlock>(many).Any(t => t.Text == "当前发言：Cookie2"), "默认设置覆盖临时发言选择");
-            Require(!Button(many, "已是默认饼干").IsEnabled, "已生效默认操作没有禁用");
+            Require(Default(many).SelectedValue as string == "item1" && Default(many).Items.Count == 41, "默认身份下拉未列出游客和全部饼干");
+            await SelectDefault(many, "item5");
+            Require(vm.State.ActiveCookieId == "item5" && vm.Store.Load().ActiveCookieId == "item5", "下拉选择未设为默认或未保存");
+            Require(list.SelectedItem is CookieIdentity { Id: "item3" }, "设置默认改变了列表选中项");
+            Require(All<TextBlock>(many).Any(t => t.Text == "当前发言：Cookie2"), "默认设置覆盖临时发言选择");
             foreach (var theme in new[] { "light", "dark" })
             {
                 App.ApplyTheme(theme);
@@ -105,12 +109,28 @@ internal static class CookieManagerChecks
             }
             list.SelectedItem = vm.State.Cookies.Find(c => c.Id == "item2");
             ConfirmRemoval(many, true);
-            Require(many.RequestedCookieId == "item3" && All<TextBlock>(many).Any(t => t.Text == "当前发言：Cookie3"), "移除临时使用饼干后未回退到默认身份");
-            Click(many, "切换为游客");
-            Require(vm.State.ActiveCookieId == "" && many.RequestedCookieId == "" && All<TextBlock>(many).Any(t => t.Text == "当前发言：游客"), "游客切换没有更新身份");
+            Require(many.RequestedCookieId == "item5" && All<TextBlock>(many).Any(t => t.Text == "当前发言：Cookie5"), "移除临时使用饼干后未回退到默认身份");
+            list.SelectedItem = vm.State.Cookies.Find(c => c.Id == "item9"); await Pause();
+            await SelectDefault(many, "");
+            Require(vm.State.ActiveCookieId == "" && vm.Store.Load().ActiveCookieId == "" && Default(many).SelectedValue as string == "", "游客切换没有解除默认饼干");
+            Require(many.RequestedCookieId == "item5" && All<TextBlock>(many).Any(t => t.Text == "当前发言：Cookie5"), "切换游客改变了本次发言的饼干");
+            Require(list.SelectedItem is CookieIdentity { Id: "item9" }, "切换游客改变了列表选中项");
+            capture(many, Path.Combine(output, "manager-guest-dark.png"));
+            await SelectDefault(many, "item7");
+            Require(vm.State.ActiveCookieId == "item7" && vm.Store.Load().ActiveCookieId == "item7" && list.SelectedItem is CookieIdentity { Id: "item9" }, "从游客设回默认饼干失败或改变了选中项");
+            // 重新从资料目录载入，相当于重启后打开饼干管理。
+            using (var reopened = new MainViewModel(new XIslandApi(new System.Net.Http.HttpClient()), new LocalStore(vm.Store.Root)))
+            {
+                var again = new CookieWindow(reopened) { Owner = owner, ShowInTaskbar = false };
+                again.Show(); await Pause();
+                try { Require(reopened.State.ActiveCookieId == "item7" && Default(again).SelectedValue as string == "item7", "重启后默认饼干未恢复"); }
+                finally { again.Close(); }
+            }
+            list.SelectedItem = vm.State.Cookies.Find(c => c.Id == "item7"); ConfirmRemoval(many, true); await Pause();
+            Require(vm.State.ActiveCookieId == "" && vm.Store.Load().ActiveCookieId == "" && Default(many).SelectedValue as string == "", "删除默认饼干后未回到游客");
         }
         finally { many.Close(); App.ApplyTheme("light"); }
-        Console.WriteLine("PASS: manager/import views; empty/single/many identities; remark, default/current/selection separation, guest, QR/file/image/text validation, encrypted persistence, duplicate import, stale decode, removal confirmation, light/dark and 100/125/150% DPI.");
+        Console.WriteLine("PASS: manager/import views; empty/single/many identities; remark, default identity dropdown (guest/cookie both ways, persisted, independent of list and composer selection, default removal), QR/file/image/text validation, encrypted persistence, duplicate import, stale decode, removal confirmation, light/dark and 100/125/150% DPI.");
     }
     private static void ConfirmRemoval(Window parent, bool accept)
     {
@@ -130,6 +150,9 @@ internal static class CookieManagerChecks
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr handle, int msg, IntPtr wParam, IntPtr lParam);
     private static IEnumerable<T> All<T>(DependencyObject root) where T : DependencyObject => UiRefinementChecks.Descendants<T>(root);
+    private static ComboBox Default(Window root) => All<ComboBox>(root).Single(c => AutomationProperties.GetName(c) == "默认发言身份");
+    // 模拟用户在下拉中选择；保存在选择事件之后执行，所以等待一次调度。
+    private static async Task SelectDefault(Window window, string id) { var box = Default(window); Require(box.IsEnabled && box.IsVisible, "默认身份下拉不可用"); box.SelectedValue = id; await Pause(); }
     private static Button Button(Window root, string text) => All<Button>(root).Single(b => Equals(b.Content, text));
     private static void Click(Window window, string text) { var button = Button(window, text); Require(button.IsEnabled && button.IsVisible, "操作不可用: " + text); button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); }
     private static Task Pause() => Task.Delay(150);

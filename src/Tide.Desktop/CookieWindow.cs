@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using Tide.Core;
 
@@ -19,7 +20,11 @@ public sealed class CookieWindow : DialogWindow
     private readonly TextBlock _active = new();
     private readonly TextBlock _empty = Hint("尚未导入饼干。可以继续以游客身份浏览。 ");
     private readonly Button _import;
-    private readonly Button _setDefault, _remove, _saveRemark, _guest;
+    private readonly Button _remove, _saveRemark;
+    // 游客用空 Id 表示，与 ActiveCookieId 的空值语义一致；只用于下拉显示，不写入饼干列表。
+    private static readonly CookieIdentity Guest = new("", "游客", "");
+    private readonly ComboBox _default = new() { MinWidth = 200, MaxWidth = 320, MaxDropDownHeight = 256, HorizontalAlignment = HorizontalAlignment.Left, HorizontalContentAlignment = HorizontalAlignment.Stretch, SelectedValuePath = nameof(CookieIdentity.Id) };
+    private bool _syncingDefault;
     private readonly Grid _management = new(), _importPage = new();
     private readonly StackPanel _details = new();
     private readonly TextBlock _detailName = new() { FontSize = 18, FontWeight = FontWeights.Medium, TextWrapping = TextWrapping.Wrap };
@@ -51,6 +56,16 @@ public sealed class CookieWindow : DialogWindow
         AutomationProperties.SetName(_list, "已保存的饼干");
         AutomationProperties.SetName(_detailName, "所选饼干标识");
         AutomationProperties.SetName(_detailState, "所选饼干状态");
+        AutomationProperties.SetName(_default, "默认发言身份");
+        _default.ItemTemplate = CookieItemTemplate.CreateName();
+        _default.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "CookieChoiceItem");
+        _default.ToolTip = "游客与默认饼干只能二选一。默认饼干用于浏览，也是发串和回应时的初始饼干。";
+        // 只响应用户选择；延后到选择事件结束再保存，避免在事件中重建下拉项。
+        _default.SelectionChanged += (_, _) =>
+        {
+            if (_syncingDefault || _default.SelectedValue is not string id || id == _vm.State.ActiveCookieId) return;
+            Dispatcher.BeginInvoke(() => Switch(id), DispatcherPriority.Normal);
+        };
         _list.SelectionChanged += (_, _) => UpdateDetails();
         _remark.TextChanged += (_, _) => UpdateActions();
         _value.PasswordChanged += (_, _) => { if (!_readingQr) Feedback.Text = ""; UpdateNamePreview(); };
@@ -65,11 +80,20 @@ public sealed class CookieWindow : DialogWindow
         _management.RowDefinitions.Add(new() { Height = GridLength.Auto }); _management.RowDefinitions.Add(new());
         var header = new DockPanel { Margin = new(0, 0, 0, 20) };
         var importEntry = Button("导入饼干", () => ShowImport(true), true);
-        DockPanel.SetDock(importEntry, Dock.Right); header.Children.Add(importEntry);
-        _guest = Button("切换为游客", () => Switch("")); _guest.SetResourceReference(StyleProperty, "Quiet");
-        DockPanel.SetDock(_guest, Dock.Right); header.Children.Add(_guest);
-        _active.TextWrapping = TextWrapping.Wrap; _active.VerticalAlignment = VerticalAlignment.Center;
-        header.Children.Add(_active); _management.Children.Add(header);
+        importEntry.VerticalAlignment = VerticalAlignment.Top; DockPanel.SetDock(importEntry, Dock.Right); header.Children.Add(importEntry);
+        var identity = new StackPanel { Margin = new(0, 0, 16, 0) };
+        var choice = new DockPanel();
+        var choiceLabel = new TextBlock { Text = "默认发言身份", VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 12, 0) };
+        DockPanel.SetDock(choiceLabel, Dock.Left); choice.Children.Add(choiceLabel); choice.Children.Add(_default);
+        identity.Children.Add(choice);
+        var choiceHint = Hint("选择游客会解除默认饼干；发言时临时选择的饼干不受影响。"); choiceHint.Margin = new(0, 6, 0, 0);
+        identity.Children.Add(choiceHint);
+        // 从发言窗口打开时另行显示本次发言的饼干，与默认身份区分。
+        _active.TextWrapping = TextWrapping.Wrap; _active.FontSize = 12; _active.Margin = new(0, 2, 0, 0);
+        _active.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        _active.Visibility = _fromComposer ? Visibility.Visible : Visibility.Collapsed;
+        identity.Children.Add(_active);
+        header.Children.Add(identity); _management.Children.Add(header);
 
         var columns = new Grid(); Grid.SetRow(columns, 1); _management.Children.Add(columns);
         columns.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star), MinWidth = 160 });
@@ -89,8 +113,6 @@ public sealed class CookieWindow : DialogWindow
         _saveRemark = Button("保存备注", SaveRemark); _saveRemark.Margin = new(0, 10, 0, 0); _saveRemark.HorizontalAlignment = HorizontalAlignment.Left;
         _details.Children.Add(_saveRemark);
         _details.Children.Add(Hint("备注只保存在本机，不修改饼干原标识。"));
-        _setDefault = Button("设置为默认饼干", () => { if (_list.SelectedItem is CookieIdentity item) Switch(item.Id); });
-        _setDefault.Margin = new(0, 12, 0, 0); _setDefault.HorizontalAlignment = HorizontalAlignment.Left; _details.Children.Add(_setDefault);
         _remove = Button("移除饼干", Remove); _remove.Margin = new(0, 16, 0, 0); _remove.HorizontalAlignment = HorizontalAlignment.Left;
         _remove.SetResourceReference(StyleProperty, "Quiet"); _remove.SetResourceReference(ForegroundProperty, "Danger"); _details.Children.Add(_remove);
 
@@ -131,7 +153,16 @@ public sealed class CookieWindow : DialogWindow
         _empty.Visibility = _vm.State.Cookies.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         _list.SelectedItem = _vm.State.Cookies.Find(c => c.Id == selectedId) ?? _vm.State.Cookies.FirstOrDefault();
         _active.Text = (_fromComposer ? "当前发言：" : "当前浏览：") + (_vm.State.Cookies.Find(c => c.Id == CurrentCookieId)?.Name ?? "游客");
-        _guest.IsEnabled = CurrentCookieId.Length > 0 || _vm.State.ActiveCookieId.Length > 0;
+        _syncingDefault = true;
+        try
+        {
+            var choices = new[] { Guest }.Concat(_vm.State.Cookies).ToList();
+            _default.ItemsSource = choices;
+            // 默认 Id 已失效时实际按游客请求，下拉同样显示游客。
+            _default.SelectedItem = choices.Find(c => c.Id == _vm.State.ActiveCookieId) ?? Guest;
+            _default.IsEnabled = _vm.State.Cookies.Count > 0;
+        }
+        finally { _syncingDefault = false; }
         UpdateDetails();
         UpdateNamePreview();
     }
@@ -148,8 +179,6 @@ public sealed class CookieWindow : DialogWindow
     private void UpdateActions()
     {
         var item = _list.SelectedItem as CookieIdentity;
-        _setDefault.IsEnabled = item is not null && item.Id != _vm.State.ActiveCookieId;
-        _setDefault.Content = item is not null && item.Id == _vm.State.ActiveCookieId ? "已是默认饼干" : "设置为默认饼干";
         _remove.IsEnabled = item is not null;
         _saveRemark.IsEnabled = item is not null && _remark.Text.Trim() != item.Remark;
     }
@@ -247,8 +276,10 @@ public sealed class CookieWindow : DialogWindow
     }
     private void Switch(string id)
     {
-        try { Commit(_vm.State.Cookies.ToList(), id); if (id.Length == 0) { RequestedCookieId = ""; if (_fromComposer) _currentCookieId = ""; Refresh(); } Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Accent"); Feedback.Text = id.Length == 0 ? "已切换为游客。" : "已设置为默认饼干。"; }
-        catch (Exception ex) { ShowFailure(ex); }
+        // 只改默认身份：保留列表选中项和本次发言的临时选择。
+        if (_closed) return;
+        try { Commit(_vm.State.Cookies.ToList(), id, (_list.SelectedItem as CookieIdentity)?.Id); Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Accent"); Feedback.Text = id.Length == 0 ? "已切换为游客。" : "已设置为默认饼干。"; }
+        catch (Exception ex) { Refresh(); ShowFailure(ex); }
     }
     private void Remove()
     {
@@ -266,13 +297,13 @@ public sealed class CookieWindow : DialogWindow
         }
         catch (Exception ex) { ShowFailure(ex); }
     }
-    private void Commit(List<CookieIdentity> cookies, string active)
+    private void Commit(List<CookieIdentity> cookies, string active, string? select = null)
     {
         var previous = _vm.State.Cookies; var previousActive = _vm.State.ActiveCookieId;
         _vm.State.Cookies = cookies; _vm.State.ActiveCookieId = active;
         try { _vm.Store.Save(_vm.State); }
         catch { _vm.State.Cookies = previous; _vm.State.ActiveCookieId = previousActive; throw; }
-        _vm.ApplyCookie(); Refresh(active);
+        _vm.ApplyCookie(); Refresh(select ?? active);
     }
     private void ShowFailure(Exception ex)
     {

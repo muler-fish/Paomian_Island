@@ -179,7 +179,11 @@
             </Grid>
           </Border>
           <StackPanel Grid.Row="1" Margin="20,8,20,8">
-          <ComboBox x:Name="SubscriptionSelector" ItemsSource="{Binding SubscriptionAccounts}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding ActiveSubscriptionKey, Mode=TwoWay}" Visibility="{Binding IsSubscriptions, Converter={StaticResource Visible}}" Margin="0,0,0,8" AutomationProperties.Name="当前订阅号"/>
+          <ComboBox x:Name="SubscriptionSelector" ItemsSource="{Binding SubscriptionAccounts}" SelectedValuePath="Id" SelectedValue="{Binding ActiveSubscriptionKey, Mode=TwoWay}" Visibility="{Binding IsSubscriptions, Converter={StaticResource Visible}}" Margin="0,0,0,8" AutomationProperties.Name="当前订阅号">
+            <ComboBox.ItemTemplate><DataTemplate>
+              <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" AutomationProperties.Name="{Binding DisplayName}"><Run Text="{Binding DisplayName, Mode=OneWay}"/><Run Text="  "/><Run Text="{Binding Detail, Mode=OneWay}" FontSize="12" Foreground="{DynamicResource Muted}"/></TextBlock>
+            </DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
           <DockPanel>
             <Button DockPanel.Dock="Right" Content="订阅号" Click="SubscriptionSettings_Click" Visibility="{Binding IsSubscriptions, Converter={StaticResource Visible}}" FontSize="12" MinHeight="24" Padding="6,0" Margin="8,0,0,0"/>
             <Button DockPanel.Dock="Right" Content="版规 ↗" Click="Notice_Click" FontSize="12" MinHeight="24" Padding="0">
@@ -207,7 +211,7 @@
               <StackPanel>
                 <!-- 回复数固定右对齐；窄栏时左侧元信息按原顺序换行，不挤压饼干。 -->
                 <DockPanel x:Name="CardMetadata" Margin="0,0,0,8">
-                  <TextBlock x:Name="CardReplies" DockPanel.Dock="Right" Text="{Binding ReplyLabel}" FontSize="12" Foreground="{DynamicResource Muted}" VerticalAlignment="Top" Margin="8,3,0,0"/>
+                  <TextBlock x:Name="CardReplies" DockPanel.Dock="Right" Text="{Binding ReplyLabel}" Visibility="{Binding ShowReplies, Converter={StaticResource Visible}}" FontSize="12" Foreground="{DynamicResource Muted}" VerticalAlignment="Top" Margin="8,3,0,0"/>
                   <WrapPanel>
                     <local:PostIdentity Post="{Binding Post}" ShowSage="False" Margin="0,0,8,2"/>
                     <TextBlock x:Name="CardDate" Text="{Binding DateLabel}" ToolTip="{Binding Post.Time}" AutomationProperties.Name="{Binding Post.Time}" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,3,8,2"/>

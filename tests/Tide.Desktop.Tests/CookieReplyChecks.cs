@@ -41,7 +41,7 @@ internal static class CookieReplyChecks
             value.Password = JsonSerializer.Serialize(new { cookie = "synthetic-reply-cookie-a", name = "更新后的原名A" });
             Click(manager, "导入并使用"); await Pause();
             Require(model.State.Cookies.Count == 2 && model.State.Cookies[0].Id == first.Id && model.State.Cookies[0].Remark == "常用 · 工作日", "重新导入丢失身份或备注");
-            list.SelectedIndex = 1; Click(manager, "设置为默认饼干"); await Pause();
+            list.SelectedIndex = 1; All<ComboBox>(manager).Single(c => AutomationProperties.GetName(c) == "默认发言身份").SelectedValue = second.Id; await Pause();
             Require(model.Store.Load().ActiveCookieId == second.Id, "默认饼干没有保存");
             capture(manager, Path.Combine(output, "cookies-remarks-light.png"));
             App.ApplyTheme("dark"); await Pause(); capture(manager, Path.Combine(output, "cookies-remarks-dark.png"));
