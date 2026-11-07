@@ -31,8 +31,6 @@ internal static class SubscriptionDisplayChecks
         foreach (var theme in new[] { "light", "dark" })
         {
             App.ApplyTheme(theme);
-            // 当前订阅号对象被整体替换后，选择框会出现 SelectedValue 有值而 SelectedItem 为空（既有问题，另行处理）；先切到 b 再切回。
-            selector.SelectedValue = "b"; await Until(() => Shown(selector, bare) is not null);
             selector.SelectedValue = "a"; await Until(() => Shown(selector, "默认") is { } shown && Text(shown).Length > 2);
             Require(Shown(selector, "默认") is { } remark && Text(remark) == "默认  " + withRemark && Equals(remark.ToolTip, withRemark), $"有备注时选择框显示或悬停号码错误: {string.Join(" | ", UiRefinementChecks.Descendants<TextBlock>(selector).Select(t => AutomationProperties.GetName(t) + "=" + Text(t) + "/" + t.ToolTip))}; key={vm.ActiveSubscriptionKey}; item={(selector.SelectedItem as SubscriptionProfile)?.Id ?? "null"}; value={selector.SelectedValue}; count={selector.Items.Count}");
             capture(window, Path.Combine(output, $"subscription-remark-{theme}.png"));
@@ -44,7 +42,11 @@ internal static class SubscriptionDisplayChecks
         // 改备注后选择器即时更新；清空备注退回号码显示。
         vm.SaveSubscriptionAccounts([new("a", "", withRemark), new("b", "", bare)], "a"); await Until(() => Shown(selector, withRemark) is not null);
         Require(Shown(selector, withRemark) is { } cleared && Text(cleared).Trim() == withRemark, "清空备注后选择器未改为显示号码");
-        Console.WriteLine("PASS: subscription cards hide reply count (feed has none); subscription selector uses remark as title with muted full ID, ID-only without remark, tooltip shows full ID, light/dark.");
+        // 替换当前订阅号对象（删掉当前号、换成新号）后，选择框仍要选中并显示新的当前号。
+        vm.SaveSubscriptionAccounts([new("c", "新号", "synthetic-subscription-0003"), new("b", "", bare)], "c");
+        await Until(() => selector.SelectedItem is not null);
+        Require(selector.SelectedItem is SubscriptionProfile { Id: "c" } && Shown(selector, "新号") is not null, $"替换当前订阅号后选择框为空: item={(selector.SelectedItem as SubscriptionProfile)?.Id ?? "null"}; value={selector.SelectedValue}");
+        Console.WriteLine("PASS: replacing the active subscription keeps the selector populated; subscription cards hide reply count (feed has none); subscription selector uses remark as title with muted full ID, ID-only without remark, tooltip shows full ID, light/dark.");
     }
 
     // 选择框模板在下一轮排版后才生成，按条件轮询而不是固定等待。

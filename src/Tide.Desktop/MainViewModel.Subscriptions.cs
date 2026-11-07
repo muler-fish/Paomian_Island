@@ -37,7 +37,9 @@ public sealed partial class MainViewModel
     public ObservableCollection<SubscriptionProfile> SubscriptionAccounts { get; } = [];
     public string ActiveSubscriptionKey
     {
-        get => State.ActiveSubscriptionId;
+        // 重建列表时，移除原选中项会让 ComboBox 写回空值并立即重读；此时返回空，等列表就绪后再通知，
+        // 否则选择框会停在 SelectedValue 有值而 SelectedItem 为空的状态。
+        get => _updatingSubscriptionAccounts ? "" : State.ActiveSubscriptionId;
         set { if (!_updatingSubscriptionAccounts && !string.IsNullOrEmpty(value) && value != State.ActiveSubscriptionId) SwitchSubscription(value); }
     }
     public bool IsSubscriptions => _library == "subscriptions";
