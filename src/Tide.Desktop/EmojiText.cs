@@ -57,13 +57,18 @@ internal static class EmojiText
     {
         foreach (var segment in Segments(document.ContentStart, document.ContentEnd))
         {
-            if (offset <= 0) return segment.Start;
+            if (offset <= 0) return Insertion(segment.Start);
             if (offset < segment.Text.Length)
                 return segment.Start.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text
-                    ? segment.Start.GetPositionAtOffset(offset)! : segment.End;
+                    ? segment.Start.GetPositionAtOffset(offset, LogicalDirection.Forward)! : Insertion(segment.End);
             offset -= segment.Text.Length;
-            if (offset == 0) return segment.End;
+            if (offset == 0) return Insertion(segment.End);
         }
         return document.ContentEnd;
     }
+
+    // 段落结束后的位置位于两个 Paragraph 之间，不是插入点；WPF 会把它规整回上一段末尾，
+    // 使光标从新行跳回上一行。统一取向后的插入点（下一段开头），并让光标贴住后面的内容。
+    private static TextPointer Insertion(TextPointer position) =>
+        (position.GetInsertionPosition(LogicalDirection.Forward) ?? position).GetPositionAtOffset(0, LogicalDirection.Forward)!;
 }

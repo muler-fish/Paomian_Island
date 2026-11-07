@@ -42,8 +42,10 @@ internal static class EmoticonChecks
             title.Text = "标题<&>"; name.Text = "名称<&>"; options.IsExpanded = false;
             content.Text = "前文替换后文"; content.Focus(); content.Select(2, 2);
             await Open(composer); var surface = composer.Emoticons.Popup.Child;
-            Require(!UiRefinementChecks.Descendants<ComboBox>(surface).Any() && !UiRefinementChecks.Descendants<TextBox>(surface).Any(), "菜单仍有分类或搜索框。");
-            Require(UiRefinementChecks.Descendants<TextBlock>(surface).Any(t => t.Text == "最近使用") && EmoticonButtons(composer).Count == entries.Count, "最近/全部区域不完整。");
+            var tabs = UiRefinementChecks.Descendants<RadioButton>(surface).Select(r => r.Content?.ToString()).ToList();
+            Require(tabs.SequenceEqual(new[] { "最近使用", "全部", "自定义" }) && !UiRefinementChecks.Descendants<TextBox>(surface).Any(), "分类不是最近使用／全部／自定义，或仍有搜索框。");
+            await Category(composer, "全部");
+            Require(EmoticonButtons(composer).Count == entries.Count, "全部分类没有列出全部内置颜文字。");
             CapturePopup(composer, Path.Combine(output, "emoticon-dropdown-light.png"));
             await Choose(composer, "(=ﾟωﾟ)=");
             Require(content.Text == "前文(=ﾟωﾟ)=后文" && content.CaretIndex == 9 && content.IsKeyboardFocused, "选区替换或焦点错误。");
@@ -56,11 +58,14 @@ internal static class EmoticonChecks
             Require(vm.State.RecentEmoticons.Count == 20 && vm.State.RecentEmoticons[0] == batch[^1].Text && !vm.State.RecentEmoticons.Contains(batch[0].Text), "最近使用未限制为 20 项。");
             await Open(composer); await Choose(composer, batch[5].Text);
             Require(vm.State.RecentEmoticons.Count == 20 && vm.State.RecentEmoticons[0] == batch[5].Text, "重选没有去重置顶。");
-            App.ApplyTheme("dark"); await Open(composer); await Task.Delay(70); CapturePopup(composer, Path.Combine(output, "emoticon-dropdown-dark-recent.png"));
+            App.ApplyTheme("dark"); await Open(composer); await Category(composer, "最近使用"); await Task.Delay(70);
+            Require(EmoticonButtons(composer).Count == 20, "最近使用分类不是 20 项。");
+            CapturePopup(composer, Path.Combine(output, "emoticon-dropdown-dark-recent.png"));
             var original = content.Text;
             RaiseEscape(EmoticonButtons(composer).First()); await Task.Delay(50);
             Require(!composer.Emoticons.Popup.IsOpen && content.Text == original, "Esc 没有原样取消。");
             App.ApplyTheme("light");
+            await Open(composer); await Category(composer, "全部"); composer.Emoticons.Toggle();
 
             content.Text = "开头结尾"; content.Select(2, 0); await Open(composer); await Choose(composer, large.Text);
             var expected = "开头" + large.Text.Replace("\n", Environment.NewLine) + "结尾";
@@ -87,11 +92,11 @@ internal static class EmoticonChecks
             composer.Close(); composer = null;
             Require(store.Load().Drafts.Single(d => d.ThreadId == 123).Content == "回复(=ﾟωﾟ)=", "回复入口插入失败。");
             File.WriteAllText(Path.Combine(output, "emoticons-results.json"), JsonSerializer.Serialize(new {
-                Entries = entries.Count, Multiline = entries.Count(e => e.Text.Contains('\n')), Dropdown = true, NoSearchOrCategories = true,
+                Entries = entries.Count, Multiline = entries.Count(e => e.Text.Contains('\n')), Dropdown = true, Categories = "最近使用/全部/自定义", NoSearch = true,
                 RecentLimit = 20, RecentDeduplicatedAndPersisted = true, SelectionAndUndo = true, WhitespacePreserved = true,
                 OptionalTitleAndName = true, PreviewAndDraft = true, Dice = "[1,100]", LargerReplyNumber = true, LengthLimit = true, LivePosts = false
             }, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine("PASS: dropdown, recent-20 dedup/persistence, source filtering, multiline, selection/undo, optional name/title, preview/drafts, dice, reply number, length limit.");
+            Console.WriteLine("PASS: dropdown with recent/all/custom tabs, recent-20 dedup/persistence, source filtering, multiline, selection/undo, optional name/title, preview/drafts, dice, reply number, length limit.");
         }
         finally { composer?.Close(); App.ApplyTheme("light"); }
     }
@@ -106,10 +111,15 @@ internal static class EmoticonChecks
         bitmap.Render(surface); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var file = File.Create(path); encoder.Save(file);
     }
+    private static async Task Category(ComposerWindow composer, string label)
+    {
+        UiRefinementChecks.Descendants<RadioButton>(composer.Emoticons.Popup.Child).Single(r => Equals(r.Content, label)).IsChecked = true; await Task.Delay(60);
+    }
     private static async Task Open(ComposerWindow composer) { await Invoke(Button(composer, "颜文字")); Require(composer.Emoticons.Popup.IsOpen, "颜文字下拉未打开。"); }
     private static async Task Choose(ComposerWindow composer, string text) { await Invoke(EmoticonButtons(composer).First(b => ((EmoticonEntry)b.Tag).Text == text)); Require(!composer.Emoticons.Popup.IsOpen, "点击后菜单未关闭。"); }
     private static T Find<T>(Window window, string name) where T : DependencyObject => UiRefinementChecks.Descendants<T>(window).Single(t => AutomationProperties.GetName(t) == name);
-    private static Button Button(Window window, string text) => UiRefinementChecks.Descendants<Button>(window).Single(b => b.Content?.ToString() == text);
+    // 工具栏按钮内容是图标＋文字，按无障碍名称查找；普通按钮仍按文字。
+    private static Button Button(Window window, string text) => UiRefinementChecks.Descendants<Button>(window).Single(b => b.Content?.ToString() == text || AutomationProperties.GetName(b) == text);
     private static async Task Invoke(Button button) { ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)).Invoke(); await Task.Delay(45); }
     private static void RaiseEscape(UIElement target) => target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(target), Environment.TickCount, Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

@@ -58,8 +58,11 @@ public sealed class EmojiEditor : RichTextBox
         // Enter 采用软换行；原生选区和撤销仍由 WPF 管理。
         PreviewKeyDown += (_, e) =>
         {
-            // 中文候选确认由 IME 处理，不能把候选确认键误当成正文换行。
-            if (e.Key == Key.Enter && !_composing) { if (Text.Length - SelectionLength + 2 <= MaxLength) EditingCommands.EnterLineBreak.Execute(null, this); e.Handled = true; }
+            // 输入法组合期间按键以 ImeProcessed 送达，候选确认键不会到这里。收到真实按键说明没有组合在进行：
+            // 组合被取消（Esc、删光拼音）时不会有 PreviewTextInput，需在此复位，否则 Enter 会落到默认的分段处理。
+            if (e.Key == Key.ImeProcessed) return;
+            _composing = false;
+            if (e.Key == Key.Enter) { if (Text.Length - SelectionLength + 2 <= MaxLength) EditingCommands.EnterLineBreak.Execute(null, this); e.Handled = true; }
         };
         CommandManager.AddPreviewExecutedHandler(this, CopyCommand);
         Loaded += (_, _) => RenderEmoji();
@@ -74,7 +77,7 @@ public sealed class EmojiEditor : RichTextBox
     private void RenderEmoji()
     {
         if (_rendering || Document is null) return;
-        var start = SelectionStart; var length = SelectionLength;
+        var start = SelectionStart; var length = SelectionLength; var rebuilt = false;
         _rendering = true;
         BeginChange();
         try
@@ -91,7 +94,7 @@ public sealed class EmojiEditor : RichTextBox
                 }
                 if (existing.SequenceEqual(matches.Select(m => (m.Index, m.Value)))) continue;
                 // 仅重建 emoji 序列有变化的段落；普通输入不重排，也不逐字调用 TextPointer 扫描。
-                paragraph.Inlines.Clear(); var position = 0;
+                paragraph.Inlines.Clear(); var position = 0; rebuilt = true;
                 foreach (var match in matches)
                 {
                     if (match.Index > position) paragraph.Inlines.Add(new Run(text[position..match.Index]));
@@ -101,7 +104,8 @@ public sealed class EmojiEditor : RichTextBox
                 }
                 if (position < text.Length) paragraph.Inlines.Add(new Run(text[position..]));
             }
-            Select(start, length);
+            // 只有重建过段落才需要恢复选区；文档没变时保留 WPF 自己的光标，避免往返换算移动光标。
+            if (rebuilt) Select(start, length);
         }
         finally { EndChange(); _rendering = false; }
     }

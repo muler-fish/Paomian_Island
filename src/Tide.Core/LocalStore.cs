@@ -30,6 +30,11 @@ public sealed partial class LocalStore
             state.Cookies ??= []; state.Forums ??= []; state.History ??= []; state.Drafts ??= [];
             state.Drafts = state.Drafts.Where(d => d is not null).Select(d => d with { Name = d.Name ?? "" }).ToList();
             state.RecentEmoticons = (state.RecentEmoticons ?? []).Where(s => s is { Length: > 0 and <= 10000 }).Distinct().Take(20).ToList();
+            // 旧资料没有这两项；单条损坏（空 Id、空内容、超长）只丢弃该条，不影响其余自定义内容。
+            state.CustomEmoticons = (state.CustomEmoticons ?? [])
+                .Where(e => e is not null && !string.IsNullOrEmpty(e.Id) && e.Text is { Length: > 0 and <= 10000 })
+                .DistinctBy(e => e.Id).Select(e => e with { Name = EmoticonName(e.Name) }).ToList();
+            state.HiddenEmoticons = (state.HiddenEmoticons ?? []).Where(s => s is { Length: > 0 and <= 10000 }).Distinct().ToList();
             state.History = state.History.Where(h => h?.Post is { Id: > 0 }).DistinctBy(h => h.Post.Id)
                 .OrderByDescending(h => h.ReadAt).Take(500).Select(h => h with
                 {
@@ -71,6 +76,9 @@ public sealed partial class LocalStore
             return new();
         }
     }
+
+    /// <summary>简称或备注去掉首尾空白，最多 80 字；颜文字正文本身从不 Trim。</summary>
+    public static string EmoticonName(string? name) { var value = (name ?? "").Trim(); return value.Length > 80 ? value[..80] : value; }
 
     public void Save(UserState state)
     {

@@ -28,6 +28,17 @@ internal static class WindowPlacement
         window.DpiChanged += (_, _) => window.Dispatcher.BeginInvoke((Action)Update);
     }
 
+    /// <summary>窗口所在显示器的工作区（DIP）；取不到句柄时退回主显示器工作区。</summary>
+    internal static Rect WorkArea(Window window)
+    {
+        var handle = new WindowInteropHelper(window).Handle;
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        var dpi = handle == IntPtr.Zero ? 0 : GetDpiForWindow(handle);
+        if (dpi == 0 || !GetMonitorInfo(MonitorFromWindow(handle, 2), ref info)) return SystemParameters.WorkArea;
+        var scale = dpi / 96d;
+        return new Rect(info.Work.Left / scale, info.Work.Top / scale, (info.Work.Right - info.Work.Left) / scale, (info.Work.Bottom - info.Work.Top) / scale);
+    }
+
     // Async reference content arrives after startup placement. Grow/shrink around the current
     // window centre, constrained by the actual monitor work area and its DPI.
     internal static void FitContentHeight(Window window, double preferredHeight)

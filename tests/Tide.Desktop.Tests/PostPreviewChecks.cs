@@ -31,16 +31,17 @@ internal static class PostPreviewChecks
         Require(Spans(firstBody.Inlines).Any(s => s.FontWeight == FontWeights.SemiBold) && Spans(firstBody.Inlines).Any(s => s.FontStyle == FontStyles.Italic), "预览没有保留加粗/斜体");
         var identity = UiRefinementChecks.Descendants<PostIdentity>(first).Single();
         Require(((Border)identity.FindName("SageBadge")).Visibility == Visibility.Collapsed, "元信息中仍重复显示 SAGE");
-        var order = new[] { "CardMetadata", "CardSage", "CardTitle", "CardAuthor", "CardBody" }.Select(n => Named(first, n)).ToArray();
+        // Refined Reader 移植后 SAGE 与串号同在卡片底部一行，不再位于标题上方。
+        var order = new[] { "CardMetadata", "CardTitle", "CardAuthor", "CardBody", "CardSage" }.Select(n => Named(first, n)).ToArray();
         Require(order.All(e => e.IsVisible), "完整字段没有全部显示");
         for (var i = 1; i < order.Length; i++) Require(Bounds(order[i-1], window).Bottom <= Bounds(order[i], window).Top + 1, "卡片字段顺序或独立行不正确");
         capture(window, Path.Combine(output, "cards-initial.png"));
-        Require(firstBody.FontSize == vm.ReadingFontSize, "长正文没有跟随阅读字号；" + Describe(firstBody, vm.ReadingFontSize));
-        Require(firstBody.ActualHeight <= vm.ReadingFontSize * 10.5 + 1 && firstBody.ActualHeight >= vm.ReadingFontSize * 10.5 - 1, "长正文没有限制为七行；" + Describe(firstBody, vm.ReadingFontSize));
+        Require(firstBody.FontSize == PreviewSize(vm.ReadingFontSize), "长正文没有跟随阅读字号（预览比正文小 2 号）；" + Describe(firstBody, vm.ReadingFontSize));
+        Require(SevenLines(firstBody) && Math.Abs(firstBody.ActualHeight - firstBody.MaxHeight) <= 1, "长正文没有限制为七行；" + Describe(firstBody, vm.ReadingFontSize));
         list.ScrollIntoView(vm.Posts[1]); await Pause();
         var second = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(1);
         Require(!Named(second, "CardTitle").IsVisible && !Named(second, "CardAuthor").IsVisible && !Named(second, "CardSage").IsVisible, "空可选字段没有折叠");
-        Require(Named(second, "CardBody").ActualHeight <= vm.ReadingFontSize * 1.5 + 1, "短正文仍占七行高度");
+        Require(Named(second, "CardBody").ActualHeight <= ((PostPreview)Named(second, "CardBody")).LineHeight + 1, "短正文仍占七行高度");
 
         // 调整同一份阅读设置，验证已经显示的真实列表容器即时响应，而非只给控件手动赋值。
         var originalSize = vm.State.FontSize;
@@ -54,9 +55,9 @@ internal static class PostPreviewChecks
                 firstBody = (PostPreview)Named(first, "CardBody");
                 var title = (EmojiLabel)Named(first, "CardTitle");
                 var author = (EmojiLabel)Named(first, "CardAuthor");
-                Require(firstBody.FontSize == size && title.FontSize == size && author.FontSize == size - 1, $"列表正文、标题、作者没有同步阅读字号及层级；TitleFontSize={title.FontSize}, AuthorFontSize={author.FontSize}；" + Describe(firstBody, vm.ReadingFontSize));
+                Require(firstBody.FontSize == PreviewSize(size) && title.FontSize == PreviewSize(size) && author.FontSize == vm.PreviewAuthorFontSize, $"列表正文、标题、作者没有同步阅读字号及层级；TitleFontSize={title.FontSize}, AuthorFontSize={author.FontSize}；" + Describe(firstBody, vm.ReadingFontSize));
                 Require(title.FontWeight == FontWeights.SemiBold && Equals(author.Foreground, Application.Current.FindResource("Muted")), "字号同步后标题加粗或作者浅色丢失");
-                Require(firstBody.LineHeight == size * 1.5 && firstBody.MaxHeight >= size * 10.5 && firstBody.MaxHeight < size * 10.5 + 1 && firstBody.ActualHeight <= size * 10.5 + 1, "同步字号后七行上限没有重新计算；" + Describe(firstBody, vm.ReadingFontSize));
+                Require(SevenLines(firstBody) && firstBody.ActualHeight <= firstBody.MaxHeight + 1, "同步字号后七行上限没有重新计算；" + Describe(firstBody, vm.ReadingFontSize));
                 Require(((TextBlock)Named(first, "CardDate")).FontSize == 12 && ((TextBlock)Named(first, "CardReplies")).FontSize == 12, "正文调字号连带改变了元信息字号");
                 capture(window, Path.Combine(output, $"cards-font-{size}.png"));
             }
@@ -73,12 +74,12 @@ internal static class PostPreviewChecks
             var lines = preview.Inlines.OfType<Run>().ToArray();
             var seventh = lines[6].ContentStart.GetCharacterRect(LogicalDirection.Forward);
             Require(!seventh.IsEmpty && seventh.Bottom <= preview.ActualHeight + 1, "第七行被截掉，实际少于七行");
-            Require(Math.Abs(preview.ActualHeight - 147) < 1, "十行预览超出七行");
+            Require(SevenLines(preview) && Math.Abs(preview.ActualHeight - preview.MaxHeight) < 1, "十行预览超出七行");
             capture(sample, Path.Combine(output, "seven-lines.png"));
-            preview.FontSize = 18; await Pause(); Require(preview.ActualHeight <= 190, "字号变化后行数上限错误");
-            preview.Html = "单行"; await Pause(); Require(preview.ActualHeight <= 28, "控件复用后仍保留大高度");
+            preview.FontSize = 18; await Pause(); Require(SevenLines(preview) && preview.ActualHeight <= preview.MaxHeight + 1, "字号变化后行数上限错误");
+            preview.Html = "单行"; await Pause(); Require(preview.ActualHeight <= preview.LineHeight + 1, "控件复用后仍保留大高度");
             preview.Html = new string('长', 240); preview.Width = 200; await Pause();
-            Require(preview.ActualHeight <= 190 && preview.ActualHeight >= 188, "无换行长正文没有按可用宽度截为七行；" + Describe(preview, 18));
+            Require(Math.Abs(preview.ActualHeight - preview.MaxHeight) <= 1, "无换行长正文没有按可用宽度截为七行；" + Describe(preview, 18));
             preview.Html = "[h]秘密😀[/h]<br><a href=\"https://example.com\">链接</a>";
             App.ApplySpoilerProtection(true); await Pause(); Require(Read(preview).Contains("[隐藏内容]") && !Read(preview).Contains("秘密"), "预览防剧透泄露正文");
             App.ApplySpoilerProtection(false); await Pause(); Require(Read(preview).Contains("[h]秘密😀[/h]"), "关闭后标签或 emoji 丢失");
@@ -92,8 +93,9 @@ internal static class PostPreviewChecks
             foreach (var (fg, bg) in new[] { ("CookieForeground", "CookieBackground"), ("AdminCookieForeground", "AdminCookieBackground"), ("OnSage", "SageBackground") })
                 Require(Contrast(Brush(fg), Brush(bg)) >= 4.5, "标签文字对比度不足：" + fg);
             foreach (var fg in new[] { "PostGreen", "PostRed" }) Require(Contrast(Brush(fg), Brush("Surface")) >= 4.5, "正文强调色对比度不足：" + fg);
-            Require(Brush("AccentSoft") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#DCEDE5" : "#273F34"), "饼干调色连带修改了选中背景");
-            Require(Brush("PoBackground") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#DCEBFF" : "#203E62"), "饼干调色连带修改了 PO 标签");
+            // 第二轮 Refined Reader 配色的固定值，防止调整饼干标签时连带改到选中背景与 PO 标签。
+            Require(Brush("AccentSoft") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E6ECE8" : "#2D3533"), "饼干调色连带修改了选中背景");
+            Require(Brush("PoBackground") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E7EEF5" : "#293541"), "饼干调色连带修改了 PO 标签");
             foreach (var width in new[] { 240d, 320d, 480d, 720d })
             {
                 columns.ColumnDefinitions[2].Width = new(width); list.ScrollIntoView(vm.Posts[0]); await Pause();
@@ -105,7 +107,7 @@ internal static class PostPreviewChecks
                 Require(Math.Abs(replies.Right - header.Right) < 1 && replies.Left >= header.Left, "回复数未右对齐或超出栏宽");
                 var cookie = UiRefinementChecks.Descendants<PostIdentity>(first).Single();
                 Require(Bounds(cookie, window).Right <= replies.Left, "窄栏饼干与回复数重叠");
-                Require(Named(first, "CardBody").ActualHeight <= vm.ReadingFontSize * 10.5 + 1, "栏宽改变导致正文超过七行");
+                Require(Named(first, "CardBody").ActualHeight <= ((PostPreview)Named(first, "CardBody")).MaxHeight + 1, "栏宽改变导致正文超过七行");
                 capture(window, Path.Combine(output, $"cards-{theme}-{width}.png"));
             }
         }
@@ -143,5 +145,13 @@ internal static class PostPreviewChecks
         return (Math.Max(L(a), L(b)) + .05) / (Math.Min(L(a), L(b)) + .05);
     }
     private static Task Pause() => Task.Delay(180);
+    // 当前规则：串列表预览比阅读正文小 2 号（不低于 13），七行上限由行高 × 7 向上取整到设备像素。
+    private static double PreviewSize(double reading) => Math.Max(13, reading - 2);
+    private static bool SevenLines(PostPreview preview)
+    {
+        var scale = VisualTreeHelper.GetDpi(preview).DpiScaleY;
+        return Math.Abs(preview.LineHeight - preview.FontSize * ReadingTypography.GetLineHeight(preview)) < 0.01
+            && Math.Abs(preview.MaxHeight - Math.Ceiling(preview.LineHeight * UiMetrics.PreviewLines * scale) / scale) < 0.01;
+    }
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
 }

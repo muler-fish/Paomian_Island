@@ -82,6 +82,8 @@ internal static class Program
         if (args.FirstOrDefault() == "--reader-feedback") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reader-feedback");
         if (args.FirstOrDefault() == "--compact-cookie") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/compact-cookie");
         if (args.FirstOrDefault() == "--cookie-manager") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/cookie-manager");
+        if (args.FirstOrDefault() == "--emoticon-custom") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-custom");
+        if (args.FirstOrDefault() == "--composer-input") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-input");
         if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
@@ -118,6 +120,16 @@ internal static class Program
                 if (args.FirstOrDefault() == "--settings-layout")
                 {
                     await SettingsLayoutChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--emoticon-custom")
+                {
+                    await EmoticonCustomChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--composer-input")
+                {
+                    await ComposerInputChecks.RunAsync(window, output, Capture);
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--subscription-display")
@@ -612,6 +624,14 @@ internal static class Program
     private static WindowReport Inspect(Window window)
     {
         // Fluent 标题栏按钮位于 WPF 内容区；DWM 的旧系统标题栏矩形不能证明它们可见。
+        // Refined Reader 弹窗不带 WPF UI 标题栏，只有自定义的 32×32 关闭键；以它作为标题区操作的边界。
+        if (window is Wpf.Ui.Controls.FluentWindow && !UiRefinementChecks.Descendants<Wpf.Ui.Controls.TitleBar>(window).Any())
+        {
+            var close = UiRefinementChecks.Descendants<System.Windows.Controls.Button>(window).Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "关闭");
+            if (!close.IsVisible || close.ActualWidth < 32 || close.ActualHeight < 32) throw new InvalidOperationException("弹窗关闭键不可见或尺寸不足。");
+            var closeBounds = new Rect(close.PointToScreen(new Point()), close.PointToScreen(new Point(close.ActualWidth, close.ActualHeight)));
+            return Inspect(new WindowInteropHelper(window).Handle, closeBounds);
+        }
         if (window is Wpf.Ui.Controls.FluentWindow)
         {
             var title = UiRefinementChecks.Descendants<Wpf.Ui.Controls.TitleBar>(window).Single();

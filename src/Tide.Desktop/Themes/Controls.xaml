@@ -54,6 +54,10 @@
         <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       </Style>
+      <!-- 编辑辅助工具：图标＋文字，低视觉权重，统一 32 高度；悬停沿用共用按钮的 Hover。 -->
+      <Style x:Key="EditorTool" TargetType="Button" BasedOn="{StaticResource Quiet}">
+        <Setter Property="Height" Value="32"/><Setter Property="Padding" Value="10,0"/><Setter Property="Margin" Value="0,0,4,0"/>
+      </Style>
       <Style x:Key="DialogCloseButton" TargetType="Button" BasedOn="{StaticResource Quiet}">
         <Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/>
         <Setter Property="Padding" Value="0"/>

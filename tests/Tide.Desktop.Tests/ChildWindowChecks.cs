@@ -46,8 +46,14 @@ internal static class ChildWindowChecks
                 window.Show(); await Layout(window);
                 capture(window, Path.Combine(output, name + "-light.png"));
                 var title = UiRefinementChecks.Descendants<TitleBar>(window).SingleOrDefault();
-                Require(window is FluentWindow { ExtendsContentIntoTitleBar: true } && title is not null,
-                    name + " 仍使用系统标题栏，未显示 WPF UI 标题栏。");
+                Require(window is FluentWindow { ExtendsContentIntoTitleBar: true }, name + " 仍使用系统标题栏，未使用统一的 Fluent 外壳。");
+                // Refined Reader 弹窗只有自定义的 32×32 关闭键；看图窗口保留最小化、最大化与关闭。
+                if (title is null)
+                {
+                    await CheckDialogCaption(window, name, vm, owner, output, capture);
+                    results[name] = new { CustomDialogCaption = true, Themes = new[] { "light", "dark" }, MinimumWidth = window.MinWidth, ClosingGuard = true };
+                    continue;
+                }
                 foreach (var theme in new[] { "light", "dark" })
                 {
                     App.ApplyTheme(theme); await Layout(window);
@@ -100,7 +106,7 @@ internal static class ChildWindowChecks
                 try
                 {
                     disabledWhileModal = !IsWindowEnabled(ownerHandle);
-                    Invoke(UiRefinementChecks.Descendants<TitleBar>(modal).Single(), "PART_CloseButton");
+                    Click(CloseButton(modal));
                 }
                 catch (Exception ex) { modalError = ex; modal.Close(); }
             }), DispatcherPriority.ApplicationIdle);
@@ -113,7 +119,46 @@ internal static class ChildWindowChecks
         File.WriteAllText(Path.Combine(output, "child-window-results.json"),
             JsonSerializer.Serialize(new { Results = results, Failures = failures }, new JsonSerializerOptions { WriteIndented = true }));
         Require(failures.Count == 0, string.Join(Environment.NewLine, failures));
-        Console.WriteLine("PASS: eight child windows, light/dark, minimum widths, caption commands, Closing guards, draft saving, modal owner restored.");
+        Console.WriteLine("PASS: eight child windows (custom dialog close key / image window caption), light/dark, minimum widths, Closing guards, draft saving, modal owner restored.");
+    }
+
+    private static Button CloseButton(Window window) => UiRefinementChecks.Descendants<Button>(window).Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "关闭");
+    private static void Click(Button button) => ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)).Invoke();
+
+    private static async Task CheckDialogCaption(Window window, string name, MainViewModel vm, Window owner, string output, Action<Window, string> capture)
+    {
+        void CheckClose()
+        {
+            Program.RequireWindowFits(window);
+            var close = CloseButton(window);
+            var bounds = close.TransformToAncestor(window).TransformBounds(new Rect(close.RenderSize));
+            Require(close.IsVisible && close.ActualWidth == 32 && close.ActualHeight == 32 && close.Padding == new Thickness(0) &&
+                bounds.Left >= 0 && bounds.Right <= window.ActualWidth + 1 && bounds.Top >= 0,
+                $"{name} 关闭键不是 32×32 零内边距或超出窗口：尺寸={close.ActualWidth}×{close.ActualHeight}，范围={bounds}。");
+        }
+        foreach (var theme in new[] { "light", "dark" })
+        {
+            App.ApplyTheme(theme); await Layout(window); CheckClose();
+            capture(window, Path.Combine(output, name + "-" + theme + ".png"));
+        }
+        App.ApplyTheme("light");
+        window.Width = window.MinWidth; await Layout(window); CheckClose();
+        capture(window, Path.Combine(output, name + "-narrow.png"));
+        // 仍应经过 Window.Closing，不能绕过编辑器的草稿保护。
+        var cancelObserved = false;
+        CancelEventHandler cancel = (_, e) => { cancelObserved = true; e.Cancel = true; };
+        window.Closing += cancel;
+        try { Click(CloseButton(window)); await Layout(window); }
+        finally { window.Closing -= cancel; }
+        Require(cancelObserved && window.IsVisible, name + " 的关闭键绕过 Closing。");
+        if (name == "new-thread")
+        {
+            var content = UiRefinementChecks.Descendants<EmojiEditor>(window).Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "发言正文");
+            content.Text = "子窗口标题栏关闭后仍保存草稿。";
+        }
+        Click(CloseButton(window)); await Layout(owner);
+        Require(!window.IsVisible, name + " 的关闭键没有关闭窗口。");
+        if (name == "new-thread") Require(vm.Store.Load().Drafts.Any(d => d.Content == "子窗口标题栏关闭后仍保存草稿。"), "点击关闭没有保存草稿。");
     }
 
     private static void CheckCaption(Window window, TitleBar title)

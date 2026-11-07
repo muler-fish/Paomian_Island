@@ -79,18 +79,19 @@ public sealed class ComposerWindow : DialogWindow
         var options = new Expander { Header = "可选项", Content = optional, IsExpanded = false, Margin = new(0, 12, 0, 0) };
         System.Windows.Automation.AutomationProperties.SetName(options, "可选项"); Body.Children.Add(options);
         Label(_reportPostId > 0 ? "举报理由" : "正文"); Body.Children.Add(_content); _count.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); Body.Children.Add(_count);
-        var toolRow = new DockPanel { Margin = new(0, 6, 0, 8) };
-        var attach = Button("添加图片", PickImage); attach.SetResourceReference(StyleProperty, "Quiet");
+        // 编辑辅助工具：统一图标＋文字、32 高度与低视觉权重；添加图片仍在右侧。
+        var toolRow = new DockPanel { Margin = new(-10, 6, -10, 8) };
+        var attach = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.ImageAdd24, "添加图片", PickImage); attach.Margin = new(0);
         attach.ToolTip = "JPG / PNG / GIF，最多 5 MB"; DockPanel.SetDock(attach, Dock.Right); toolRow.Children.Add(attach);
         var tools = new WrapPanel(); toolRow.Children.Add(tools);
-        var emoticons = Button("颜文字", OpenEmoticons); tools.Children.Add(emoticons);
-        Emoticons = new EmoticonMenu(this, emoticons, () => _vm.State.RecentEmoticons, text => {
+        var emoticons = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.Emoji24, "颜文字", OpenEmoticons); tools.Children.Add(emoticons);
+        Emoticons = new EmoticonMenu(this, emoticons, () => _vm.State, _vm.Save, text => {
             RestoreInsertSelection();
-            if (Insert(text)) { _vm.State.RecentEmoticons = EmoticonCatalog.Remember(_vm.State.RecentEmoticons, text); _vm.Save(); }
+            if (Insert(text)) { _vm.State.RecentEmoticons = EmoticonCatalog.Remember(_vm.State, text); _vm.Save(); }
         }, RestoreInsertSelection);
-        tools.Children.Add(Button("防剧透", () => { var selected = _content.SelectedText; _content.SelectedText = "[h]" + selected + "[/h]"; _content.Focus(); }));
-        tools.Children.Add(Button("骰子", () => Insert("[1,100]")));
-        foreach (Button tool in tools.Children) { tool.SetResourceReference(StyleProperty, "Quiet"); tool.Margin = new(0, 0, 8, 0); }
+        var spoiler = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.EyeOff24, "防剧透", WrapSpoiler); spoiler.ToolTip = "用 [h][/h] 包住选中的文字";
+        var dice = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.CubeQuick24, "骰子", () => Insert("[1,100]")); dice.ToolTip = "插入 [1,100]";
+        tools.Children.Add(spoiler); tools.Children.Add(dice);
         Body.Children.Add(toolRow);
         var imageBar = new WrapPanel { Margin = new(0, 4, 0, 0) }; imageBar.Children.Add(_imageName); imageBar.Children.Add(Button("移除", () => { _imageFile = ""; _imageName.Text = "未选择图片"; SaveDraft(); })); Body.Children.Add(imageBar); Body.Children.Add(_water);
         void ImageState() { var attached = _imageFile.Length > 0; imageBar.Visibility = _water.Visibility = attached ? Visibility.Visible : Visibility.Collapsed; }
@@ -147,6 +148,17 @@ public sealed class ComposerWindow : DialogWindow
         try { _content.SelectedText = text; _content.Select(start + text.Length, 0); }
         finally { _content.EndChange(); }
         Feedback.Text = ""; _content.Focus(); return true;
+    }
+    // 有选中文字时包住选区，光标停在 [/h] 之后；没有选区时插入一对标记，光标停在中间方便继续输入。
+    private void WrapSpoiler()
+    {
+        var selected = _content.SelectedText;
+        if (_content.Text.Length + 7 > _content.MaxLength) { Feedback.Text = "剩余空间不足以插入完整内容。"; _content.Focus(); return; }
+        var start = _content.SelectionStart;
+        _content.BeginChange();
+        try { _content.SelectedText = "[h]" + selected + "[/h]"; _content.Select(selected.Length > 0 ? start + selected.Length + 7 : start + 3, 0); }
+        finally { _content.EndChange(); }
+        Feedback.Text = ""; _content.Focus();
     }
     private void UpdateCount() => _count.Text = $"{_content.Text.Length} / {_content.MaxLength}";
     private void ScheduleSave() { _autosave.Stop(); _autosave.Start(); }

@@ -79,6 +79,9 @@ public sealed record PostRequest(int ForumId, long ThreadId, string Title, strin
 /// <summary>服务端明确确认成功后的结果；响应没有串链接时 ThreadId 可能为空。</summary>
 public sealed record PostResult(string Message, long? ThreadId);
 
+/// <summary>用户自己添加的颜文字；Text 原样保存（含空格、换行），Name 是可选的简称或备注，只用于显示和搜索。</summary>
+public sealed record CustomEmoticon(string Id, string Text, string Name = "");
+
 /// <summary>本机屏蔽条目，只保留管理列表需要的串号与标题摘要。</summary>
 public sealed record BlockedThread(long Id, string Title);
 public sealed record BlockedForum(int Id, string Name);
@@ -121,4 +124,8 @@ public sealed class UserState
     public List<Draft> Drafts { get; set; } = [];
     // 成功插入才进入最近使用，最多 20 项；保存文本便于去重，不记录单纯的悬停或预览。
     public List<string> RecentEmoticons { get; set; } = [];
+    // 自定义颜文字与内置条目的隐藏状态都保存在 state.json，不放进可被清理的缓存目录。
+    public List<CustomEmoticon> CustomEmoticons { get; set; } = [];
+    // 内置颜文字按原文隐藏，可随时恢复；资源本身不改动。
+    public List<string> HiddenEmoticons { get; set; } = [];
 }
