@@ -48,7 +48,12 @@ internal static class SettingsPersonalizationChecks
             await Select("外观");
             var expander = All<Expander>(settings).Single(e => Equals(e.Header, "标识颜色"));
             Require(!expander.IsExpanded, "标识颜色没有默认折叠");
-            Require(!All<Slider>(settings).Any(s => s.IsVisible && (AutomationProperties.GetName(s) ?? "").EndsWith("色相")), "调色滑块默认就展开了");
+            Require(All<ColorField>(settings).All(f => !f.Popup.IsOpen), "调色板默认就打开了");
+            var previewBox = Named<Border>(settings, "效果预览");
+            Require(!previewBox.IsHitTestVisible && previewBox.BorderThickness.Left == 1 && All<TextBlock>(previewBox).Any(t => t.Text == "效果预览")
+                && !All<Control>(previewBox).Any(c => c.Focusable), "效果预览没有独立的区域，或仍可点击、获得焦点");
+            var toggles = All<ToggleButton>(previewBox).Where(t => t is not CheckBox).ToList();
+            Require(toggles.Count == 2 && !Equals(toggles[0].Background, toggles[1].Background) && All<CheckBox>(previewBox).Count(c => c.IsChecked == true) == 1, "效果预览没有区分选中与未选中");
             capture(settings, Path.Combine(output, "appearance-default-light.png"));
 
             // 1. 预设强调色：浅色/深色分别取预设值，身份标识颜色不受影响
@@ -81,15 +86,45 @@ internal static class SettingsPersonalizationChecks
             await Theme(settings, "light");
             hex.Text = "#GGGGGG"; Keyboard(hex); await Pause();
             Require(vm.State.AccentColor == "#E6B800" && All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.StartsWith("请输入 #RRGGBB")), "无效 HEX 改变了设置或没有提示");
-            // 调色滑块
-            var adjust = Named<ToggleButton>(settings, "自定义强调色调色"); adjust.IsChecked = true; await Pause();
-            var hue = Named<Slider>(settings, "自定义强调色色相"); hue.Value = 280; await Pause();
-            Require(vm.State.AccentColor != "#E6B800" && Math.Abs(Personalization.ToHsl(Personalization.Rgb(vm.State.AccentColor)).H - 280) < 3, "色相滑块没有改变颜色");
-            capture(settings, Path.Combine(output, "appearance-mixer-light.png"));
-            adjust.IsChecked = false;
+            // 调色板：点击「调色」弹出；色域、色相条、HEX、预设、恢复默认双向同步
+            var accentField = Field(settings, "自定义强调色");
+            Click(Named<Button>(settings, "自定义强调色调色")); await Pause();
+            var picker = accentField.Picker;
+            Require(accentField.Popup.IsOpen && picker.Area.ActualWidth >= ColorPicker.AreaWidth - .5 && picker.HueBar.ActualWidth >= ColorPicker.AreaWidth - .5, "调色板没有打开或色域、色相条没有正常尺寸");
+            Require(picker.Hex == "#E6B800", "调色板没有显示当前颜色");
+            var popupRect = ScreenRect((FrameworkElement)accentField.Popup.Child); var windowRect = ScreenRect(settings);
+            Require(popupRect.Top >= windowRect.Top - 1 && popupRect.Bottom <= windowRect.Bottom + 1 && popupRect.Left >= windowRect.Left - 1 && popupRect.Right <= windowRect.Right + 1, $"调色板超出设置窗口：{popupRect} / {windowRect}");
+            picker.PickHue(0); picker.PickArea(new(ColorPicker.AreaWidth, 0)); picker.Flush(); await Pause();
+            Require(vm.State.AccentColor == "#FF0000" && hex.Text == "#FF0000", "色域右上角不是纯红，或 HEX 没有同步");
+            // 纯红在白底上对比度不够：实际显示会被加深，但用户选的原始值不变
+            var effective = Named<TextBlock>(accentField.Picker, "自定义强调色实际颜色").Text;
+            Require(effective != "#FF0000" && Brush("Accent") == Personalization.Rgb(effective) && store.Load().AccentColor == "#FF0000", "对比度调整覆盖了原始颜色，或实际显示与主题资源不一致");
+            // 连续拖动：中途不立即保存，结束时提交最后位置
+            foreach (var x in new[] { 200d, 160, 120, 80 }) picker.PickArea(new(x, 150 - x / 2));
+            picker.Flush(); await Pause();
+            var (_, ds, dv) = Personalization.ToHsv(Personalization.Rgb(vm.State.AccentColor));
+            Require(Math.Abs(ds - 80 / ColorPicker.AreaWidth) < .02 && Math.Abs(dv - (1 - 110 / ColorPicker.AreaHeight)) < .02 && Brush("Accent") != themeAccent, "拖动后颜色不对");
+            // HEX → 调色板
+            hex.Text = "#3366CC"; await Pause();
+            var (ph, ps, pv) = picker.Hsv;
+            Require(picker.Hex == "#3366CC" && Math.Abs(ph - 220) < 1 && Math.Abs(ps - .75) < .01 && Math.Abs(pv - .8) < .01, "HEX 没有同步到调色板位置");
+            // 灰色没有色相：保留原色相，色域不跳回红色
+            hex.Text = "#808080"; await Pause();
+            Require(Math.Abs(picker.Hsv.H - 220) < 1 && picker.Hex == "#808080", "灰色让色相跳动");
+            // 色相条
+            picker.PickHue(ColorPicker.AreaWidth / 3); picker.Flush(); await Pause();
+            Require(vm.State.AccentColor == "#808080", "灰色时改色相不应改变颜色");
+            picker.PickArea(new(ColorPicker.AreaWidth, 0)); picker.Flush(); await Pause();
+            Require(Math.Abs(Personalization.ToHsv(Personalization.Rgb(vm.State.AccentColor)).H - 120) < 2, "色相条没有改变色域色相");
+            capture(settings, Path.Combine(output, "appearance-picker-light.png"));
+            // 预设 → 调色板
+            Click(Named<Button>(settings, "强调色：靛紫")); await Pause();
+            Require(picker.Hex == "#5B57A2" && hex.Text == "#5B57A2", "预设没有同步到调色板");
+            if (Environment.GetCommandLineArgs().Contains("--real-mouse")) report["RealMouse"] = await RealMouse(settings, accentField, vm, output);
+            accentField.Popup.IsOpen = false; await Pause();
             // 恢复默认
             Click(Named<Button>(settings, "自定义强调色恢复默认")); await Pause();
-            Require(vm.State.AccentColor == "" && !Overridden("Accent") && Brush("Accent") == themeAccent, "恢复默认强调色失败");
+            Require(vm.State.AccentColor == "" && !Overridden("Accent") && Brush("Accent") == themeAccent && picker.Hex == "#286D59" && hex.Text == "#286D59", "恢复默认强调色失败，或调色板、HEX 没有复位");
 
             // 3. 标识颜色：单项设置、主色变化不影响强调色、单项与全部恢复
             expander.IsExpanded = true; await Pause();
@@ -97,6 +132,17 @@ internal static class SettingsPersonalizationChecks
             Named<TextBox>(settings, "PO颜色 HEX").Text = "#D35400"; await Pause();
             Named<TextBox>(settings, "SAGE颜色 HEX").Text = "#7F8C8D"; await Pause();
             Named<TextBox>(settings, "Admin（红名）颜色 HEX").Text = "#C0392B"; await Pause();
+            // 标识颜色用同一个调色板，各自独立
+            var cookieField = Field(settings, "饼干 ID颜色");
+            Click(Named<Button>(settings, "饼干 ID颜色调色")); await Pause();
+            Require(cookieField.Popup.IsOpen && cookieField.Picker.Hex == "#8E44AD", "饼干 ID 调色板没有打开或颜色不对");
+            var adminBefore = Brush("AdminCookieForeground");
+            cookieField.Picker.PickArea(new(ColorPicker.AreaWidth * .8, ColorPicker.AreaHeight * .3)); cookieField.Picker.Flush(); await Pause();
+            Require(vm.State.IdentityColors.Cookie != "#8E44AD" && Brush("AdminCookieForeground") == adminBefore && Brush("Accent") == themeAccent, "标识调色板影响了其他颜色");
+            capture(settings, Path.Combine(output, "identity-picker-light.png"));
+            cookieField.Popup.IsOpen = false;
+            Named<TextBox>(settings, "饼干 ID颜色 HEX").Text = "#8E44AD"; await Pause();
+            Require(cookieField.Picker.Hex == "#8E44AD", "HEX 没有同步到标识调色板");
             var saved = store.Load().IdentityColors;
             Require(saved is { Cookie: "#8E44AD", Po: "#D35400", Sage: "#7F8C8D", Admin: "#C0392B" }, "标识颜色没有保存");
             Require(Brush("Accent") == themeAccent, "改标识颜色影响了强调色");
@@ -215,7 +261,7 @@ internal static class SettingsPersonalizationChecks
             Require(cancelled, "滚动经过的图片没有延迟请求");
         }
         File.WriteAllText(Path.Combine(output, "settings-personalization.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
-        Console.WriteLine("PASS settings personalization: seven categories, accent presets/custom/HSL/reset with contrast in light+dark, identity colors per item/all reset with contrast and badge sync, persistence after reload, image modes, cache clear keeps personal data, legacy/invalid state, PostImage hidden/click-to-load/settle delay, DPI.");
+        Console.WriteLine("PASS settings personalization: seven categories, accent presets/custom/2D picker sync/reset, preview area with contrast in light+dark, identity colors per item/all reset with contrast and badge sync, persistence after reload, image modes, cache clear keeps personal data, legacy/invalid state, PostImage hidden/click-to-load/settle delay, DPI.");
         Console.WriteLine(JsonSerializer.Serialize(report));
 
         async Task Theme(SettingsWindow window, string mode)
@@ -226,6 +272,95 @@ internal static class SettingsPersonalizationChecks
             nav.SelectedItem = previous; await Pause();
         }
     }
+
+    private static ColorField Field(Window window, string name) => All<ColorField>(window).Single(f => AutomationProperties.GetName(f.Picker) == name + "调色板");
+    private static Rect ScreenRect(FrameworkElement element) => new(element.PointToScreen(new Point()), element.PointToScreen(new Point(element.ActualWidth, element.ActualHeight)));
+
+    // 真实鼠标：移动系统光标，在色域里点击、按住拖动、拖出边界，再点击和拖动色相条。只在显式加 --real-mouse 时运行，结束后光标放回原处。
+    private static async Task<object> RealMouse(SettingsWindow settings, ColorField field, MainViewModel vm, string output)
+    {
+        // 系统的前台锁定会拒绝直接切换；与 --real-ime 相同，临时挂到当前前台线程的输入队列上再切换。
+        var handle = new WindowInteropHelper(settings).Handle;
+        var foreignThread = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero); var ownThread = GetCurrentThreadId();
+        if (foreignThread != ownThread) AttachThreadInput(ownThread, foreignThread, true);
+        try { BringWindowToTop(handle); SetForegroundWindow(handle); }
+        finally { if (foreignThread != ownThread) AttachThreadInput(ownThread, foreignThread, false); }
+        settings.Activate(); await Pause(300);
+        if (!field.Popup.IsOpen) { field.Popup.IsOpen = true; await Pause(200); }
+        GetCursorPos(out var original);
+        var picker = field.Picker;
+        Point At(FrameworkElement element, double fx, double fy) => element.PointToScreen(new Point(element.ActualWidth * fx, element.ActualHeight * fy));
+        void Move(Point p) => SetCursorPos((int)Math.Round(p.X), (int)Math.Round(p.Y));
+        void Down() => mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        void Up() => mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+        try
+        {
+            Require(GetForegroundWindow() == new WindowInteropHelper(settings).Handle, "设置窗口不在前台，放弃真实鼠标操作");
+            // 单击色域 70% / 30%
+            Move(At(picker.Area, .7, .3)); await Pause(80); Down(); await Pause(60); Up(); await Pause(200);
+            var click = vm.State.AccentColor; var (_, cs, cv) = picker.Hsv;
+            Require(Math.Abs(cs - .7) < .03 && Math.Abs(cv - .7) < .03 && click == picker.Hex, $"真实点击色域没有选到对应位置：{cs:0.00}/{cv:0.00} {click}");
+            // 按住从 20%/20% 拖到 90%/80%，途中记录颜色，检查连续变化
+            Move(At(picker.Area, .2, .2)); await Pause(60); Down(); await Pause(60);
+            var trail = new List<string>();
+            for (var i = 1; i <= 10; i++) { Move(At(picker.Area, .2 + .07 * i, .2 + .06 * i)); await Pause(35); trail.Add(picker.Hex); }
+            ScreenShot(settings, field, Path.Combine(output, "real-mouse-dragging.png"));
+            Up(); await Pause(200);
+            var (_, ds, dv) = picker.Hsv;
+            Require(Math.Abs(ds - .9) < .03 && Math.Abs(dv - .2) < .03 && vm.State.AccentColor == picker.Hex && trail.Distinct().Count() >= 8, $"真实拖动没有连续更新：{ds:0.00}/{dv:0.00} {string.Join(",", trail)}");
+            // 拖出色域：停在边缘
+            Move(At(picker.Area, .5, .5)); await Pause(40); Down(); await Pause(40); Move(At(picker.Area, 1.5, -.5)); await Pause(80); Up(); await Pause(150);
+            Require(picker.Hsv.S == 1 && picker.Hsv.V == 1, "拖出色域后没有停在边缘");
+            // 色相条：点击三分之二处（约 240°）
+            Move(At(picker.HueBar, 2d / 3, .5)); await Pause(60); Down(); await Pause(40); Up(); await Pause(200);
+            Require(Math.Abs(picker.Hsv.H - 240) < 4 && Math.Abs(Personalization.ToHsv(Personalization.Rgb(vm.State.AccentColor)).H - 240) < 4, $"真实点击色相条没有生效：{picker.Hsv.H:0}");
+            // 色相条拖动到约 60°
+            Down(); await Pause(40);
+            for (var i = 1; i <= 5; i++) { Move(At(picker.HueBar, 2d / 3 - i * .1, .5)); await Pause(35); }
+            Up(); await Pause(200);
+            Require(Math.Abs(picker.Hsv.H - 60) < 6, $"真实拖动色相条没有生效：{picker.Hsv.H:0}");
+            Require(field.Popup.IsOpen, "操作中调色板被意外关闭");
+            ScreenShot(settings, field, Path.Combine(output, "real-mouse-after.png"));
+            // 点击调色板外部（设置页空白处）关闭
+            Move(At(settings, .5, .06)); await Pause(60); Down(); await Pause(40); Up(); await Pause(200);
+            Require(!field.Popup.IsOpen, "点击外部没有关闭调色板");
+            return new { Click = click, DragTrail = trail, Final = vm.State.AccentColor, Hue = Math.Round(picker.Hsv.H) };
+        }
+        finally { SetCursorPos(original.X, original.Y); }
+    }
+    // 设置窗口和弹出的调色板是两个窗口，按屏幕区域截图才能拍到一起。
+    private static void ScreenShot(Window window, ColorField field, string path)
+    {
+        var area = ScreenRect(window);
+        if (field.Popup.IsOpen) area.Union(ScreenRect((FrameworkElement)field.Popup.Child));
+        var w = (int)Math.Ceiling(area.Width); var h = (int)Math.Ceiling(area.Height);
+        var dc = GetDC(IntPtr.Zero); var memory = CreateCompatibleDC(dc); var bitmap = CreateCompatibleBitmap(dc, w, h); var old = SelectObject(memory, bitmap);
+        try
+        {
+            BitBlt(memory, 0, 0, w, h, dc, (int)area.Left, (int)area.Top, 0x00CC0020);
+            var image = Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image)); using var file = File.Create(path); encoder.Save(file);
+        }
+        finally { SelectObject(memory, old); DeleteObject(bitmap); DeleteDC(memory); ReleaseDC(IntPtr.Zero, dc); }
+    }
+    [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out NativePoint point);
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr handle);
+    [DllImport("user32.dll")] private static extern bool BringWindowToTop(IntPtr handle);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, IntPtr process);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint attach, uint to, bool value);
+    [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr dc);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int width, int height);
+    [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr dc, IntPtr value);
+    [DllImport("gdi32.dll")] private static extern bool BitBlt(IntPtr dest, int x, int y, int width, int height, IntPtr source, int sx, int sy, uint operation);
+    [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr dc);
 
     // ResourceDictionary.Contains 会连合并字典一起查，这里只看应用层的覆盖项。
     private static bool Overridden(string key) => Application.Current.Resources.Keys.Cast<object>().Contains(key);

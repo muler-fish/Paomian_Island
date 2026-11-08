@@ -24,6 +24,12 @@ internal static class Program
             try { SubscriptionLiveProbe.RunAsync(args[1]).GetAwaiter().GetResult(); return 0; }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
         }
+        // 交付 EXE 的调色板验收：会移动系统光标，只在显式指定时运行。
+        if (args.Length == 3 && args[0] == "--exe-colors")
+        {
+            try { return PublishedColorChecks.Run(args[1], args[2]); }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        }
         if (args.Length == 3 && args[0] is "--exe" or "--exe-with-notice" or "--exe-with-tips")
         {
             try { return CheckPublishedExecutable(args[1], args[2], args[0] == "--exe-with-notice", args[0] == "--exe-with-tips"); }
