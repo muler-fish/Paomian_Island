@@ -226,7 +226,7 @@
                   <local:PostPreview x:Name="CardBody" Html="{Binding Post.Content}" FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ReadingTypeScale}, ConverterParameter=-2}">
                     <local:PostPreview.Style><Style TargetType="local:PostPreview"><Style.Triggers><DataTrigger Binding="{Binding Excerpt}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></local:PostPreview.Style>
                   </local:PostPreview>
-                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ShowImages, RelativeSource={RelativeSource AncestorType=Window}}" PreviewHeight="180" PreviewMaxWidth="360" MaxWidth="372" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ListImagesAuto, RelativeSource={RelativeSource AncestorType=Window}}" Suppressed="{Binding DataContext.ListImagesHidden, RelativeSource={RelativeSource AncestorType=Window}}" PreviewHeight="180" PreviewMaxWidth="360" MaxWidth="372" HorizontalAlignment="Left" Margin="0,12,0,0"/>
                 </StackPanel>
                 <WrapPanel Margin="0,10,0,0">
                   <Border x:Name="CardSage" Background="{DynamicResource SageBackground}" CornerRadius="3" Padding="6,2" Margin="0,0,8,0" Visibility="{Binding Post.IsSage, Converter={StaticResource Visible}}"><TextBlock Text="SAGE" Foreground="{DynamicResource OnSage}" FontSize="11" FontWeight="SemiBold"/></Border>
@@ -323,7 +323,7 @@
                     </Style.Triggers></Style></local:EmojiLabel.Style>
                   </local:EmojiLabel>
                   <local:PostBody Html="{Binding Post.Content}" FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}}" ContextMenu="{StaticResource PostContextMenu}"/>
-                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ShowImages, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,16,0,0" PreviewHeight="190" PreviewMaxWidth="260"/>
+                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ReaderImagesAuto, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,16,0,0" PreviewHeight="190" PreviewMaxWidth="260"/>
                 </StackPanel>
               </Border>
               <DataTemplate.Triggers>

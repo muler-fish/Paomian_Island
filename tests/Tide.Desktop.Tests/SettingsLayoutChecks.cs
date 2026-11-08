@@ -33,7 +33,7 @@ internal static class SettingsLayoutChecks
             var nav = Named<ListBox>(settings, "设置分类");
             var scroll = Named<ScrollViewer>(settings, "设置内容");
             async Task Select(string page) { nav.SelectedItem = page; await Pause(); Require(scroll.VerticalOffset < 1, "category did not reset scroll"); }
-            Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "网络", "缓存", "数据与记录", "关于" }), "categories incomplete or reordered");
+            Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "内容与图片", "网络", "缓存", "数据与记录", "关于" }), "categories incomplete or reordered");
             Require(Equals(nav.SelectedItem, "阅读"), "default category not reading");
             Require(File.ReadAllText(Path.Combine(vm.Store.Root, "state.json")) == initialState, "opening settings modified saved state");
             var font = Named<Slider>(settings, "正文字号"); var line = Named<Slider>(settings, "行间距"); var spacing = Named<Slider>(settings, "字间距");
@@ -52,8 +52,9 @@ internal static class SettingsLayoutChecks
             var limit = Named<TextBox>(settings, "缓存容量上限"); limit.Text = "123";
             await Select("外观"); var theme = Named<ComboBox>(settings, "外观主题"); theme.SelectedIndex = 1; await Pause();
             Require(vm.State.Theme == "dark" && vm.Store.Load().Theme == "dark", "theme not applied and saved");
-            Named<CheckBox>(settings, "自动加载正文缩略图").IsChecked = false;
-            Require(!vm.Store.Load().ShowImages, "image preference lost");
+            await Select("内容与图片");
+            Named<ComboBox>(settings, "串内图片").SelectedIndex = 1;
+            Require(vm.Store.Load() is { ReaderImages: ImageModes.Click, ShowImages: false } && !vm.ReaderImagesAuto, "image preference lost");
             await Select("缓存");
             Require(limit.Text == "123" && vm.State.CacheLimitMb != 123, "switch/theme lost or committed pending cache limit");
             await Select("网络");
@@ -78,7 +79,7 @@ internal static class SettingsLayoutChecks
             foreach (var mode in new[] { "light", "dark" })
             {
                 await Select("外观"); theme.SelectedIndex = mode == "dark" ? 1 : 0; await Pause();
-                foreach (var entry in new[] { ("阅读", "reading"), ("外观", "appearance"), ("网络", "network"), ("缓存", "cache"), ("数据与记录", "data"), ("关于", "about") })
+                foreach (var entry in new[] { ("阅读", "reading"), ("外观", "appearance"), ("内容与图片", "content"), ("网络", "network"), ("缓存", "cache"), ("数据与记录", "data"), ("关于", "about") })
                 {
                     await Select(entry.Item1);
                     FixedActions(settings);
@@ -143,7 +144,7 @@ internal static class SettingsLayoutChecks
         Require(Equals(Named<ListBox>(reopened, "设置分类").SelectedItem, "阅读") && Named<Slider>(reopened, "正文字号").Value == 17, "reopen reset saved reading values or wrong default category");
         reopened.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(reopened)!, 0, Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
         Require(!reopened.IsVisible, "Esc no longer closes");
-        Console.WriteLine("PASS settings: six categories, live preview/ranges/persistence, pending input across theme/category changes, network isolation, cache validation/usage/migration/clear, update states, record counts, fixed actions/scrolling at 100/125/150%, keyboard and reopen/Esc.");
+        Console.WriteLine("PASS settings: seven categories, live preview/ranges/persistence, pending input across theme/category changes, network isolation, cache validation/usage/migration/clear, update states, record counts, fixed actions/scrolling at 100/125/150%, keyboard and reopen/Esc.");
     }
     private static void FixedActions(Window window)
     {

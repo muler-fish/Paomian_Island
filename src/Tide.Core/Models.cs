@@ -82,6 +82,24 @@ public sealed record PostResult(string Message, long? ThreadId);
 /// <summary>用户自己添加的颜文字；Text 原样保存（含空格、换行），Name 是可选的简称或备注，只用于显示和搜索。</summary>
 public sealed record CustomEmoticon(string Id, string Text, string Name = "");
 
+/// <summary>身份与状态标签的主色；只改颜色，不改 PO、红名、SAGE 的判断。</summary>
+public sealed record IdentityColors
+{
+    public string Cookie { get; init; } = "";
+    public string Admin { get; init; } = "";
+    public string Sage { get; init; } = "";
+    public string Po { get; init; } = "";
+}
+
+public static class ImageModes
+{
+    public const string Auto = "auto", Click = "click", Hidden = "hidden";
+    /// <summary>串列表缩略图的实际模式；未设置时沿用旧的总开关。</summary>
+    public static string List(UserState state) => state.ListImages is Auto or Click or Hidden ? state.ListImages : state.ShowImages ? Auto : Click;
+    /// <summary>串内图片的实际模式；未设置时沿用旧的总开关。</summary>
+    public static string Reader(UserState state) => state.ReaderImages is Auto or Click ? state.ReaderImages : state.ShowImages ? Auto : Click;
+}
+
 /// <summary>本机屏蔽条目，只保留管理列表需要的串号与标题摘要。</summary>
 public sealed record BlockedThread(long Id, string Title);
 public sealed record BlockedForum(int Id, string Name);
@@ -100,7 +118,16 @@ public sealed class UserState
     public bool InstallUpdatesOnExit { get; set; }
     public string CacheParentPath { get; set; } = "";
     public int CacheLimitMb { get; set; } = 256;
+    // 旧版的图片总开关；ListImages / ReaderImages 为空时按它决定（true 为自动加载，false 为点击加载）。
     public bool ShowImages { get; set; } = true;
+    // 串列表缩略图：auto 自动加载、click 点击加载、hidden 不显示；空字符串沿用 ShowImages。
+    public string ListImages { get; set; } = "";
+    // 串内（正文）图片：auto 或 click；空字符串沿用 ShowImages。原图始终在看图窗口按需加载。
+    public string ReaderImages { get; set; } = "";
+    // 主题强调色（#RRGGBB，浅色主题下的取值）；空字符串为默认绿。
+    public string AccentColor { get; set; } = "";
+    // 身份标识主色（#RRGGBB）；空字符串为主题默认色。标签文字色与底色由程序按主题生成。
+    public IdentityColors IdentityColors { get; set; } = new();
     public bool InertialScrolling { get; set; } = true;
     // 新资料和缺少此字段的旧资料默认关闭，显式保存的开关状态继续沿用。
     public bool HideSpoilers { get; set; }

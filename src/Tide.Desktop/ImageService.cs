@@ -24,6 +24,7 @@ public static class ImageService
     }
     private static string ImageKey(string url) => "images/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url))) + ".bin";
     private static readonly SemaphoreSlim Slots = new(4);
+    internal static TimeSpan ScrollSettleDelay { get; set; } = TimeSpan.FromMilliseconds(120);
     // 缩略图仅缓存在内存，当前调用方在 WPF 界面线程上访问此字典。
     private static readonly Dictionary<string, LoadedImage> Cache = [];
     private static long CacheBytes => Cache.Values.Sum(i => (long)i.Poster.PixelWidth * i.Poster.PixelHeight * 4 + (i.Gif?.Length ?? 0));
@@ -61,6 +62,8 @@ public static class ImageService
     internal static async Task<LoadedImage> LoadPreviewAsync(string url, CancellationToken ct)
     {
         if (Cache.TryGetValue(url, out var cached)) return cached;
+        // 内存里没有时稍等片刻再请求：快速滚过的条目在这段时间内被回收、取消，不会发出下载。
+        await Task.Delay(ScrollSettleDelay, ct);
         var bytes = await BytesAsync(url, ct);
         // 列表缩略图限制解码宽度并最多保留 80 项，减少长期阅读时的内存占用。
         var image = await Task.Run(() => DecodeImage(bytes, 700), ct);
@@ -92,10 +95,13 @@ public sealed class PostImage : ContentControl
 {
     public static readonly DependencyProperty PostProperty = DependencyProperty.Register(nameof(Post), typeof(Post), typeof(PostImage), new PropertyMetadata(null, Changed));
     public static readonly DependencyProperty ShowImagesProperty = DependencyProperty.Register(nameof(ShowImages), typeof(bool), typeof(PostImage), new PropertyMetadata(true, Changed));
+    // 串列表选择「不显示」时为 true：整块收起，不请求也不留入口。
+    public static readonly DependencyProperty SuppressedProperty = DependencyProperty.Register(nameof(Suppressed), typeof(bool), typeof(PostImage), new PropertyMetadata(false, Changed));
     public static readonly DependencyProperty PreviewHeightProperty = DependencyProperty.Register(nameof(PreviewHeight), typeof(double), typeof(PostImage), new PropertyMetadata(double.NaN, Changed));
     public static readonly DependencyProperty PreviewMaxWidthProperty = DependencyProperty.Register(nameof(PreviewMaxWidth), typeof(double), typeof(PostImage), new PropertyMetadata(440d, Changed));
     public Post? Post { get => (Post?)GetValue(PostProperty); set => SetValue(PostProperty, value); }
     public bool ShowImages { get => (bool)GetValue(ShowImagesProperty); set => SetValue(ShowImagesProperty, value); }
+    public bool Suppressed { get => (bool)GetValue(SuppressedProperty); set => SetValue(SuppressedProperty, value); }
     // 串列表使用固定预留高度；正文保持按比例自然高度。尺寸都是 WPF 逻辑像素。
     public double PreviewHeight { get => (double)GetValue(PreviewHeightProperty); set => SetValue(PreviewHeightProperty, value); }
     public double PreviewMaxWidth { get => (double)GetValue(PreviewMaxWidthProperty); set => SetValue(PreviewMaxWidthProperty, value); }
@@ -104,6 +110,8 @@ public sealed class PostImage : ContentControl
     private GifPlayback? _playback;
     private CancellationTokenSource? _cts;
     private int _version;
+    // 点击加载模式下用户已点开的图片地址；换绑到别的帖子后自然失效。
+    private string? _requested;
     public PostImage() : this(ImageService.LoadPreviewAsync) { }
     internal PostImage(Func<string, CancellationToken, Task<BitmapSource>> load) : this(async (url, ct) => new LoadedImage(await load(url, ct))) { }
     internal PostImage(Func<string, CancellationToken, Task<LoadedImage>> load)
@@ -120,17 +128,19 @@ public sealed class PostImage : ContentControl
         _playback?.Dispose(); _playback = null;
         // 站点缩略图可能只有首帧，GIF 预览通过同一缓存读取原文件。
         var post = Post; var url = post?.ImageUrl(!post.Extension.Equals(".gif", StringComparison.OrdinalIgnoreCase));
-        Visibility = url is null ? Visibility.Collapsed : Visibility.Visible;
-        if (url is null || post is null) { Content = null; return; }
+        Visibility = url is null || Suppressed ? Visibility.Collapsed : Visibility.Visible;
+        if (url is null || post is null || Suppressed) { Content = null; return; }
+        var show = ShowImages || _requested == url;
         var button = new Button
         {
             HorizontalAlignment = HorizontalAlignment.Left, HorizontalContentAlignment = HorizontalAlignment.Left,
-            Height = ShowImages ? PreviewHeight : double.NaN, Padding = new(4),
-            Content = ShowImages ? new ImageLoading(double.IsNaN(PreviewHeight) ? 144 : 58, double.IsNaN(PreviewHeight) ? 92 : Math.Max(24, PreviewHeight - 12)) : "显示这张图片", ToolTip = "点击查看原图"
+            Height = show ? PreviewHeight : double.NaN, Padding = new(4),
+            Content = show ? new ImageLoading(double.IsNaN(PreviewHeight) ? 144 : 58, double.IsNaN(PreviewHeight) ? 92 : Math.Max(24, PreviewHeight - 12)) : "显示这张图片",
+            ToolTip = show ? "点击查看原图" : "点击在此处加载这张图片"
         };
         System.Windows.Automation.AutomationProperties.SetName(button, $"查看 {post.Number} 的图片");
         Content = button;
-        // 无图模式保留手动打开入口，只有用户点击时才去原图窗口加载图片。
+        // 点击加载模式：第一次点击在原处加载缩略图，之后再点击打开看图窗口加载原图。
         var failed = false;
         void Fail()
         {
@@ -138,8 +148,13 @@ public sealed class PostImage : ContentControl
             failed = true; button.Content = "重试"; button.ToolTip = "图片加载失败，点击重试";
             System.Windows.Automation.AutomationProperties.SetName(button, $"重新加载 {post.Number} 的图片");
         }
-        button.Click += (_, _) => { if (failed) { ImageService.Forget(url); Update(); } else ImageClicked?.Invoke(this, post); };
-        if (!ShowImages) return;
+        button.Click += (_, _) =>
+        {
+            if (failed) { ImageService.Forget(url); Update(); }
+            else if (!show) { _requested = url; Update(); }
+            else ImageClicked?.Invoke(this, post);
+        };
+        if (!show) return;
         if (!IsLoaded) return;
         try
         {

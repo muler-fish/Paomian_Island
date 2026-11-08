@@ -65,6 +65,12 @@ public sealed partial class LocalStore
                 .Where(key => key is { Length: 64 } && key.All(Uri.IsHexDigit))
                 .Select(key => key.ToUpperInvariant()).Distinct().TakeLast(100).ToList();
             state.Theme = state.Theme == "dark" ? "dark" : "light";
+            // 新增的个性化字段：旧资料没有时为空（默认色、沿用旧图片开关），格式不对的单项回到默认。
+            state.ListImages = state.ListImages is ImageModes.Auto or ImageModes.Click or ImageModes.Hidden ? state.ListImages : "";
+            state.ReaderImages = state.ReaderImages is ImageModes.Auto or ImageModes.Click ? state.ReaderImages : "";
+            state.AccentColor = HexColor(state.AccentColor);
+            var identity = state.IdentityColors ?? new();
+            state.IdentityColors = new() { Cookie = HexColor(identity.Cookie), Admin = HexColor(identity.Admin), Sage = HexColor(identity.Sage), Po = HexColor(identity.Po) };
             return state;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
@@ -75,6 +81,14 @@ public sealed partial class LocalStore
             LoadWarning = $"设置文件无法读取，原文件已备份到 {backup}";
             return new();
         }
+    }
+
+    /// <summary>规范为大写 #RRGGBB；空值或格式错误返回空字符串（使用默认色）。</summary>
+    public static string HexColor(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (!text.StartsWith('#')) text = "#" + text;
+        return text.Length == 7 && text[1..].All(Uri.IsHexDigit) ? text.ToUpperInvariant() : "";
     }
 
     /// <summary>简称或备注去掉首尾空白，最多 80 字；颜文字正文本身从不 Trim。</summary>

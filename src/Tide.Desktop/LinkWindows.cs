@@ -49,7 +49,7 @@ internal sealed class ThreadLinkPreviewWindow : DialogWindow
             var name = PostCard.Optional(post.Name, "无名氏", _model.State.HideSpoilers);
             if (name.Length > 0) Body.Children.Add(new TextBlock { Text = name, TextWrapping = TextWrapping.Wrap, Margin = new(0, 8, 0, 0) });
             Body.Children.Add(new PostBody { Html = post.Content, FontSize = _model.ReadingFontSize, Margin = new(0, 12, 0, 0) });
-            if (post.HasImage) Body.Children.Add(new PostImage { Post = post, ShowImages = _model.State.ShowImages, Margin = new(0, 16, 0, 0) });
+            if (post.HasImage) Body.Children.Add(new PostImage { Post = post, ShowImages = _model.ReaderImagesAuto, Margin = new(0, 16, 0, 0) });
             _open.IsEnabled = true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }

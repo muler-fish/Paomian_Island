@@ -59,9 +59,35 @@ public sealed class SettingsWindow : DialogWindow
 
         var appearance = Page("外观");
         var themes = new ComboBox { ItemsSource = new[] { "浅色", "深色" }, SelectedIndex = vm.State.Theme == "dark" ? 1 : 0, Width = 140 };
-        themes.SelectionChanged += (_, _) => { vm.State.Theme = themes.SelectedIndex == 1 ? "dark" : "light"; App.ApplyTheme(vm.State.Theme); vm.AppearanceChanged(); };
+        themes.SelectionChanged += (_, _) =>
+        {
+            vm.State.Theme = themes.SelectedIndex == 1 ? "dark" : "light"; App.ApplyTheme(vm.State.Theme); vm.AppearanceChanged();
+            SettingsPersonalization.NotifyThemeChanged();
+        };
         SettingsLayout.Row(appearance, "外观主题", "切换应用的浅色与深色模式。", themes);
-        Toggle(appearance, "自动加载正文缩略图", vm.State.ShowImages, value => { vm.State.ShowImages = value; vm.AppearanceChanged(); });
+        SettingsPersonalization.Accent(appearance, vm, (label, action) => Button(label, action));
+        SettingsPersonalization.Identity(appearance, vm, (label, action) => Button(label, action));
+
+        // 内容与图片：列表缩略图、串内图片分开设置；原图只在看图窗口按需加载。
+        var content = Page("内容与图片");
+        ComboBox Mode(string title, string hint, string[] labels, string[] values, string current, Action<string> save)
+        {
+            var choices = new ComboBox { ItemsSource = labels, SelectedIndex = Math.Max(0, Array.IndexOf(values, current)), Width = 140 };
+            choices.SelectionChanged += (_, _) => save(values[choices.SelectedIndex]);
+            SettingsLayout.Row(content, title, hint, choices); return choices;
+        }
+        void SaveImages(string list, string reader)
+        {
+            // 明确写入两项，此后不再沿用旧的总开关；总开关同步为串内图片的状态，供旧版本读取。
+            vm.State.ListImages = list; vm.State.ReaderImages = reader; vm.State.ShowImages = reader == ImageModes.Auto; vm.AppearanceChanged();
+        }
+        Mode("串列表缩略图", "中栏每个串下方的小图。选择不显示时，进入串后仍可在正文中查看。",
+            ["自动加载", "点击后加载", "不显示"], [ImageModes.Auto, ImageModes.Click, ImageModes.Hidden], ImageModes.List(vm.State),
+            value => SaveImages(value, ImageModes.Reader(vm.State)));
+        Mode("串内图片", "主楼、回复和引用预览中的图片。",
+            ["自动加载", "点击后加载"], [ImageModes.Auto, ImageModes.Click], ImageModes.Reader(vm.State),
+            value => SaveImages(ImageModes.List(vm.State), value));
+        SettingsLayout.Block(content, SettingsLayout.Text("列表和正文显示的是站点缩略图，只在滚动到附近时才请求，快速滚过的条目不会下载。点击图片会打开看图窗口，这时才加载完整原图。加载失败的图片可以点击「重试」。图片走「网络」中访问 X 岛的线路，缓存计入「缓存」容量。", true), false);
 
         var network = Page("网络");
         void Route(string title, bool proxy, Action<bool> save)
@@ -118,15 +144,17 @@ public sealed class SettingsWindow : DialogWindow
         var clear = Action("清理缓存", async () => await CacheAction(async () => { await Task.Run(vm.Store.Cache.Clear); vm.ClearTemporaryCache(); }));
         clear.SetResourceReference(Control.ForegroundProperty, "Danger"); cacheButtons.Children.Add(clear);
         cacheManagement.Children.Add(SettingsLayout.Text("包含正文页、订阅列表快照和图片。超过上限时淘汰较久未使用的缓存；更改路径会迁移现有缓存。", true));
-        var clearHint = SettingsLayout.Text("清理会删除缓存文件，不影响饼干、订阅号、草稿、阅读历史和本机发言。", true); clearHint.Margin = new(0, 8, 0, 0); cacheManagement.Children.Add(clearHint);
+        var clearHint = SettingsLayout.Text("清理只删除可以重新获取的缓存文件，不影响饼干及备注、订阅号、草稿、阅读历史、本机发言、自定义颜文字和各项设置（这些属于「数据与记录」）。", true); clearHint.Margin = new(0, 8, 0, 0); cacheManagement.Children.Add(clearHint);
         SettingsLayout.Block(cache, cacheManagement, false);
         Loaded += async (_, _) => await CacheAction(() => Task.CompletedTask);
 
         var data = Page("数据与记录");
+        var dataHint = SettingsLayout.Text("这里是需要长期保留的个人数据，保存在个人资料目录的 state.json 等文件中；饼干和订阅号只在本机加密保存。「缓存」中的清理不会删除它们。", true);
+        dataHint.Margin = new(0, 0, 0, 4); data.Children.Add(dataHint);
         SettingsLayout.Row(data, "订阅号", "管理订阅号、备注及当前使用的订阅号。", Action("管理订阅号", async () => { new SubscriptionWindow(vm) { Owner = this }.ShowDialog(); await vm.LoadSubscriptionsAsync(); }));
         SettingsLayout.Row(data, "屏蔽内容", "管理已屏蔽的串与板块。", Action("屏蔽管理", () => new BlockedThreadsWindow(vm) { Owner = this }.ShowDialog()));
         var records = SettingsLayout.Text(""); SettingsLayout.Block(data, records);
-        void RefreshRecords() => records.Text = $"历史 {vm.State.History.Count} 个串 · 草稿 {vm.State.Drafts.Count} 份";
+        void RefreshRecords() => records.Text = $"历史 {vm.State.History.Count} 个串 · 草稿 {vm.State.Drafts.Count} 份 · 饼干 {vm.State.Cookies.Count} 个 · 自定义颜文字 {vm.State.CustomEmoticons.Count} 个";
         navigation.SelectionChanged += (_, _) => RefreshRecords(); Activated += (_, _) => RefreshRecords(); RefreshRecords();
         var profile = new StackPanel(); profile.Children.Add(SettingsLayout.Text("个人资料目录")); profile.Children.Add(SettingsLayout.Path(vm.Store.Root, "个人资料目录"));
         var openProfile = Action("打开资料目录", () => Open(vm.Store.Root)); openProfile.HorizontalAlignment = HorizontalAlignment.Left; profile.Children.Add(openProfile); SettingsLayout.Block(data, profile, false);

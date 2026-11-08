@@ -30,8 +30,8 @@ public partial class App : Application
                 MessageBox.Show($"这个资料目录的{AppIdentity.DisplayName}已经在运行，请从任务栏打开。", AppIdentity.DisplayName); Shutdown(); return;
             }
             var vm = new MainViewModel(new XIslandApi(), new LocalStore(root));
-            // 先应用已保存主题再显示窗口，避免启动时先闪出错误的背景色。
-            ApplyTheme(vm.State.Theme);
+            // 先应用已保存主题和个性化颜色再显示窗口，避免启动时先闪出错误的颜色。
+            Personalization.Load(vm.State); ApplyTheme(vm.State.Theme);
             _updates = vm.Updates;
             var window = new MainWindow(vm); MainWindow = window;
             if (smoke is not null) window.ShowInTaskbar = false;
@@ -68,6 +68,15 @@ public partial class App : Application
             Current.Resources["HideSpoilers"] = enabled;
     }
 
+    /// <summary>强调色或标识颜色改变后立即生效；高对比度模式沿用系统色，不覆盖。</summary>
+    internal static void ApplyPersonalization(string theme)
+    {
+        if (SystemParameters.HighContrast) return;
+        var dark = theme == "dark";
+        Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(Personalization.AccentFor(dark), dark ? Wpf.Ui.Appearance.ApplicationTheme.Dark : Wpf.Ui.Appearance.ApplicationTheme.Light, false);
+        ReaderTheme.Refresh(dark);
+    }
+
     public static void ApplyTheme(string theme)
     {
         // 同步 WPF UI 控件主题和阅读区语义画刷，避免深色窗口中出现浅色输入框。
@@ -75,8 +84,7 @@ public partial class App : Application
         var libraryTheme = SystemParameters.HighContrast ? Wpf.Ui.Appearance.ApplicationTheme.HighContrast
             : dark ? Wpf.Ui.Appearance.ApplicationTheme.Dark : Wpf.Ui.Appearance.ApplicationTheme.Light;
         Wpf.Ui.Appearance.ApplicationThemeManager.Apply(libraryTheme, Wpf.Ui.Controls.WindowBackdropType.None, false);
-        Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(
-            (Color)ColorConverter.ConvertFromString(dark ? "#94BBA9" : "#286D59"), libraryTheme, false);
+        Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(Personalization.AccentFor(dark), libraryTheme, false);
         ReaderTheme.Apply(dark);
         // 高对比度沿用系统色；饼干 ID、SAGE 文本和 PO 标签继续承担状态区分。
         if (SystemParameters.HighContrast)

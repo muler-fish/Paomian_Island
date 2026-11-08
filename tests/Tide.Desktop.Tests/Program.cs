@@ -84,6 +84,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--cookie-manager") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/cookie-manager");
         if (args.FirstOrDefault() == "--emoticon-custom") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-custom");
         if (args.FirstOrDefault() == "--real-ime") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/real-ime");
+        if (args.FirstOrDefault() == "--settings-personalization") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-personalization");
         if (args.FirstOrDefault() == "--emoticon-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-layout");
         if (args.FirstOrDefault() == "--emoticon-perf") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-perf");
         if (args.FirstOrDefault() == "--composer-input") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-input");
@@ -128,6 +129,11 @@ internal static class Program
                 if (args.FirstOrDefault() == "--emoticon-custom")
                 {
                     await EmoticonCustomChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--settings-personalization")
+                {
+                    await SettingsPersonalizationChecks.RunAsync(window, output, Capture);
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--emoticon-layout")

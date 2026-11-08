@@ -115,7 +115,10 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public double ReadingFontSize => State.FontSize;
     public double PreviewAuthorFontSize => ReadingFontSize - 1;
     public bool HideSpoilers => State.HideSpoilers;
-    public bool ShowImages => State.ShowImages;
+    // 图片加载模式：串列表缩略图与串内图片分开设置，原图始终在看图窗口按需加载。
+    public bool ListImagesAuto => ImageModes.List(State) == ImageModes.Auto;
+    public bool ListImagesHidden => ImageModes.List(State) == ImageModes.Hidden;
+    public bool ReaderImagesAuto => ImageModes.Reader(State) == ImageModes.Auto;
     public bool InertialScrolling => true;
     public string ThemeLabel => State.Theme == "dark" ? "浅色模式" : "深色模式";
     public bool IsDark => State.Theme == "dark";
@@ -434,7 +437,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         foreach (var card in Posts) card.SetSpoilerProtection(State.HideSpoilers);
         Changed(nameof(OriginalTitle));
         Changed(nameof(HideSpoilers));
-        Changed(nameof(ReadingFontSize)); Changed(nameof(PreviewAuthorFontSize)); Changed(nameof(ShowImages)); Changed(nameof(InertialScrolling)); Changed(nameof(ThemeLabel)); Changed(nameof(IsDark)); Save();
+        Changed(nameof(ReadingFontSize)); Changed(nameof(PreviewAuthorFontSize)); Changed(nameof(ListImagesAuto)); Changed(nameof(ListImagesHidden)); Changed(nameof(ReaderImagesAuto)); Changed(nameof(InertialScrolling)); Changed(nameof(ThemeLabel)); Changed(nameof(IsDark)); Save();
     }
     public void Save()
     {

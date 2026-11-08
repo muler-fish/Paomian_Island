@@ -12,6 +12,14 @@ internal static class ReaderTheme
         var theme = new ResourceDictionary { Source = new Uri($"/Tide;component/Themes/{(dark ? "Dark" : "Light")}.xaml", UriKind.Relative) };
         if (old is not null) dictionaries[dictionaries.IndexOf(old)] = theme;
         else dictionaries.Add(theme);
+        Refresh(dark);
+    }
+
+    /// <summary>只重新套用个性化颜色并同步 WPF UI 画刷，不重新载入主题字典（拖动调色滑块时使用）。</summary>
+    public static void Refresh(bool dark)
+    {
+        var app = Application.Current;
+        Personalization.Apply(app.Resources, dark);
         // Keep the WPF UI control state templates and the reader palette in sync.
         foreach (var (key, source) in new[] {
             ("AccentButtonBackground", "Accent"), ("AccentButtonBackgroundPointerOver", "AccentHover"), ("AccentButtonBackgroundPressed", "AccentPressed"),

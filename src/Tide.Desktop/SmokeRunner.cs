@@ -42,11 +42,11 @@ public static class SmokeRunner
         }
         checks["originalImageInListAndReader"] = LoadedOriginalImages(window, 69574374) >= 2;
         await Capture(window, Path.Combine(output, "original-images.png"));
-        vm.State.ShowImages = false; vm.AppearanceChanged();
+        vm.State.ListImages = vm.State.ReaderImages = ImageModes.Click; vm.AppearanceChanged();
         await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.ApplicationIdle);
         checks["noImageMode"] = Descendants<PostImage>(window).Where(p => p.IsVisible && p.Post?.Id == 69574374)
             .All(p => p.Content is Button { Content: string text } && text == "显示这张图片");
-        vm.State.ShowImages = true; vm.AppearanceChanged();
+        vm.State.ListImages = vm.State.ReaderImages = ImageModes.Auto; vm.AppearanceChanged();
         await vm.SelectForumAsync(vm.State.Forums.First(f => !f.IsTimeline && f.Id == 30));
         checks["liveBoardPosts"] = vm.Posts.Count;
         vm.OnlyPo = true; checks["onlyPo"] = vm.ReadingPosts.All(p => p.IsTip || p.Post.UserHash == vm.Original!.UserHash); vm.OnlyPo = false;
