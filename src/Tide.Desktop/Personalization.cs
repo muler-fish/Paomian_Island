@@ -106,9 +106,11 @@ internal static class Personalization
             var background = Mix(LightSurface, color, .11);
             return (EnsureContrast(color, background, 4.5, lighten: false), background);
         }
+        // 深色主题：保留用户选的饱和度（只去掉最刺眼的荧光感），亮度只抬到深色底上能读清的程度；
+        // 底色混入 26% 的主色，标签能看出颜色。最后按对比度再微调文字亮度。
         var (h, s, l) = ToHsl(color);
-        var foreground = FromHsl(h, Math.Min(s, .4), Math.Max(l, .74));
-        var darkBackground = Mix(DarkSurface, foreground, .16);
+        var foreground = FromHsl(h, Math.Min(s, .9), Math.Max(l, .62));
+        var darkBackground = Mix(DarkSurface, color, .26);
         return (EnsureContrast(foreground, darkBackground, 4.5, lighten: true), darkBackground);
     }
 

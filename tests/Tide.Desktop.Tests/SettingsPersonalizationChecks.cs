@@ -155,6 +155,10 @@ internal static class SettingsPersonalizationChecks
                     var ratio = Personalization.Contrast(Brush(fg), Brush(bg));
                     identityContrast[$"{mode}-{fg}"] = Math.Round(ratio, 2);
                     Require(ratio >= 4.5, $"{mode} {fg} 对比度不足：{ratio:0.00}");
+                    // 深色主题不能把用户选的颜色洗成接近灰的淡色（0.3.10 的问题）：文字和底色都要保留明显的饱和度。
+                    var chosen = fg switch { "CookieForeground" => vm.State.IdentityColors.Cookie, "AdminCookieForeground" => vm.State.IdentityColors.Admin, "OnSage" => vm.State.IdentityColors.Sage, _ => vm.State.IdentityColors.Po };
+                    var chosenS = Personalization.ToHsl(Personalization.Rgb(chosen)).S;
+                    if (mode == "dark") Require(Personalization.ToHsl(Brush(fg)).S >= Math.Min(chosenS, .9) * .85 && Personalization.ToHsl(Brush(bg)).S >= chosenS * .45, $"深色 {fg} 颜色发灰：所选 {chosen}，生成 {Personalization.Hex(Brush(fg))} / {Personalization.Hex(Brush(bg))}");
                 }
                 // 预览与主窗口的身份标签使用同一资源
                 var badge = All<Border>(settings).First(b => b.Name == "CookieBadge" && b.IsVisible);
