@@ -45,7 +45,7 @@ internal static class EmoticonChecks
             var tabs = UiRefinementChecks.Descendants<RadioButton>(surface).Select(r => r.Content?.ToString()).ToList();
             Require(tabs.SequenceEqual(new[] { "最近使用", "全部", "自定义" }) && !UiRefinementChecks.Descendants<TextBox>(surface).Any(), "分类不是最近使用／全部／自定义，或仍有搜索框。");
             await Category(composer, "全部");
-            Require(EmoticonButtons(composer).Count == entries.Count, "全部分类没有列出全部内置颜文字。");
+            Require(composer.Emoticons.Shown.Count == entries.Count, "全部分类没有列出全部内置颜文字。");
             CapturePopup(composer, Path.Combine(output, "emoticon-dropdown-light.png"));
             await Choose(composer, "(=ﾟωﾟ)=");
             Require(content.Text == "前文(=ﾟωﾟ)=后文" && content.CaretIndex == 9 && content.IsKeyboardFocused, "选区替换或焦点错误。");
@@ -59,7 +59,7 @@ internal static class EmoticonChecks
             await Open(composer); await Choose(composer, batch[5].Text);
             Require(vm.State.RecentEmoticons.Count == 20 && vm.State.RecentEmoticons[0] == batch[5].Text, "重选没有去重置顶。");
             App.ApplyTheme("dark"); await Open(composer); await Category(composer, "最近使用"); await Task.Delay(70);
-            Require(EmoticonButtons(composer).Count == 20, "最近使用分类不是 20 项。");
+            Require(composer.Emoticons.Shown.Count == 20, "最近使用分类不是 20 项。");
             CapturePopup(composer, Path.Combine(output, "emoticon-dropdown-dark-recent.png"));
             var original = content.Text;
             RaiseEscape(EmoticonButtons(composer).First()); await Task.Delay(50);
@@ -116,7 +116,8 @@ internal static class EmoticonChecks
         UiRefinementChecks.Descendants<RadioButton>(composer.Emoticons.Popup.Child).Single(r => Equals(r.Content, label)).IsChecked = true; await Task.Delay(60);
     }
     private static async Task Open(ComposerWindow composer) { await Invoke(Button(composer, "颜文字")); Require(composer.Emoticons.Popup.IsOpen, "颜文字下拉未打开。"); }
-    private static async Task Choose(ComposerWindow composer, string text) { await Invoke(EmoticonButtons(composer).First(b => ((EmoticonEntry)b.Tag).Text == text)); Require(!composer.Emoticons.Popup.IsOpen, "点击后菜单未关闭。"); }
+    // 列表按行虚拟化，先滚到条目所在行再点击。
+    private static async Task Choose(ComposerWindow composer, string text) { await Invoke(composer.Emoticons.Realize(composer.Emoticons.Shown.First(e => e.Text == text))!); Require(!composer.Emoticons.Popup.IsOpen, "点击后菜单未关闭。"); }
     private static T Find<T>(Window window, string name) where T : DependencyObject => UiRefinementChecks.Descendants<T>(window).Single(t => AutomationProperties.GetName(t) == name);
     // 工具栏按钮内容是图标＋文字，按无障碍名称查找；普通按钮仍按文字。
     private static Button Button(Window window, string text) => UiRefinementChecks.Descendants<Button>(window).Single(b => b.Content?.ToString() == text || AutomationProperties.GetName(b) == text);

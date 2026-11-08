@@ -82,7 +82,8 @@ internal static class EmoticonCustomChecks
             for (var i = 0; i < 60; i++) EmoticonCatalog.Save(vm.State, null, $"自定义{i}号 (・∀・)" + new string('长', i % 7 * 10), i % 3 == 0 ? "" : $"第{i}个");
             vm.Save(); composer.Emoticons.Toggle(); await Open(composer); await Category(menu, "自定义");
             var surface = (FrameworkElement)menu.Popup.Child;
-            Require(Buttons(menu).Count == 62 && Buttons(menu).All(b => b.ActualWidth <= 220.5) && surface.ActualWidth <= composer.ActualWidth, "大量或超长自定义条目撑破了选择器");
+            var realized = Buttons(menu);
+            Require(menu.Shown.Count == 62 && realized.Count > 0 && realized.All(b => b.ActualWidth <= surface.ActualWidth / menu.ColumnCount) && surface.ActualWidth <= composer.ActualWidth, "大量或超长自定义条目撑破了选择器");
             Snapshot(menu.Popup, Path.Combine(output, "custom-many-light.png"));
             App.ApplyTheme("dark"); await Pause(); Snapshot(menu.Popup, Path.Combine(output, "custom-many-dark.png")); App.ApplyTheme("light");
 
@@ -94,6 +95,8 @@ internal static class EmoticonCustomChecks
             Require(shown.Text == Art && shown.TextWrapping == TextWrapping.NoWrap && shown.FontFamily.Source.StartsWith("Consolas"), "预览改动了图案、自动折行或没有使用等宽字体");
             var work = WindowPlacement.WorkArea(composer); var rect = ScreenRect(preview);
             Require(rect.Left >= work.Left - 1 && rect.Right <= work.Right + 1 && rect.Top >= work.Top - 1 && rect.Bottom <= work.Bottom + 1, $"预览超出屏幕工作区：{rect} / {work}");
+            var anchor = ScreenRect(menu.Realize(Entry(menu, Art))!);
+            Require((rect.Bottom <= anchor.Top + 1 || rect.Top >= anchor.Bottom - 1) && rect.Left < anchor.Right && rect.Right > anchor.Left, $"预览没有贴在条目上方或下方：{rect} / {anchor}");
             var send = UiRefinementChecks.Descendants<Button>(composer).Single(b => Equals(b.Content, "预览并发送"));
             Require(!rect.IntersectsWith(ScreenRect(send)), "预览压住了「预览并发送」");
             Snapshot(menu.Preview, Path.Combine(output, "preview-pinned-light.png"));
@@ -124,12 +127,12 @@ internal static class EmoticonCustomChecks
             await WithDialog<ConfirmWindow>(async confirm => { await Pause(); Click(confirm, "确定"); }, () => MenuAction(menu, edited, "删除"));
             Require(!vm.State.CustomEmoticons.Any(e => e.Text == edited) && !vm.State.RecentEmoticons.Contains(edited) && !store.Load().RecentEmoticons.Contains(edited), "删除没有移除条目或最近使用记录");
             await Category(menu, "最近使用");
-            Require(!Buttons(menu).Any(b => ((EmoticonEntry)b.Tag).Text == edited), "最近使用里仍有已删除的条目");
+            Require(!menu.Shown.Any(e => e.Text == edited), "最近使用里仍有已删除的条目");
 
             // 隐藏与恢复内置条目
             var builtin = EmoticonCatalog.Entries.First(e => !e.IsLarge);
             await Category(menu, "全部"); await MenuAction(menu, builtin.Text, "隐藏");
-            Require(store.Load().HiddenEmoticons.SequenceEqual(new[] { builtin.Text }) && !Buttons(menu).Any(b => ((EmoticonEntry)b.Tag).Text == builtin.Text), "隐藏内置颜文字失败");
+            Require(store.Load().HiddenEmoticons.SequenceEqual(new[] { builtin.Text }) && !menu.Shown.Any(e => e.Text == builtin.Text), "隐藏内置颜文字失败");
             var hiddenEntry = UiRefinementChecks.Descendants<Button>(menu.Popup.Child).Single(b => Equals(b.Content, "已隐藏 1 个内置颜文字"));
             Click(hiddenEntry); await Pause();
             Snapshot(menu.Popup, Path.Combine(output, "hidden-light.png"));
@@ -165,11 +168,11 @@ internal static class EmoticonCustomChecks
     { UiRefinementChecks.Descendants<RadioButton>(menu.Popup.Child).Single(r => Equals(r.Content, label)).IsChecked = true; await Pause(); }
     private static Button Add(EmoticonMenu menu) => UiRefinementChecks.Descendants<Button>(menu.Popup.Child).Single(b => AutomationProperties.GetName(b) == "新增");
     private static List<Button> Buttons(EmoticonMenu menu) => UiRefinementChecks.Descendants<Button>(menu.Popup.Child).Where(b => b.Tag is EmoticonEntry).ToList();
-    private static EmoticonEntry Entry(EmoticonMenu menu, string text) => Buttons(menu).Select(b => (EmoticonEntry)b.Tag).Single(e => e.Text == text);
+    private static EmoticonEntry Entry(EmoticonMenu menu, string text) => menu.Shown.Single(e => e.Text == text);
     private static IEnumerable<string> Texts(EmoticonMenu menu) => UiRefinementChecks.Descendants<TextBlock>(menu.Popup.Child).Select(t => t.Text);
     private static async Task MenuAction(EmoticonMenu menu, string text, string action)
     {
-        var button = Buttons(menu).Single(b => ((EmoticonEntry)b.Tag).Text == text);
+        var button = menu.Realize(Entry(menu, text))!;
         var item = button.ContextMenu!.Items.OfType<MenuItem>().Single(i => Equals(i.Header, action));
         button.ContextMenu.PlacementTarget = button;
         item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); await Pause();

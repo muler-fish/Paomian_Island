@@ -116,6 +116,8 @@ public sealed class ComposerWindow : DialogWindow
         _forum.SelectionChanged += (_, _) => ScheduleSave(); _water.Click += (_, _) => ScheduleSave();
         _autosave.Tick += (_, _) => { _autosave.Stop(); SaveDraft(); };
         Closing += OnClosing; Closed += (_, _) => _autosave.Stop();
+        // 窗口显示后空闲时预排颜文字首屏，首次点开不再等待字体与控件初始化。
+        ContentRendered += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(Emoticons.Prepare));
     }
     private void RefreshCookies()
     {

@@ -77,7 +77,7 @@ internal static class ComposerInputChecks
             await Invoke(Tool(composer, "颜文字")); var art = composer.Emoticons;
             vm.State.CustomEmoticons = [new("art", "  /\\_/\\\n ( o.o )\n", "猫")];
             await Invoke(Tool(composer, "颜文字")); await Invoke(Tool(composer, "颜文字"));
-            var cat = UiRefinementChecks.Descendants<Button>(art.Popup.Child).First(b => b.Tag is EmoticonEntry { CustomId: "art" } || (b.Tag is EmoticonEntry e && e.Text.StartsWith("  /")));
+            var cat = art.Realize(art.Shown.First(e => e.CustomId == "art"))!;
             await Invoke(cat); await Type(editor, "!");
             await Check("emoticon-insert", "左  /\\_/\\\r\n ( o.o )\r\n!右", 21);
             editor.Text = "剧透内容"; editor.Select(0, 2); await Pause();

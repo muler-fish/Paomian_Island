@@ -31,6 +31,8 @@ internal static class EmoticonCatalog
 {
     public const int MaxLength = 10000;
     public static IReadOnlyList<EmoticonEntry> Entries { get; } = Load();
+    // 内置原文集合，隐藏计数和去重时按哈希查找。
+    private static readonly HashSet<string> BuiltinTexts = Entries.Select(e => e.Text).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>自定义分类：按添加顺序排列。</summary>
     public static List<EmoticonEntry> Custom(UserState state) =>
@@ -43,6 +45,8 @@ internal static class EmoticonCatalog
         return Entries.Where(e => !hidden.Contains(e.Text)).Concat(Custom(state)).ToList();
     }
 
+    public static int HiddenCount(UserState state) => state.HiddenEmoticons.Distinct().Count(BuiltinTexts.Contains);
+
     public static List<EmoticonEntry> Hidden(UserState state)
     {
         var hidden = state.HiddenEmoticons.ToHashSet(StringComparer.Ordinal);
@@ -52,12 +56,16 @@ internal static class EmoticonCatalog
     // 最近使用按原文记录；只显示当前仍可见的条目，已删除或隐藏的不会出现。
     public static List<EmoticonEntry> Recent(UserState state)
     {
-        var visible = Visible(state);
-        return state.RecentEmoticons.Distinct().Select(text => visible.FirstOrDefault(e => e.Text == text)).OfType<EmoticonEntry>().Take(20).ToList();
+        var visible = new Dictionary<string, EmoticonEntry>(StringComparer.Ordinal);
+        foreach (var entry in Visible(state)) visible.TryAdd(entry.Text, entry);
+        return state.RecentEmoticons.Distinct().Select(text => visible.GetValueOrDefault(text)).OfType<EmoticonEntry>().Take(20).ToList();
     }
 
-    public static List<string> Remember(UserState state, string text) =>
-        new[] { text }.Concat(state.RecentEmoticons).Distinct().Where(t => Visible(state).Any(e => e.Text == t)).Take(20).ToList();
+    public static List<string> Remember(UserState state, string text)
+    {
+        var visible = Visible(state).Select(e => e.Text).ToHashSet(StringComparer.Ordinal);
+        return new[] { text }.Concat(state.RecentEmoticons).Distinct().Where(visible.Contains).Take(20).ToList();
+    }
 
     /// <summary>新增或修改自定义颜文字；原文只统一换行符，空格、全角空格和缩进全部保留。</summary>
     public static CustomEmoticon Save(UserState state, string? id, string text, string name)
@@ -67,7 +75,7 @@ internal static class EmoticonCatalog
         if (text.Length > MaxLength) throw new ArgumentException($"颜文字最多 {MaxLength} 个字符。");
         var existing = id is null ? null : state.CustomEmoticons.Find(c => c.Id == id) ?? throw new ArgumentException("这个自定义颜文字已被删除。");
         if (state.CustomEmoticons.Any(c => c.Id != id && c.Text == text)) throw new ArgumentException("已经有内容相同的自定义颜文字。");
-        if (Entries.Any(e => e.Text == text)) throw new ArgumentException("内置颜文字里已有相同内容。");
+        if (BuiltinTexts.Contains(text)) throw new ArgumentException("内置颜文字里已有相同内容。");
         var entry = new CustomEmoticon(existing?.Id ?? Guid.NewGuid().ToString("N"), text, LocalStore.EmoticonName(name));
         if (existing is null) state.CustomEmoticons.Add(entry);
         else
@@ -90,7 +98,7 @@ internal static class EmoticonCatalog
 
     public static void Hide(UserState state, string text)
     {
-        if (Entries.Any(e => e.Text == text) && !state.HiddenEmoticons.Contains(text)) state.HiddenEmoticons.Add(text);
+        if (BuiltinTexts.Contains(text) && !state.HiddenEmoticons.Contains(text)) state.HiddenEmoticons.Add(text);
     }
 
     public static void Restore(UserState state, string text) => state.HiddenEmoticons.Remove(text);
