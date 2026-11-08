@@ -192,7 +192,8 @@ internal sealed class ColorField : StackPanel
 
     public ColorField(string name, string value, string defaultHex, Func<string, Action, Button> button, Func<string, Color>? effective = null)
     {
-        _default = defaultHex; Value = value;
+        // 保存的颜色与默认色相同时按默认处理（例如默认值改成了用户原来的设置）。
+        _default = defaultHex; Value = value.Equals(defaultHex, StringComparison.OrdinalIgnoreCase) ? "" : value;
         Margin = new(0, 8, 0, 0);
         _swatch.SetResourceReference(Border.BorderBrushProperty, "Line"); AutomationProperties.SetName(_swatch, name + "色块");
         _row.Children.Add(_swatch);

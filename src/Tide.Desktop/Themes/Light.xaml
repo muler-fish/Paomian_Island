@@ -18,17 +18,17 @@
   <SolidColorBrush x:Key="Pressed" Color="#e0e3e5"/>
   <SolidColorBrush x:Key="Danger" Color="#aa4545"/>
   <SolidColorBrush x:Key="DangerSoft" Color="#f5e9e9"/>
-  <SolidColorBrush x:Key="CookieBackground" Color="#e9efeb"/>
-  <SolidColorBrush x:Key="CookieForeground" Color="#3d6550"/>
-  <SolidColorBrush x:Key="AdminCookieBackground" Color="#f5ece7"/>
-  <SolidColorBrush x:Key="AdminCookieForeground" Color="#925039"/>
+  <SolidColorBrush x:Key="CookieBackground" Color="#e7efed"/>
+  <SolidColorBrush x:Key="CookieForeground" Color="#286d59"/>
+  <SolidColorBrush x:Key="AdminCookieBackground" Color="#ffe3e3"/>
+  <SolidColorBrush x:Key="AdminCookieForeground" Color="#d10000"/>
   <SolidColorBrush x:Key="PostGreen" Color="#286d59"/>
   <SolidColorBrush x:Key="PostRed" Color="#aa4545"/>
-  <SolidColorBrush x:Key="SageBackground" Color="#f5e9e9"/>
-  <SolidColorBrush x:Key="OnSage" Color="#aa4545"/>
+  <SolidColorBrush x:Key="SageBackground" Color="#ffe3e3"/>
+  <SolidColorBrush x:Key="OnSage" Color="#d10000"/>
   <SolidColorBrush x:Key="FavoriteStar" Color="#9b781a"/>
-  <SolidColorBrush x:Key="PoBackground" Color="#e7eef5"/>
-  <SolidColorBrush x:Key="PoForeground" Color="#456481"/>
+  <SolidColorBrush x:Key="PoBackground" Color="#e3f1ff"/>
+  <SolidColorBrush x:Key="PoForeground" Color="#0068c9"/>
   <SolidColorBrush x:Key="Link" Color="#32658c"/>
   <SolidColorBrush x:Key="Scrim" Color="#66171d1b"/>
   <SolidColorBrush x:Key="AccentHover" Color="#307d66"/>

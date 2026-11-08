@@ -29,6 +29,17 @@ internal static class SettingsPersonalizationChecks
         Personalization.Load(vm.State); App.ApplyTheme("light");
         var report = new Dictionary<string, object>();
         var themeAccent = Brush("Accent"); var themeCookie = Brush("CookieForeground");
+        // 主题文件里的默认标签颜色就是默认主色按算法生成的结果（浅色、深色都核对）。
+        foreach (var dark in new[] { false, true })
+        {
+            App.ApplyTheme(dark ? "dark" : "light");
+            foreach (var (identity, fg, bg) in new[] { (Personalization.Identity.Cookie, "CookieForeground", "CookieBackground"), (Personalization.Identity.Admin, "AdminCookieForeground", "AdminCookieBackground"), (Personalization.Identity.Sage, "OnSage", "SageBackground"), (Personalization.Identity.Po, "PoForeground", "PoBackground") })
+            {
+                var (efg, ebg) = Personalization.IdentityPalette(Personalization.DefaultIdentity(identity), dark);
+                Require(Brush(fg) == efg && Brush(bg) == ebg, $"{(dark ? "深色" : "浅色")} {fg} 默认值与默认主色生成的颜色不一致：{Personalization.Hex(Brush(fg))}/{Personalization.Hex(Brush(bg))}，应为 {Personalization.Hex(efg)}/{Personalization.Hex(ebg)}");
+            }
+        }
+        App.ApplyTheme("light");
         Require(themeAccent == Personalization.Rgb("#286D59") && !Overridden("Accent"), "默认强调色不是主题原值或仍有覆盖");
         // 另开一个主窗口加载模拟的板块和串（含红名），核对串列表、阅读区身份标签的颜色同步。图片设为点击加载，不联网；视图模型由窗口关闭时释放。
         var readerVm = new MainViewModel(RefinedReaderChecks.CreateApi(), new LocalStore(Path.Combine(output, "reader-profile")));
@@ -173,7 +184,7 @@ internal static class SettingsPersonalizationChecks
             Require((int)report["MainWindowBadges"] > 0, "主窗口没有可核对的身份标签");
             await Theme(settings, "light");
             Click(Named<Button>(settings, "PO颜色恢复默认")); await Pause();
-            Require(store.Load().IdentityColors is { Po: "", Cookie: "#8E44AD" } && Brush("PoForeground") == Personalization.Rgb("#456481"), "单项恢复默认失败");
+            Require(store.Load().IdentityColors is { Po: "", Cookie: "#8E44AD" } && Brush("PoForeground") == Personalization.Rgb("#0068C9"), "单项恢复默认失败");
             Click(All<Button>(settings).Single(b => Equals(b.Content, "全部恢复默认"))); await Pause();
             Require(store.Load().IdentityColors is { Cookie: "", Admin: "", Sage: "", Po: "" } && Brush("CookieForeground") == themeCookie, "全部恢复默认失败");
 

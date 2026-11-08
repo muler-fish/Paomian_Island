@@ -21,10 +21,10 @@ internal static class Personalization
         new("石墨", "#4B5560", "#B5BEC7"),
     ];
     internal const string DefaultAccent = "#286D59";
-    // 各标识的默认主色取浅色主题里的文字色。
+    // 各标识的默认主色（0.3.12 按用户当时的设置定为默认）；主题文件里的默认标签颜色就是由它们按浅色/深色生成的。
     internal static string DefaultIdentity(Identity identity) => identity switch
     {
-        Identity.Cookie => "#3D6550", Identity.Admin => "#925039", Identity.Sage => "#AA4545", _ => "#456481"
+        Identity.Cookie => "#286D59", Identity.Admin => "#FF0000", Identity.Sage => "#FF0000", _ => "#0084FF"
     };
     internal static string Label(Identity identity) => identity switch
     {

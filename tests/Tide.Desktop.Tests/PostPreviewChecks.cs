@@ -95,7 +95,7 @@ internal static class PostPreviewChecks
             foreach (var fg in new[] { "PostGreen", "PostRed" }) Require(Contrast(Brush(fg), Brush("Surface")) >= 4.5, "正文强调色对比度不足：" + fg);
             // 第二轮 Refined Reader 配色的固定值，防止调整饼干标签时连带改到选中背景与 PO 标签。
             Require(Brush("AccentSoft") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E6ECE8" : "#2D3533"), "饼干调色连带修改了选中背景");
-            Require(Brush("PoBackground") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E7EEF5" : "#293541"), "饼干调色连带修改了 PO 标签");
+            Require(Brush("PoBackground") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E3F1FF" : "#15395B"), "饼干调色连带修改了 PO 标签");
             foreach (var width in new[] { 240d, 320d, 480d, 720d })
             {
                 columns.ColumnDefinitions[2].Width = new(width); list.ScrollIntoView(vm.Posts[0]); await Pause();
