@@ -7,7 +7,11 @@ using System.Text.RegularExpressions;
 namespace Tide.Core;
 
 /// <summary>可展示给用户的接口错误，例如访问受限、限流或明确的发言失败。</summary>
-public sealed class IslandException(string message) : Exception(message);
+/// <remarks>Rejected 表示服务端正常应答但明确拒绝（串不存在、已删除、无权访问等）；HTTP 状态、限流和网页验证属于暂时性错误。</remarks>
+public sealed class IslandException(string message, bool rejected = false) : Exception(message)
+{
+    public bool Rejected { get; } = rejected;
+}
 /// <summary>POST 可能已被服务端处理，但客户端无法确认结果；调用方应保留草稿，避免自动重发。</summary>
 public sealed class DeliveryUnknownException(string message, Exception? inner = null) : Exception(message, inner);
 
@@ -85,7 +89,7 @@ public sealed partial class XIslandApi : IDisposable
     {
         using var doc = await GetJsonAsync($"thread?id={id}&page={page}", ct, cookie);
         if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("id", out _))
-            throw new IslandException("未找到这个串，可能已被删除，或当前饼干没有访问权限。");
+            throw new IslandException("未找到这个串，可能已被删除，或当前饼干没有访问权限。", rejected: true);
         var post = ParsePost(doc.RootElement);
         // 提示由服务端随页投放；记录相对正常回复的位置，不把它计入 19 条回复的分页。
         var replies = new List<Post>(); var tips = new List<ThreadTip>();
@@ -123,7 +127,7 @@ public sealed partial class XIslandApi : IDisposable
         {
             var message = root.ValueKind == JsonValueKind.String ? root.GetString() : Str(root, "error");
             doc.Dispose();
-            throw new IslandException(ContentText.Plain(message ?? "接口请求失败"));
+            throw new IslandException(ContentText.Plain(message ?? "接口请求失败"), rejected: true);
         }
         return doc;
     }

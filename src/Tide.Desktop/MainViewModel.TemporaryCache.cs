@@ -22,10 +22,11 @@ public sealed partial class MainViewModel
         return result;
     }
 
-    private async Task<ThreadPage> ReadThreadAsync(long id, int page, bool refresh, CancellationToken ct)
+    /// <param name="maxAge">普通打开 30 秒；后退/前进返回刚读过的串时放宽，避免每次都重新下载同一页。</param>
+    private async Task<ThreadPage> ReadThreadAsync(long id, int page, bool refresh, CancellationToken ct, TimeSpan? maxAge = null)
     {
         var key = (State.ActiveCookieId, id, page);
-        if (!refresh && _recentThreads.TryGetValue(key, out var cached) && DateTimeOffset.UtcNow - cached.At < TimeSpan.FromSeconds(30)) return cached.Value;
+        if (!refresh && _recentThreads.TryGetValue(key, out var cached) && DateTimeOffset.UtcNow - cached.At < (maxAge ?? RecentThreadAge)) return cached.Value;
         var result = await Api.GetThreadAsync(id, page, ct);
         ct.ThrowIfCancellationRequested(); _recentThreads[key] = (DateTimeOffset.UtcNow, result);
         foreach (var old in _recentThreads.OrderByDescending(p => p.Value.At).Skip(40).Select(p => p.Key).ToList()) _recentThreads.Remove(old);

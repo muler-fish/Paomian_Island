@@ -1,7 +1,11 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Tide.Core;
 
 namespace Tide.Desktop;
@@ -14,7 +18,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private readonly ReadingProgressTracker _readingProgress;
     private readonly MainLayoutController _layout;
     private readonly Action<string> _openBrowser;
-    private bool _closed;
+    private bool _closed, _syncingThreadSelection, _threadSelectionQueued;
     public MainWindow(MainViewModel model) : this(model, url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })) { }
     internal MainWindow(MainViewModel model, Action<string> openBrowser)
     {
@@ -35,15 +39,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         PostBody.ReferenceClicked += Reference;
         PostBody.UrlClicked += ContentLinkClicked;
         PostImage.ImageClicked += OpenImage;
+        model.PropertyChanged += ReadingStateChanged;
+        ((INotifyCollectionChanged)ThreadList.Items).CollectionChanged += ThreadItemsChanged;
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.L && Keyboard.Modifiers == ModifierKeys.Control) { JumpBox.Focus(); JumpBox.SelectAll(); e.Handled = true; }
+            else if (ReadingHistoryStep(e.Key == Key.System ? e.SystemKey : e.Key, Keyboard.Modifiers, Keyboard.FocusedElement) is not 0 and var step)
+            {
+                // 按住不放时不连续后退；处理掉按键，避免焦点控件再响应同一组合键。
+                if (!e.IsRepeat) NavigateReadingHistory(step);
+                e.Handled = true;
+            }
+        };
+        // 鼠标侧键与浏览器一致：XButton1 后退，XButton2 前进。
+        PreviewMouseDown += (_, e) =>
+        {
+            if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2)) return;
+            NavigateReadingHistory(e.ChangedButton == MouseButton.XButton1 ? -1 : 1); e.Handled = true;
         };
         Closed += (_, _) =>
         {
             _closed = true;
             // 正文和图片控件使用静态事件，关闭窗口时必须退订，避免旧窗口被事件引用保留。
             model.ReaderReset -= ResetReader; model.ListReset -= ResetList; PostBody.ReferenceClicked -= Reference; PostBody.UrlClicked -= ContentLinkClicked; PostImage.ImageClicked -= OpenImage;
+            model.PropertyChanged -= ReadingStateChanged; ((INotifyCollectionChanged)ThreadList.Items).CollectionChanged -= ThreadItemsChanged;
             model.ReaderPrepending -= BeforePrepend; model.ReaderPrepended -= AfterPrepend;
             model.ReaderLeaving -= _readingProgress.Flush; _readingProgress.Dispose(); _layout.Dispose();
             model.FeedbackRaised -= FeedbackReceived; model.PropertyChanged -= FeedbackStateChanged; FeedbackLayer.Clear();
@@ -78,8 +97,38 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private async void HomeTimeline_Click(object sender, RoutedEventArgs e) => await Model.SelectForumAsync(Model.State.Forums.Find(f => f.IsTimeline && f.Id == 1) ?? new(1, "综合线", "时间线", "", true, 20));
     private async void Thread_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ThreadList.SelectedItem is PostCard post) await Model.OpenThreadAsync(post.Post.Id);
+        // 选中项只是用户的打开操作；按阅读状态回写选中项时不能再次触发导航。
+        if (_syncingThreadSelection || ThreadList.SelectedItem is not PostCard post) return;
+        await Model.OpenListThreadAsync(post.Post.Id);
     }
+    private void ReadingStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.ReadingThreadId)) SyncThreadSelection();
+    }
+    private void ThreadItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // 刷新、续页或取消屏蔽后，当前阅读串可能重新出现在列表里；只在需要时排一次同步。
+        if (_threadSelectionQueued || e.Action == NotifyCollectionChangedAction.Add && (ThreadList.SelectedItem is not null ||
+            e.NewItems?.OfType<PostCard>().Any(c => c.Post.Id == Model.ReadingThreadId) != true)) return;
+        // 列表正在处理集合变化，等它更新完容器后再改选中项。
+        _threadSelectionQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.DataBind, () => { _threadSelectionQueued = false; if (!_closed) SyncThreadSelection(); });
+    }
+    /// <summary>让串列表的选中项对应右侧当前阅读的串；该串不在列表（或被屏蔽）时不选中任何项。</summary>
+    private void SyncThreadSelection()
+    {
+        var id = Model.ReadingThreadId;
+        if (ThreadList.SelectedItem is PostCard selected && selected.Post.Id == id) return;
+        var target = id is null ? null : ThreadList.Items.OfType<PostCard>().FirstOrDefault(c => c.Post.Id == id);
+        if (target is null && ThreadList.SelectedItem is null) return;
+        _syncingThreadSelection = true;
+        try { ThreadList.SelectedItem = target; }
+        finally { _syncingThreadSelection = false; }
+    }
+    /// <summary>Alt+←/→ 对应阅读历史后退/前进；焦点在可编辑的输入框里时不处理，保留输入框自己的按键。</summary>
+    internal static int ReadingHistoryStep(Key key, ModifierKeys modifiers, IInputElement? focused) =>
+        modifiers != ModifierKeys.Alt || focused is TextBoxBase { IsReadOnly: false } ? 0 : key switch { Key.Left => -1, Key.Right => 1, _ => 0 };
+    internal void NavigateReadingHistory(int step) => (step < 0 ? Model.BackCommand : Model.ForwardCommand).Execute(null);
     private void MyPosts_Click(object sender, RoutedEventArgs e) => new MyPostsWindow(Model) { Owner = this }.Show();
     private void Jump_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Model.JumpCommand.Execute(null); e.Handled = true; } }
     private void Page_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Model.JumpPageCommand.Execute(null); e.Handled = true; } }
@@ -171,11 +220,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private void ReaderHeader_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var compact = e.NewSize.Width < 460;
-        Grid.SetColumnSpan(ReaderHeaderTitle, compact ? 2 : 1);
+        // 加入后退/前进后操作区宽约 72 DIP；断点同步后移，串号仍保留原来约 226 DIP 的空间。
+        // 窄栏时后退/前进留在串号同一行右侧，其余操作换到下一行，标题栏仍保持两行。
+        var compact = e.NewSize.Width < 532;
+        ReaderHistoryActions.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 8, 0);
         Grid.SetRow(ReaderHeaderActions, compact ? 1 : 0);
-        Grid.SetColumn(ReaderHeaderActions, compact ? 0 : 1);
-        Grid.SetColumnSpan(ReaderHeaderActions, compact ? 2 : 1);
+        Grid.SetColumn(ReaderHeaderActions, compact ? 0 : 2);
+        Grid.SetColumnSpan(ReaderHeaderActions, compact ? 3 : 1);
         ReaderHeaderActions.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         ReaderHeaderActions.Margin = compact ? new Thickness(0, 10, 0, 0) : new Thickness(0);
     }

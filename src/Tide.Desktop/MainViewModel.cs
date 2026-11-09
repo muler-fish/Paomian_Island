@@ -172,6 +172,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         ToggleForumFavoriteCommand = new(p => { if (p is Forum forum) ToggleForumFavorite(forum); });
         LibraryCommand = new(_ => ShowLibrary("history"));
         ClearErrorCommand = new(_ => Error = "");
+        InitializeNavigation();
         ApplyCookie(); BuildForumGroups(); InitializeSubscriptions();
         if (Store.LoadWarning is not null) Error = Store.LoadWarning;
     }
@@ -290,13 +291,20 @@ public sealed partial class MainViewModel : Observable, IDisposable
     }
 
     /// <summary>显式跳页只显示目标页；续载可向两端扩展连续页区间，分别维护起点和终点。</summary>
-    public async Task OpenThreadAsync(long id, int? requestedPage = null, bool append = false, bool refresh = false, bool prepend = false, long? targetPostId = null)
+    /// <remarks>不是续载时都算一次阅读导航：成功替换正文后记入后退/前进历史（同一串只更新当前项）。</remarks>
+    public Task OpenThreadAsync(long id, int? requestedPage = null, bool append = false, bool refresh = false, bool prepend = false, long? targetPostId = null)
+        => LoadThreadAsync(id, requestedPage, append, refresh, prepend, targetPostId, null);
+
+    /// <param name="traversal">后退/前进的目标历史项：使用它保存的页码和位置，成功后只移动历史位置。</param>
+    private async Task LoadThreadAsync(long id, int? requestedPage, bool append, bool refresh, bool prepend, long? targetPostId,
+        (int Index, ReadingHistoryEntry Entry)? traversal)
     {
         var extending = append || prepend;
         if (_disposed || extending && (ThreadBusy || _original?.Id != id)) return;
-        if (!extending) ReaderLeaving?.Invoke();
-        var resume = !extending && requestedPage is null ? State.History.Find(h => h.Post.Id == id) : null;
-        var page = requestedPage ?? resume?.Page ?? 1;
+        if (!extending) { ReaderLeaving?.Invoke(); BeginNavigation(id, traversal?.Index); }
+        var resume = !extending && requestedPage is null && traversal is null ? State.History.Find(h => h.Post.Id == id) : null;
+        var restore = traversal?.Entry.Position ?? resume?.Position;
+        var page = requestedPage ?? traversal?.Entry.Page ?? resume?.Page ?? 1;
         _threadCts?.Cancel(); _threadCts?.Dispose(); _threadCts = new();
         var ct = _threadCts.Token; var version = ++_threadVersion;
         // 固定本次请求的缓存身份，即使等待期间换了饼干，也不能写进新身份的目录。
@@ -312,7 +320,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
             ThreadPage result; var offline = false;
             try
             {
-                result = await ReadThreadAsync(id, page, refresh, ct);
+                result = await ReadThreadAsync(id, page, refresh, ct, traversal is null ? RecentThreadAge : TraversalThreadAge);
                 // 写缓存失败只提示保存问题，不阻止展示已经成功下载的正文。
                 try { Store.SavePage(result, identity); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { SetError("正文已加载，但无法写入离线缓存。", FeedbackArea.Reader); }
             }
@@ -330,8 +338,8 @@ public sealed partial class MainViewModel : Observable, IDisposable
                 // 网络等待期间仍可阅读旧串；真正替换前再保存一次眼前位置。
                 ReaderLeaving?.Invoke();
                 _replies.Clear(); _replyLocations.Clear(); _readingPages.Clear(); _threadStartPage = _threadPage = page;
-                ReaderRestorePosition = resume?.Position;
-                if (resume?.Position is { } position) { _onlyPo = position.OnlyPo; Changed(nameof(OnlyPo)); }
+                ReaderRestorePosition = restore;
+                if (restore is { } position) { _onlyPo = position.OnlyPo; Changed(nameof(OnlyPo)); }
             }
             _original = result.Original;
             if (targetPostId is not null && !extending)
@@ -370,7 +378,8 @@ public sealed partial class MainViewModel : Observable, IDisposable
             // 续载不等于读到该页；实际位置由阅读视口节流上报。
             if (!extending)
             {
-                RegisterReadingHistory(new(_original, page, DateTimeOffset.Now, resume?.Position)); Save();
+                RegisterReadingHistory(new(_original, page, DateTimeOffset.Now, traversal is null ? resume?.Position : restore)); Save();
+                CommitNavigation(id, page, traversal);
             }
             NotifyReader(); Changed(nameof(HistoryCount));
             Status = offline ? "离线阅读 · 显示本机缓存，内容可能不是最新" : "正文已更新";
@@ -385,7 +394,8 @@ public sealed partial class MainViewModel : Observable, IDisposable
             {
                 if (append) _threadAppendFailed = true;
                 if (prepend) _threadPrependFailed = true;
-                Report(ex, FeedbackArea.Reader);
+                if (extending) Report(ex, FeedbackArea.Reader);
+                else FailNavigation(id, ex, traversal);
             }
         }
         finally { if (version == _threadVersion) ThreadBusy = false; }
@@ -426,6 +436,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         RestoreSubscriptionSnapshot();
         // 身份改变后清空当前列表和正文，避免继续展示上一身份加载的受限内容。
         _original = null; _replies.Clear(); _replyLocations.Clear(); _readingPages.Clear(); ReaderRestorePosition = null; ReadingPosts.Clear(); Posts.Clear(); NotifyReader();
+        ResetReadingState();
         _listHasMore = false; _threadHasMore = false; _listAppendFailed = false; _threadAppendFailed = false;
         _threadHasPrevious = false; _threadPrependFailed = false; _threadPrepending = false;
         NotifyIncrementalLoading();
@@ -453,14 +464,15 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public void Report(Exception ex) => Report(ex, FeedbackArea.General);
     public void Report(Exception ex, FeedbackArea area)
     {
-        SetError(ex switch
-        {
-            HttpRequestException => "暂时连不上 X 岛，请检查网络或系统代理后重试。",
-            OperationCanceledException => "请求超时，请稍后重试。",
-            _ => ex.Message
-        }, area);
+        SetError(Describe(ex), area);
         Status = "操作未完成";
     }
+    private static string Describe(Exception ex) => ex switch
+    {
+        HttpRequestException => "暂时连不上 X 岛，请检查网络或系统代理后重试。",
+        OperationCanceledException => "请求超时，请稍后重试。",
+        _ => ex.Message
+    };
     private void NotifyReader()
     {
         // 这些是由内部字段计算的属性，需要显式通知 WPF 重新读取绑定值。
@@ -473,6 +485,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         RefreshThreadCommand?.Refresh(); JumpPageCommand?.Refresh(); SubscriptionCommand?.Refresh();
         LoadMoreListCommand?.Refresh(); LoadMoreThreadCommand?.Refresh(); RetryListLoadCommand?.Refresh(); RetryThreadLoadCommand?.Refresh();
         LoadPreviousThreadCommand?.Refresh(); RetryPreviousThreadCommand?.Refresh();
+        BackCommand?.Refresh(); ForwardCommand?.Refresh();
     }
     public void Dispose()
     {

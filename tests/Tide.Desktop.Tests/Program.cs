@@ -99,6 +99,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
         if (args.FirstOrDefault() == "--gif") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-playback");
         if (args.FirstOrDefault() == "--gif-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-copy");
+        if (args.FirstOrDefault() == "--reading-history") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reading-history");
         Directory.CreateDirectory(output);
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
@@ -112,6 +113,13 @@ internal static class Program
             started = true;
             try
             {
+                if (args.FirstOrDefault() == "--reading-history")
+                {
+                    // --real-input 会移动系统光标并发送真实按键，只在明确指定时运行。
+                    if (args.Contains("--real-input")) await ReadingHistoryChecks.RunRealInputAsync(window, output, Capture);
+                    else await ReadingHistoryChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
                 if (args.FirstOrDefault() == "--gif-copy")
                 {
                     await GifClipboardChecks.RunAsync(window, output, Capture);
@@ -293,6 +301,7 @@ internal static class Program
                 await InertialScrollChecks.RunAsync(window, output, Capture);
                 await ThreadNavigationChecks.RunAsync(window, output, Capture);
                 await ReadingProgressChecks.RunAsync(window, output, Capture);
+                await ReadingHistoryChecks.RunAsync(window, output, Capture);
                 await CookieImportChecks.RunAsync(window, output, Capture);
                 await EmoticonChecks.RunAsync(window, output, Capture);
                 await TextLayoutChecks.RunAsync(window, output, Capture);

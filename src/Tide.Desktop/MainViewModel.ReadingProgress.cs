@@ -25,6 +25,8 @@ public sealed partial class MainViewModel
     {
         if (_disposed || _original is null || item.IsTip || !ReadingPosts.Contains(item) || !double.IsFinite(offset)) return;
         var position = new ReadingPosition(item.Post.Id, item.Index, Math.Max(0, offset), OnlyPo);
+        // 同一位置也写进当前历史项：从引用串后退时回到离开前的页码和位置，而不是最近一次打开时的位置。
+        _navigation.UpdateCurrent(_original.Id, item.Page, position);
         var old = State.History.Find(h => h.Post.Id == _original.Id);
         if (old?.Page == item.Page && old.Position is { } p && p.PostId == position.PostId && p.Index == position.Index &&
             p.OnlyPo == position.OnlyPo && Math.Abs(p.Offset - position.Offset) < .5) return;

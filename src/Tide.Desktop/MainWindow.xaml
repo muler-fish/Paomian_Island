@@ -261,13 +261,18 @@
           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
           <Border MinHeight="76" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
             <Grid x:Name="ReaderHeaderFrame" SizeChanged="ReaderHeader_SizeChanged" Width="{Binding ActualWidth, ElementName=ReaderPane, Converter={StaticResource ReadingMeasure}}" HorizontalAlignment="Center" Margin="0,12,10,12">
-              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
               <StackPanel x:Name="ReaderHeaderTitle" VerticalAlignment="Center" Margin="0,0,12,0">
                 <TextBlock x:Name="ReaderForum" Text="{Binding ReaderMeta}" Style="{StaticResource MutedText}" TextTrimming="CharacterEllipsis"/>
                 <TextBlock x:Name="ReaderHeading" Text="{Binding ReaderTitle}" FontSize="19" FontWeight="SemiBold" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
-              <StackPanel x:Name="ReaderHeaderActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+              <!-- 阅读历史排在串操作之前；窄栏时它留在串号这一行，其余操作换到下一行，标题栏仍是两行。 -->
+              <StackPanel x:Name="ReaderHistoryActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                <ui:Button x:Name="ReaderBackButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding BackCommand}" ToolTip="{Binding BackLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="后退" AutomationProperties.AcceleratorKey="Alt+Left" Margin="0,0,2,0"><ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16"/></ui:Button>
+                <ui:Button x:Name="ReaderForwardButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding ForwardCommand}" ToolTip="{Binding ForwardLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="前进" AutomationProperties.AcceleratorKey="Alt+Right"><ui:SymbolIcon Symbol="ArrowRight24" FontSize="16"/></ui:Button>
+              </StackPanel>
+              <StackPanel x:Name="ReaderHeaderActions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                   <ToggleButton x:Name="OnlyPoButton" Content="PO" IsChecked="{Binding OnlyPo, Mode=TwoWay}" Style="{StaticResource ReaderToggle}" VerticalAlignment="Center" Margin="0,0,6,0" AutomationProperties.Name="只看 PO" ToolTip="只看 PO；再次点击显示全部回复"/>
                   <Button x:Name="ThreadSubscriptionButton" Command="{Binding SubscriptionCommand}" ToolTip="{Binding SubscriptionLabel, StringFormat={}{0} · Ctrl+D}" AutomationProperties.Name="{Binding SubscriptionLabel}" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6">
                     <Grid>
