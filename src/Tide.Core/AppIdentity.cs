@@ -9,7 +9,7 @@ public static class AppIdentity
         .Single(a => a.Key == "DisplayName").Value!;
     public static string EnglishName { get; } = typeof(AppIdentity).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
         .Single(a => a.Key == "EnglishName").Value!;
-    public static string WindowTitle => DisplayName + " · X 岛";
+    public static string WindowTitle => DisplayName;
     public const string ExecutableName = "Paomian Island.exe";
     public const string LegacyExecutableName = "Tide.exe";
     public static bool IsExecutableName(string name) => name is ExecutableName or LegacyExecutableName;

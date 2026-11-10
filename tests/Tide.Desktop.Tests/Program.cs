@@ -526,7 +526,7 @@ internal static class Program
             ClosePublishedChild(subscriptions, settings);
             ClosePublishedChild(settings, root);
             var star = root.FindFirst(TreeScope.Descendants, new AndCondition(
-                new PropertyCondition(AutomationElement.NameProperty, "取消收藏板块：综合线"),
+                new PropertyCondition(AutomationElement.NameProperty, "取消收藏版块：综合线"),
                 new PropertyCondition(AutomationElement.IsTogglePatternAvailableProperty, true)))
                 ?? throw new InvalidOperationException("交付程序没有显示可切换的版块收藏星标。");
             var starToggle = (TogglePattern)star.GetCurrentPattern(TogglePattern.Pattern);
@@ -536,7 +536,7 @@ internal static class Program
             if (profile.Load().FavoriteForums.Any(f => f.Key == "t1")) throw new InvalidOperationException("交付程序星标取消没有保存。");
             // 文件写入完成早于 WPF 布局和 DWM 呈现；先确认快捷项已经移除，再截取更新后的画面。
             var removedStarCondition = new AndCondition(
-                new PropertyCondition(AutomationElement.NameProperty, "取消收藏板块：综合线"),
+                new PropertyCondition(AutomationElement.NameProperty, "取消收藏版块：综合线"),
                 new PropertyCondition(AutomationElement.IsTogglePatternAvailableProperty, true));
             for (var attempt = 0; attempt < 100 && root.FindFirst(TreeScope.Descendants, removedStarCondition) is not null; attempt++) Thread.Sleep(50);
             if (root.FindFirst(TreeScope.Descendants, removedStarCondition) is not null)

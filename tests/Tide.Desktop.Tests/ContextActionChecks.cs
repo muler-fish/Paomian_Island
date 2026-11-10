@@ -89,7 +89,7 @@ internal static class ContextActionChecks
             await Task.Delay(80); Require(body.ContextMenu.IsOpen, "菜单键不能打开回应菜单"); body.ContextMenu.IsOpen = false;
             var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right) { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent };
             card.RaiseEvent(down); Require(down.Handled, "右键未阻止默认选串");
-            var threadMenu = Open(card); Require(Labels(threadMenu).SequenceEqual(new[]{"屏蔽串","屏蔽板块（综合版1）"}), "串列表菜单未绑定");
+            var threadMenu = Open(card); Require(Labels(threadMenu).SequenceEqual(new[]{"屏蔽串","屏蔽版块（综合版1）"}), "串列表菜单未绑定");
             Click(threadMenu, "屏蔽串"); await Task.Delay(60);
             Require(!vm.VisiblePosts.Cast<PostCard>().Any(p => p.Post.Id == 1001) && vm.Posts.Any(p => p.Post.Id == 1001), "屏蔽没有过滤显示或破坏源集合");
             Require(before == (vm.Original!.Id, vm.PageText, vm.State.History.Count, readerScroll.VerticalOffset), "右键/屏蔽打断阅读位置或写入历史");
@@ -122,14 +122,14 @@ internal static class ContextActionChecks
 
             // 板块菜单复用星标，收藏/取消不切换入口。收藏后重开菜单必须更新动作文案。
             var forumRow = UiRefinementChecks.Descendants<Border>(window).First(b => b.Name == "ForumRow" && b.DataContext is Forum f && f.Id == 4);
-            var active = vm.ActiveForumKey; var forumMenu = Open(forumRow); Require(Labels(forumMenu).Single() == "取消收藏板块", "收藏状态菜单错误");
-            Click(forumMenu, "取消收藏板块");
+            var active = vm.ActiveForumKey; var forumMenu = Open(forumRow); Require(Labels(forumMenu).Single() == "取消收藏版块", "收藏状态菜单错误");
+            Click(forumMenu, "取消收藏版块");
             Require(!vm.FavoriteForumKeys.Contains("f4") && vm.ActiveForumKey == active, "收藏菜单误跳转");
             // 显式展开分组以验证非收藏入口也附带同一原生菜单。
             foreach (var expander in UiRefinementChecks.Descendants<Expander>(window)) expander.IsExpanded = true;
             window.UpdateLayout();
             forumRow = UiRefinementChecks.Descendants<Border>(window).First(b => b.Name == "ForumRow" && b.DataContext is Forum f && f.Id == 4);
-            forumMenu = Open(forumRow); Require(Labels(forumMenu).Single() == "收藏板块", "非收藏入口未更新菜单"); Click(forumMenu, "收藏板块");
+            forumMenu = Open(forumRow); Require(Labels(forumMenu).Single() == "收藏版块", "非收藏入口未更新菜单"); Click(forumMenu, "收藏版块");
             Require(vm.FavoriteForumKeys.Contains("f4") && vm.ActiveForumKey == active, "收藏菜单改变浏览上下文");
 
             // 成功气泡锚定复制按钮，重复操作替换；定时关闭不改焦点或页面布局。
@@ -188,10 +188,10 @@ internal static class ContextActionChecks
             item.RaiseEvent(down); Require(down.Handled,"右键未阻止默认选串"); return Open(item);
         }
         var menu=await Menu(first);
-        Require(Labels(menu).SequenceEqual(new[]{"屏蔽串","屏蔽板块（婆罗门一）"}),"屏蔽菜单未显示目标板块名");
+        Require(Labels(menu).SequenceEqual(new[]{"屏蔽串","屏蔽版块（婆罗门一）"}),"屏蔽菜单未显示目标板块名");
         Click(menu,"屏蔽串");
         Require(vm.VisiblePostCount==21 && vm.BlockedThreads.Count==1,"屏蔽串影响了其他串");
-        menu=await Menu(second); Click(menu,"屏蔽板块（婆罗门一）");
+        menu=await Menu(second); Click(menu,"屏蔽版块（婆罗门一）");
         Require(vm.ActiveForum?.Id==4 && vm.VisiblePostCount==20 && vm.Posts.Count==22 && vm.BlockedForums.Single().Id==8,"板块屏蔽误用了当前入口或破坏源数据");
         Require(reading==(vm.Original!.Id,vm.PageText,vm.State.History.Count,scroll.VerticalOffset),"列表屏蔽打断正文阅读");
         var loaded=new LocalStore(store.Root).Load();
@@ -204,7 +204,7 @@ internal static class ContextActionChecks
                 App.ApplyTheme(theme); await Task.Delay(60); capture(manager,Path.Combine(output,$"block-manager-{theme}.png"));
             }
             var requests=handler.ListCalls;
-            UiRefinementChecks.Descendants<Button>(manager).Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)=="取消屏蔽板块 婆罗门一")
+            UiRefinementChecks.Descendants<Button>(manager).Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)=="取消屏蔽版块 婆罗门一")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Require(vm.VisiblePostCount==21 && vm.BlockedForums.Count==0 && vm.BlockedThreads.Count==1 && handler.ListCalls==requests,"解除板块屏蔽清除了单串屏蔽或重新请求");
             UiRefinementChecks.Descendants<Button>(manager).Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)=="取消屏蔽 No.9001")

@@ -182,7 +182,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         _ = LoadSubscriptionsAsync();
         try
         {
-            Status = "正在获取板块";
+            Status = "正在获取版块";
             State.Forums = await Api.GetForumsAsync(); BuildForumGroups(); Save();
         }
         catch (Exception ex) { Report(ex); }
@@ -206,7 +206,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         var removed = State.FavoriteForums.RemoveAll(f => f.Key == forum.Key) > 0;
         if (!removed) State.FavoriteForums.Add(forum);
         SyncFavoriteForums(); Save();
-        Notify(removed ? $"已取消收藏板块：{forum.Name}" : $"已收藏板块：{forum.Name}", FeedbackArea.Navigation);
+        Notify(removed ? $"已取消收藏版块：{forum.Name}" : $"已收藏版块：{forum.Name}", FeedbackArea.Navigation);
     }
 
     private void SyncFavoriteForums()
@@ -414,7 +414,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     {
         var card = new PostCard(p, ForumName(p.Fid), progress, showReplies); card.SetSpoilerProtection(State.HideSpoilers); return card;
     }
-    public string ForumName(int id) => State.Forums.Find(f => !f.IsTimeline && f.Id == id)?.Name ?? $"板块 {id}";
+    public string ForumName(int id) => State.Forums.Find(f => !f.IsTimeline && f.Id == id)?.Name ?? $"版块 {id}";
     public string ActiveCookie()
     {
         // State 里只存密文；需要设置请求身份时才调用 Windows DPAPI 解密。

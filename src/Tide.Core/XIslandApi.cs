@@ -139,7 +139,7 @@ public sealed partial class XIslandApi : IDisposable
         if (string.IsNullOrWhiteSpace(post.Content) || post.Content.Length > 10000) throw new ArgumentException("正文需要为 1–10000 个字符。");
         if (post.Title.Length > 100) throw new ArgumentException("标题不能超过 100 个字符。");
         if (post.Name.Length > 100) throw new ArgumentException("名称不能超过 100 个字符。");
-        if (post.ThreadId <= 0 && post.ForumId <= 0) throw new ArgumentException("请先选择发串板块。");
+        if (post.ThreadId <= 0 && post.ForumId <= 0) throw new ArgumentException("请先选择发串版块。");
         byte[]? image = null;
         string? mime = null;
         // 在任何网络请求前读取并检查附件，避免预检成功后才发现本地文件不可用。

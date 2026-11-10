@@ -158,11 +158,13 @@ public sealed class SettingsWindow : DialogWindow
         // 按钮放进 Row 时外边距会撑高一行；单行标题时去掉底部外边距，保持垂直居中。
         Button RowAction(string label, Action action) { var button = Action(label, action); button.Margin = new(0); return button; }
         SettingsLayout.Row(data, "订阅号", null, RowAction("管理订阅号", async () => { new SubscriptionWindow(vm) { Owner = this }.ShowDialog(); await vm.LoadSubscriptionsAsync(); }));
-        SettingsLayout.Row(data, "屏蔽的串与板块", null, RowAction("屏蔽管理", () => new BlockedThreadsWindow(vm) { Owner = this }.ShowDialog()));
+        SettingsLayout.Row(data, "屏蔽的串与版块", null, RowAction("屏蔽管理", () => new BlockedThreadsWindow(vm) { Owner = this }.ShowDialog()));
         var records = SettingsLayout.Text(""); SettingsLayout.Block(data, records);
         void RefreshRecords() => records.Text = $"最近浏览 {vm.State.History.Count} 个串 · 草稿 {vm.State.Drafts.Count} 份 · 饼干 {vm.State.Cookies.Count} 个 · 自定义颜文字 {vm.State.CustomEmoticons.Count} 个";
         navigation.SelectionChanged += (_, _) => RefreshRecords(); Activated += (_, _) => RefreshRecords(); RefreshRecords();
-        var profile = new StackPanel(); profile.Children.Add(SettingsLayout.Text("个人资料目录")); profile.Children.Add(SettingsLayout.Path(vm.Store.Root, "个人资料目录"));
+        // 资料目录不能在这里修改：完整显示路径但不做成输入框，不给点击、焦点和悬停反馈。
+        var profilePath = SettingsLayout.Text(vm.Store.Root); profilePath.Margin = new(0, 6, 0, 10); AutomationProperties.SetName(profilePath, "个人资料目录");
+        var profile = new StackPanel(); profile.Children.Add(SettingsLayout.Text("个人资料目录")); profile.Children.Add(profilePath);
         var openProfile = Action("打开资料目录", () => Open(vm.Store.Root)); openProfile.HorizontalAlignment = HorizontalAlignment.Left; profile.Children.Add(openProfile); SettingsLayout.Block(data, profile, false);
 
         var about = Page("关于");

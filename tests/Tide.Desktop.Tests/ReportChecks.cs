@@ -109,7 +109,7 @@ internal static class ReportChecks
         try
         {
             Require(report.Title == "举报" && Text(report).Contains($"No.{target} · 值班室"), "举报页目标不正确");
-            Require(!UiRefinementChecks.Descendants<ComboBox>(report).Any(c => System.Windows.Automation.AutomationProperties.GetName(c) == "发串板块" && c.IsVisible), "举报目的地不应允许切换");
+            Require(!UiRefinementChecks.Descendants<ComboBox>(report).Any(c => System.Windows.Automation.AutomationProperties.GetName(c) == "发串版块" && c.IsVisible), "举报目的地不应允许切换");
             var reason = UiRefinementChecks.Descendants<EmojiEditor>(report).Single(); reason.Text = $"测试理由 {target}";
             foreach (var theme in new[] { "light", "dark" })
             {

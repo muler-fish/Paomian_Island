@@ -30,7 +30,7 @@
                         Opacity="0" VerticalAlignment="Center" Cursor="Hand" FocusVisualStyle="{StaticResource FocusRing}"
                         Foreground="{DynamicResource Muted}"
                         ToggleCommand="{Binding DataContext.ToggleForumFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
-                        ToolTip="收藏板块" AutomationProperties.Name="{Binding Name, StringFormat=收藏板块：{0}}">
+                        ToolTip="收藏版块" AutomationProperties.Name="{Binding Name, StringFormat=收藏版块：{0}}">
             <local:ForumFavoriteToggleButton.IsChecked><MultiBinding Converter="{StaticResource ForumFavorite}" Mode="OneWay">
               <Binding Path="Key"/><Binding Path="DataContext.FavoriteForumKeys" RelativeSource="{RelativeSource AncestorType=Window}"/>
             </MultiBinding></local:ForumFavoriteToggleButton.IsChecked>
@@ -53,8 +53,8 @@
         <Trigger SourceName="ForumRow" Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ForumFavoriteStar" Property="Opacity" Value="1"/></Trigger>
         <Trigger SourceName="ForumFavoriteStar" Property="IsChecked" Value="True">
           <Setter TargetName="ForumFavoriteStar" Property="Opacity" Value="1"/><Setter TargetName="ForumFavoriteStar" Property="Foreground" Value="{DynamicResource FavoriteStar}"/>
-          <Setter TargetName="ForumFavoriteStar" Property="ToolTip" Value="取消收藏板块"/>
-          <Setter TargetName="ForumFavoriteStar" Property="AutomationProperties.Name" Value="{Binding Name, StringFormat=取消收藏板块：{0}}"/>
+          <Setter TargetName="ForumFavoriteStar" Property="ToolTip" Value="取消收藏版块"/>
+          <Setter TargetName="ForumFavoriteStar" Property="AutomationProperties.Name" Value="{Binding Name, StringFormat=取消收藏版块：{0}}"/>
         </Trigger>
         <DataTrigger Value="True">
           <DataTrigger.Binding><MultiBinding Converter="{StaticResource SameValue}"><Binding Path="Key"/><Binding Path="DataContext.ActiveForumKey" RelativeSource="{RelativeSource AncestorType=Window}"/></MultiBinding></DataTrigger.Binding>
@@ -133,13 +133,13 @@
           <ScrollViewer x:Name="ForumScroll" Grid.Row="1" Margin="0,0,-8,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" local:InertialScroll.IsEnabled="{Binding InertialScrolling}">
             <StackPanel Margin="0,0,18,0">
               <StackPanel x:Name="FavoriteForumsSection" Margin="0,0,0,8">
-                <TextBlock Text="收藏板块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
-                <TextBlock Text="暂无收藏板块" Margin="10,0,0,6" FontSize="12" Foreground="{DynamicResource Muted}">
+                <TextBlock Text="收藏版块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
+                <TextBlock Text="暂无收藏版块" Margin="10,0,0,6" FontSize="12" Foreground="{DynamicResource Muted}">
                   <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding HasFavoriteForums}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                 </TextBlock>
                 <ItemsControl x:Name="FavoriteForumList" ItemsSource="{Binding FavoriteForums}" ItemTemplate="{StaticResource ForumRowTemplate}"/>
               </StackPanel>
-              <TextBlock Text="全部板块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
+              <TextBlock Text="全部版块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
               <ItemsControl x:Name="ForumGroupList" ItemsSource="{Binding ForumGroups}"><ItemsControl.ItemTemplate><DataTemplate>
                 <Expander Header="{Binding Name}"><ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ForumRowTemplate}"/></Expander>
               </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
@@ -166,7 +166,7 @@
           </StackPanel>
         </Grid>
       </Border>
-      <GridSplitter x:Name="NavigationSplitter" Grid.Column="1" Width="9" Margin="-4,0" Panel.ZIndex="4" HorizontalAlignment="Center" ResizeBehavior="PreviousAndNext" Background="Transparent" AutomationProperties.Name="调整板块导航栏宽度"/>
+      <GridSplitter x:Name="NavigationSplitter" Grid.Column="1" Width="9" Margin="-4,0" Panel.ZIndex="4" HorizontalAlignment="Center" ResizeBehavior="PreviousAndNext" Background="Transparent" AutomationProperties.Name="调整版块导航栏宽度"/>
       <Border x:Name="ListPane" Grid.Column="2" Background="{DynamicResource ListSurface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
         <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
           <Border MinHeight="76" Padding="20,12" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">

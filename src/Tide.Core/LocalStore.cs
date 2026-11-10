@@ -59,7 +59,7 @@ public sealed partial class LocalStore
                 .Select(t => t with { Title = t.Title ?? "" }).ToList();
             state.BlockedForums = (state.BlockedForums ?? [])
                 .Where(f => f is not null && f.Id > 0).DistinctBy(f => f.Id)
-                .Select(f => f with { Name = string.IsNullOrWhiteSpace(f.Name) ? $"板块 {f.Id}" : f.Name }).ToList();
+                .Select(f => f with { Name = string.IsNullOrWhiteSpace(f.Name) ? $"版块 {f.Id}" : f.Name }).ToList();
             state.ActiveCookieId ??= "";
             state.SuppressedNoticeKeys = (state.SuppressedNoticeKeys ?? [])
                 .Where(key => key is { Length: 64 } && key.All(Uri.IsHexDigit))

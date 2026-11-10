@@ -20,7 +20,7 @@ internal static class UiCopyChecks
     private static readonly string[] Banned =
     [
         "state.json", "licenses", "微软雅黑", "备用字体", "TUN", "GitHub 正式版", "接口", "含串列表预览", "黑条保留", "仅展示效果",
-        "中栏", "淘汰", "隐藏输入", "原标识", "版块", "“", "”", "‘", "’", "切换应用的浅色", "保证足够的对比度", "使用的饼干", "发到哪个",
+        "中栏", "淘汰", "隐藏输入", "原标识", "板块", "“", "”", "‘", "’", "切换应用的浅色", "保证足够的对比度", "使用的饼干", "发到哪个",
     ];
 
     public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
@@ -78,6 +78,10 @@ internal static class UiCopyChecks
             Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.Contains("非官方")), "关于页缺少非官方客户端声明");
             nav.SelectedItem = "数据与记录"; await Pause();
             Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.StartsWith("最近浏览 ")) && All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.Contains("加密保存")), "数据与记录的统计用词或隐私说明不正确");
+            // 资料目录只读：完整显示路径，不是输入框，也不能取得焦点。
+            var profilePath = All<FrameworkElement>(settings).Single(e => AutomationProperties.GetName(e) == "个人资料目录");
+            Require(profilePath is TextBlock { Focusable: false, TextWrapping: TextWrapping.Wrap } path && path.Text == vm.Store.Root && path.IsVisible
+                && !All<TextBox>(settings).Any(b => b.IsVisible && b.Text == vm.Store.Root), "个人资料目录不是完整显示的只读文字");
             nav.SelectedItem = "缓存"; await Pause();
             Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.StartsWith("清理缓存只删除")) && All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.Contains("迁移")), "缓存页缺少清理范围或迁移说明");
             // 窄窗口：说明文字换行，不横向溢出。
@@ -126,7 +130,7 @@ internal static class UiCopyChecks
                 SetDpi(composer, scale, UiMetrics.DialogWidth, 820); await Pause();
                 CheckText(composer, thread == 0 ? "发串" : "回应");
                 var shown = All<TextBlock>(composer).Where(t => t.IsVisible && t.FontWeight == FontWeights.Medium).Select(t => t.Text).ToList();
-                Require(shown.Contains("饼干") && shown.Contains("正文") && (thread > 0 || shown.Contains("发串板块")), $"发言窗口的字段标题不正确：{string.Join("/", shown)}");
+                Require(shown.Contains("饼干") && shown.Contains("正文") && (thread > 0 || shown.Contains("发串版块")), $"发言窗口的字段标题不正确：{string.Join("/", shown)}");
                 labels.AddRange(shown);
                 if (scale == 1.25) capture(composer, Path.Combine(output, $"composer-{(thread == 0 ? "new" : "reply")}-{theme}.png"));
             }

@@ -24,8 +24,8 @@ public partial class MainWindow
         if (menu.PlacementTarget is FrameworkElement { DataContext: PostCard card } target)
         {
             MenuAction(menu, "屏蔽串", () => RunFeedbackAction(FeedbackArea.List, target, () => Model.BlockThread(card.Post)));
-            var name = card.Post.Fid > 0 ? Model.ForumName(card.Post.Fid) : "未知板块";
-            MenuAction(menu, $"屏蔽板块（{name}）", () => RunFeedbackAction(FeedbackArea.List, target, () => Model.BlockForum(card.Post)), card.Post.Fid > 0);
+            var name = card.Post.Fid > 0 ? Model.ForumName(card.Post.Fid) : "未知版块";
+            MenuAction(menu, $"屏蔽版块（{name}）", () => RunFeedbackAction(FeedbackArea.List, target, () => Model.BlockForum(card.Post)), card.Post.Fid > 0);
         }
     }
 
@@ -33,7 +33,7 @@ public partial class MainWindow
     {
         var menu = (ContextMenu)sender; menu.Items.Clear();
         if (menu.PlacementTarget is FrameworkElement { DataContext: Forum forum } target)
-            MenuAction(menu, Model.FavoriteForumKeys.Contains(forum.Key) ? "取消收藏板块" : "收藏板块",
+            MenuAction(menu, Model.FavoriteForumKeys.Contains(forum.Key) ? "取消收藏版块" : "收藏版块",
                 () => RunFeedbackAction(FeedbackArea.Navigation, target, () => Model.ToggleForumFavorite(forum)));
     }
 

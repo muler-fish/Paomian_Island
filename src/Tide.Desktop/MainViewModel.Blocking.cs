@@ -50,7 +50,7 @@ public sealed partial class MainViewModel
         if (post.Fid <= 0 || post.IsSiteTip || !_blockedForumIds.Add(post.Fid)) return;
         var name = ForumName(post.Fid);
         BlockedForums.Add(new(post.Fid, name));
-        if (SaveBlocks()) Notify($"已屏蔽板块（{name}）", FeedbackArea.List);
+        if (SaveBlocks()) Notify($"已屏蔽版块（{name}）", FeedbackArea.List);
     }
 
     public void UnblockForum(int id)
