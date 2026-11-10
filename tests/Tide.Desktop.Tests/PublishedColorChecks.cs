@@ -77,7 +77,7 @@ internal static class PublishedColorChecks
                 Shot(app.Id, Path.Combine(output, "exe-identity-light.png"));
                 Click(At(settings, .5, .05)); Thread.Sleep(300);
                 // 深色主题
-                SelectCombo(settings, "外观主题", "深色"); Thread.Sleep(500);
+                SelectCombo(settings, "显示模式", "深色"); Thread.Sleep(500);
                 Invoke(Find(settings, "自定义强调色调色")); Thread.Sleep(300);
                 Shot(app.Id, Path.Combine(output, "exe-accent-dark.png"));
                 Click(At(settings, .5, .05)); Thread.Sleep(300);

@@ -30,7 +30,7 @@
                         Opacity="0" VerticalAlignment="Center" Cursor="Hand" FocusVisualStyle="{StaticResource FocusRing}"
                         Foreground="{DynamicResource Muted}"
                         ToggleCommand="{Binding DataContext.ToggleForumFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
-                        ToolTip="收藏版块" AutomationProperties.Name="{Binding Name, StringFormat=收藏版块：{0}}">
+                        ToolTip="收藏板块" AutomationProperties.Name="{Binding Name, StringFormat=收藏板块：{0}}">
             <local:ForumFavoriteToggleButton.IsChecked><MultiBinding Converter="{StaticResource ForumFavorite}" Mode="OneWay">
               <Binding Path="Key"/><Binding Path="DataContext.FavoriteForumKeys" RelativeSource="{RelativeSource AncestorType=Window}"/>
             </MultiBinding></local:ForumFavoriteToggleButton.IsChecked>
@@ -53,8 +53,8 @@
         <Trigger SourceName="ForumRow" Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ForumFavoriteStar" Property="Opacity" Value="1"/></Trigger>
         <Trigger SourceName="ForumFavoriteStar" Property="IsChecked" Value="True">
           <Setter TargetName="ForumFavoriteStar" Property="Opacity" Value="1"/><Setter TargetName="ForumFavoriteStar" Property="Foreground" Value="{DynamicResource FavoriteStar}"/>
-          <Setter TargetName="ForumFavoriteStar" Property="ToolTip" Value="取消收藏版块"/>
-          <Setter TargetName="ForumFavoriteStar" Property="AutomationProperties.Name" Value="{Binding Name, StringFormat=取消收藏版块：{0}}"/>
+          <Setter TargetName="ForumFavoriteStar" Property="ToolTip" Value="取消收藏板块"/>
+          <Setter TargetName="ForumFavoriteStar" Property="AutomationProperties.Name" Value="{Binding Name, StringFormat=取消收藏板块：{0}}"/>
         </Trigger>
         <DataTrigger Value="True">
           <DataTrigger.Binding><MultiBinding Converter="{StaticResource SameValue}"><Binding Path="Key"/><Binding Path="DataContext.ActiveForumKey" RelativeSource="{RelativeSource AncestorType=Window}"/></MultiBinding></DataTrigger.Binding>
@@ -133,13 +133,13 @@
           <ScrollViewer x:Name="ForumScroll" Grid.Row="1" Margin="0,0,-8,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" local:InertialScroll.IsEnabled="{Binding InertialScrolling}">
             <StackPanel Margin="0,0,18,0">
               <StackPanel x:Name="FavoriteForumsSection" Margin="0,0,0,8">
-                <TextBlock Text="收藏版块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
-                <TextBlock Text="暂无收藏版块" Margin="10,0,0,6" FontSize="12" Foreground="{DynamicResource Muted}">
+                <TextBlock Text="收藏板块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
+                <TextBlock Text="暂无收藏板块" Margin="10,0,0,6" FontSize="12" Foreground="{DynamicResource Muted}">
                   <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding HasFavoriteForums}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                 </TextBlock>
                 <ItemsControl x:Name="FavoriteForumList" ItemsSource="{Binding FavoriteForums}" ItemTemplate="{StaticResource ForumRowTemplate}"/>
               </StackPanel>
-              <TextBlock Text="全部版块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
+              <TextBlock Text="全部板块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
               <ItemsControl x:Name="ForumGroupList" ItemsSource="{Binding ForumGroups}"><ItemsControl.ItemTemplate><DataTemplate>
                 <Expander Header="{Binding Name}"><ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ForumRowTemplate}"/></Expander>
               </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
@@ -273,7 +273,7 @@
                 <ui:Button x:Name="ReaderForwardButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding ForwardCommand}" ToolTip="{Binding ForwardLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="前进" AutomationProperties.AcceleratorKey="Alt+Right"><ui:SymbolIcon Symbol="ArrowRight24" FontSize="16"/></ui:Button>
               </StackPanel>
               <StackPanel x:Name="ReaderHeaderActions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                  <ToggleButton x:Name="OnlyPoButton" Content="PO" IsChecked="{Binding OnlyPo, Mode=TwoWay}" Style="{StaticResource ReaderToggle}" VerticalAlignment="Center" Margin="0,0,6,0" AutomationProperties.Name="只看 PO" ToolTip="只看 PO；再次点击显示全部回复"/>
+                  <ToggleButton x:Name="OnlyPoButton" Content="PO" IsChecked="{Binding OnlyPo, Mode=TwoWay}" Style="{StaticResource ReaderToggle}" VerticalAlignment="Center" Margin="0,0,6,0" AutomationProperties.Name="只看 PO" ToolTip="只看 PO"/>
                   <Button x:Name="ThreadSubscriptionButton" Command="{Binding SubscriptionCommand}" ToolTip="{Binding SubscriptionLabel, StringFormat={}{0} · Ctrl+D}" AutomationProperties.Name="{Binding SubscriptionLabel}" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6">
                     <Grid>
                     <ui:SymbolIcon Symbol="Star24" Filled="{Binding IsSubscribed}" FontSize="16">
@@ -299,7 +299,7 @@
               <!-- 计入滚动条占宽，使正文与上方工具栏共用居中的阅读基准。 -->
               <Border x:Name="PostRow" Width="{Binding ActualWidth, ElementName=ReaderPane, Converter={StaticResource ReadingMeasure}}" HorizontalAlignment="Center" Margin="0,0,10,0" BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,0,1" Padding="0,24" Background="Transparent" ContextMenu="{StaticResource PostContextMenu}">
                 <StackPanel>
-                  <TextBlock x:Name="TipLabel" Text="Tips" Visibility="Collapsed" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" Margin="0,0,0,6" AutomationProperties.Name="X岛提示"/>
+                  <TextBlock x:Name="TipLabel" Text="Tips" Visibility="Collapsed" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" Margin="0,0,0,6" AutomationProperties.Name="X 岛提示"/>
                   <Grid x:Name="PostHeader" Margin="0,0,0,16" SizeChanged="PostHeader_SizeChanged">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

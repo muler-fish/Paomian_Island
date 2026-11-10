@@ -166,7 +166,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         var forum = Model.ActiveForum;
         var html = forum?.Notice;
-        new TextWindow(forum is null ? "全岛版规" : forum.Name + " · 版规", string.IsNullOrWhiteSpace(html) ? "请阅读 <a href=\"https://www.nmbxd1.com/t/50000001\">全岛总版规</a>。部分版块需要有效饼干才能访问。" : html) { Owner = this }.ShowDialog();
+        new TextWindow(forum is null ? "全岛版规" : forum.Name + " · 版规", string.IsNullOrWhiteSpace(html) ? "请阅读 <a href=\"https://www.nmbxd1.com/t/50000001\">全岛总版规</a>。部分板块需要有效饼干才能访问。" : html) { Owner = this }.ShowDialog();
     }
     private void NewThread_Click(object sender, RoutedEventArgs e) { if (Model.ShowNewThreadAction) OpenComposer(0); }
     private void Reply_Click(object sender, RoutedEventArgs e) { if (Model.CanInteractThread && Model.Original is not null) OpenComposer(Model.Original.Id); }

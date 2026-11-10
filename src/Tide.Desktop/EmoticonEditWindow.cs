@@ -28,7 +28,7 @@ internal sealed class EmoticonEditWindow : DialogWindow
         // 只改变这里的显示字体，便于核对 ASCII Art；保存的内容不变。
         monospace.Click += (_, _) => _text.FontFamily = monospace.IsChecked == true ? new FontFamily("Consolas, " + AppFonts.Family.Source) : AppFonts.Family;
         Body.Children.Add(monospace);
-        Body.Children.Add(Hint("保存原文，包括空格、换行和缩进；插入正文时使用完整内容。"));
+        Body.Children.Add(Hint("空格和换行会原样保留。"));
         Label("简称或备注（可选）"); Body.Children.Add(_name);
         Body.Children.Add(Hint("较长或多行的颜文字在列表中显示简称。"));
         Body.Children.Add(Feedback); Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Danger");

@@ -27,7 +27,7 @@ public partial class App : Application
             _instance = new Mutex(true, AppIdentity.MutexPrefix + key, out _ownsInstance);
             if (!_ownsInstance)
             {
-                MessageBox.Show($"这个资料目录的{AppIdentity.DisplayName}已经在运行，请从任务栏打开。", AppIdentity.DisplayName); Shutdown(); return;
+                MessageBox.Show($"{AppIdentity.DisplayName}已经在运行，请从任务栏打开。", AppIdentity.DisplayName); Shutdown(); return;
             }
             var vm = new MainViewModel(new XIslandApi(), new LocalStore(root));
             // 先应用已保存主题和个性化颜色再显示窗口，避免启动时先闪出错误的颜色。

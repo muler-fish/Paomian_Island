@@ -50,7 +50,7 @@ internal static class SettingsLayoutChecks
             Require(vm.Store.Load().HideSpoilers, "spoiler did not save");
             await Select("缓存"); await Wait(() => Button(settings, "刷新占用").IsEnabled);
             var limit = Named<TextBox>(settings, "缓存容量上限"); limit.Text = "123";
-            await Select("外观"); var theme = Named<ComboBox>(settings, "外观主题"); theme.SelectedIndex = 1; await Pause();
+            await Select("外观"); var theme = Named<ComboBox>(settings, "显示模式"); theme.SelectedIndex = 1; await Pause();
             Require(vm.State.Theme == "dark" && vm.Store.Load().Theme == "dark", "theme not applied and saved");
             await Select("内容与图片");
             Named<ComboBox>(settings, "串内图片").SelectedIndex = 1;
@@ -59,7 +59,7 @@ internal static class SettingsLayoutChecks
             Require(limit.Text == "123" && vm.State.CacheLimitMb != 123, "switch/theme lost or committed pending cache limit");
             await Select("网络");
             Named<ComboBox>(settings, "访问 X 岛").SelectedIndex = 1;
-            Named<ComboBox>(settings, "检查与下载更新").SelectedIndex = 0;
+            Named<ComboBox>(settings, "软件更新").SelectedIndex = 0;
             saved = vm.Store.Load();
             Require(!saved.IslandUseProxy && saved.UpdateUseProxy && !NetworkClients.IslandUseProxy && NetworkClients.UpdateUseProxy, "independent routes not saved");
             await Select("缓存");

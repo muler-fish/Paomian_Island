@@ -30,7 +30,7 @@ internal static class ContentLinkChecks
             Link(tip).RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             await Until(() => Popup<ForumLinkPromptWindow>() is { } p && Button(p, "跳转").IsEnabled);
             var prompt = Popup<ForumLinkPromptWindow>()!;
-            Require(Text(prompt, "即将跳转到‘婆罗门一’") && vm.ActiveForumKey == "f4" && !vm.ListBusy && handler.ListPages.Count == 1, "提示前已切版或占用主列表");
+            Require(Text(prompt, "即将跳转到「婆罗门一」") && vm.ActiveForumKey == "f4" && !vm.ListBusy && handler.ListPages.Count == 1, "提示前已切版或占用主列表");
             capture(prompt, Path.Combine(output, "forum-prompt-light.png"));
             App.ApplyTheme("dark"); await Task.Delay(60); capture(prompt, Path.Combine(output, "forum-prompt-dark.png")); App.ApplyTheme("light");
             PressEscape(prompt); Require(vm.ActiveForumKey == "f4" && !prompt.IsVisible, "Esc 取消后仍跳转");
@@ -47,7 +47,7 @@ internal static class ContentLinkChecks
             Require(handler.ListPages.Last() == ("timeline", 1, 2), "确认后丢失页码");
             source.SetHtml("<a href='/f/技术宅'>技术宅</a>"); ClickLink(source);
             await Until(() => Popup<ForumLinkPromptWindow>() is { } p && Button(p, "跳转").IsEnabled);
-            Require(Text(Popup<ForumLinkPromptWindow>()!, "即将跳转到‘技术宅(代码)’"), "提示使用错误板块名称");
+            Require(Text(Popup<ForumLinkPromptWindow>()!, "即将跳转到「技术宅(代码)」"), "提示使用错误板块名称");
             Click(Popup<ForumLinkPromptWindow>()!, "取消"); Require(vm.ActiveForumKey == "t1", "取消板块仍切换");
 
             scroll.ScrollToVerticalOffset(200); await Task.Delay(180);

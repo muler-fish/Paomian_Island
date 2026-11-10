@@ -100,6 +100,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--gif") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-playback");
         if (args.FirstOrDefault() == "--gif-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-copy");
         if (args.FirstOrDefault() == "--reading-history") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reading-history");
+        if (args.FirstOrDefault() == "--ui-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/ui-copy");
         Directory.CreateDirectory(output);
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
@@ -113,6 +114,11 @@ internal static class Program
             started = true;
             try
             {
+                if (args.FirstOrDefault() == "--ui-copy")
+                {
+                    await UiCopyChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
                 if (args.FirstOrDefault() == "--reading-history")
                 {
                     // --real-input 会移动系统光标并发送真实按键，只在明确指定时运行。
@@ -404,12 +410,12 @@ internal static class Program
                 if (root.FindFirst(TreeScope.Descendants, originalCondition) is null) throw new InvalidOperationException("真实 tips 验证串未加载。");
                 var list = root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "串正文与回复"))!;
                 ((ScrollPattern)list.GetCurrentPattern(ScrollPattern.Pattern)).SetScrollPercent(ScrollPattern.NoScroll, 100);
-                var tipCondition = new AndCondition(new PropertyCondition(AutomationElement.NameProperty, "X岛提示"), new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+                var tipCondition = new AndCondition(new PropertyCondition(AutomationElement.NameProperty, "X 岛提示"), new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
                 for (var attempt = 0; attempt < 100 && list.FindFirst(TreeScope.Descendants, tipCondition) is null; attempt++) Thread.Sleep(50);
                 if (list.FindFirst(TreeScope.Descendants, tipCondition) is null) throw new InvalidOperationException("最终 EXE 未显示实际 API 下发的 tips。");
                 // 触底会续载，图片也可能随后撑开楼层；重新定位提示所在行后再留截图证据。
                 Thread.Sleep(1000);
-                var tipLabel = list.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "X岛提示"))!;
+                var tipLabel = list.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "X 岛提示"))!;
                 var tipRow = tipLabel;
                 while (tipRow is not null && tipRow.Current.ControlType != ControlType.ListItem)
                     tipRow = TreeWalker.ControlViewWalker.GetParent(tipRow);
@@ -520,7 +526,7 @@ internal static class Program
             ClosePublishedChild(subscriptions, settings);
             ClosePublishedChild(settings, root);
             var star = root.FindFirst(TreeScope.Descendants, new AndCondition(
-                new PropertyCondition(AutomationElement.NameProperty, "取消收藏版块：综合线"),
+                new PropertyCondition(AutomationElement.NameProperty, "取消收藏板块：综合线"),
                 new PropertyCondition(AutomationElement.IsTogglePatternAvailableProperty, true)))
                 ?? throw new InvalidOperationException("交付程序没有显示可切换的版块收藏星标。");
             var starToggle = (TogglePattern)star.GetCurrentPattern(TogglePattern.Pattern);
@@ -530,7 +536,7 @@ internal static class Program
             if (profile.Load().FavoriteForums.Any(f => f.Key == "t1")) throw new InvalidOperationException("交付程序星标取消没有保存。");
             // 文件写入完成早于 WPF 布局和 DWM 呈现；先确认快捷项已经移除，再截取更新后的画面。
             var removedStarCondition = new AndCondition(
-                new PropertyCondition(AutomationElement.NameProperty, "取消收藏版块：综合线"),
+                new PropertyCondition(AutomationElement.NameProperty, "取消收藏板块：综合线"),
                 new PropertyCondition(AutomationElement.IsTogglePatternAvailableProperty, true));
             for (var attempt = 0; attempt < 100 && root.FindFirst(TreeScope.Descendants, removedStarCondition) is not null; attempt++) Thread.Sleep(50);
             if (root.FindFirst(TreeScope.Descendants, removedStarCondition) is not null)

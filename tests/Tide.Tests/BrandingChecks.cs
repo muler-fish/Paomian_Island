@@ -5,7 +5,7 @@ internal static class BrandingChecks
 {
     internal static void Run()
     {
-        Require(AppIdentity.DisplayName == "泡面岛" && AppIdentity.WindowTitle == "泡面岛 · X岛", "public name");
+        Require(AppIdentity.DisplayName == "泡面岛" && AppIdentity.WindowTitle == "泡面岛 · X 岛", "public name");
         Require(AppIdentity.EnglishName == "Paomian Island" && AppIdentity.ExecutableName == "Paomian Island.exe" && AppIdentity.LegacyExecutableName == "Tide.exe", "English brand and executable");
         Require(AppIdentity.DataDirectoryName == "TideIsland" && AppIdentity.MutexPrefix == "Local\\TideIsland-" && AppIdentity.ProtectionDescription == "TideIsland cookie", "legacy data identity");
         object Asset(string name, bool escaped) => new { name, browser_download_url = ReleaseUpdater.Repository + "/releases/download/v9.0.0/" + (escaped ? Uri.EscapeDataString(name) : name), digest = "sha256:" + new string('a', 64), size = 100 };

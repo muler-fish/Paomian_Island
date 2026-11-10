@@ -18,7 +18,7 @@ public sealed class CookieWindow : DialogWindow
     private readonly TextBlock _name = new() { Text = "—", TextWrapping = TextWrapping.Wrap };
     private readonly PasswordBox _value = new();
     private readonly TextBlock _active = new();
-    private readonly TextBlock _empty = Hint("尚未导入饼干。可以继续以游客身份浏览。 ");
+    private readonly TextBlock _empty = Hint("尚未导入饼干，可以继续以游客身份浏览。");
     private readonly Button _import;
     private readonly Button _remove, _saveRemark;
     // 游客用空 Id 表示，与 ActiveCookieId 的空值语义一致；只用于下拉显示，不写入饼干列表。
@@ -29,7 +29,7 @@ public sealed class CookieWindow : DialogWindow
     private readonly StackPanel _details = new();
     private readonly TextBlock _detailName = new() { FontSize = 18, FontWeight = FontWeights.Medium, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _detailState = Hint("");
-    private readonly TextBlock _detailEmpty = Hint("在左侧选择一份饼干，查看信息或编辑备注。");
+    private readonly TextBlock _detailEmpty = Hint("选择一份饼干查看详情。");
     private readonly Button _back;
     private readonly bool _fromComposer;
     private string? _currentCookieId;
@@ -59,7 +59,6 @@ public sealed class CookieWindow : DialogWindow
         AutomationProperties.SetName(_default, "默认发言身份");
         _default.ItemTemplate = CookieItemTemplate.CreateName();
         _default.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "CookieChoiceItem");
-        _default.ToolTip = "游客与默认饼干只能二选一。默认饼干用于浏览，也是发串和回应时的初始饼干。";
         // 只响应用户选择；延后到选择事件结束再保存，避免在事件中重建下拉项。
         _default.SelectionChanged += (_, _) =>
         {
@@ -86,7 +85,7 @@ public sealed class CookieWindow : DialogWindow
         var choiceLabel = new TextBlock { Text = "默认发言身份", VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 12, 0) };
         DockPanel.SetDock(choiceLabel, Dock.Left); choice.Children.Add(choiceLabel); choice.Children.Add(_default);
         identity.Children.Add(choice);
-        var choiceHint = Hint("选择游客会解除默认饼干；发言时临时选择的饼干不受影响。"); choiceHint.Margin = new(0, 6, 0, 0);
+        var choiceHint = Hint("浏览时使用，也是发言时默认选中的饼干。"); choiceHint.Margin = new(0, 6, 0, 0);
         identity.Children.Add(choiceHint);
         // 从发言窗口打开时另行显示本次发言的饼干，与默认身份区分。
         _active.TextWrapping = TextWrapping.Wrap; _active.FontSize = 12; _active.Margin = new(0, 2, 0, 0);
@@ -112,7 +111,7 @@ public sealed class CookieWindow : DialogWindow
         _details.Children.Add(Hint("本机备注")); _details.Children.Add(_remark);
         _saveRemark = Button("保存备注", SaveRemark); _saveRemark.Margin = new(0, 10, 0, 0); _saveRemark.HorizontalAlignment = HorizontalAlignment.Left;
         _details.Children.Add(_saveRemark);
-        _details.Children.Add(Hint("备注只保存在本机，不修改饼干原标识。"));
+        _details.Children.Add(Hint("备注不会改变饼干的原名称。"));
         _remove = Button("移除饼干", Remove); _remove.Margin = new(0, 16, 0, 0); _remove.HorizontalAlignment = HorizontalAlignment.Left;
         _remove.SetResourceReference(StyleProperty, "Quiet"); _remove.SetResourceReference(ForegroundProperty, "Danger"); _details.Children.Add(_remove);
 
@@ -127,7 +126,7 @@ public sealed class CookieWindow : DialogWindow
         sources.Children.Add(Button("官方用户系统", () => (Owner as MainWindow ?? Application.Current.MainWindow as MainWindow)?.OpenExternal(XIslandApi.Site + "/Member")));
         form.Children.Add(sources);
         form.Children.Add(Hint("饼干内容")); form.Children.Add(_value);
-        form.Children.Add(Hint("可粘贴完整 userhash、Cookie 或二维码 JSON。内容隐藏输入，并在本机加密保存。"));
+        form.Children.Add(Hint("支持完整的 userhash、Cookie 或二维码 JSON，只在本机加密保存。"));
         form.Children.Add(Hint("识别到的饼干名称")); form.Children.Add(_name);
         AddAction("完成", Close);
         _import = Button("导入并使用", Import, true); Actions.Children.Add(_import);
@@ -170,7 +169,8 @@ public sealed class CookieWindow : DialogWindow
     {
         var item = _list.SelectedItem as CookieIdentity;
         _details.Visibility = item is null ? Visibility.Collapsed : Visibility.Visible;
-        _detailEmpty.Visibility = item is null ? Visibility.Visible : Visibility.Collapsed;
+        // 没有饼干时左侧已提示「尚未导入饼干」，右侧不再重复。
+        _detailEmpty.Visibility = item is null && _vm.State.Cookies.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _detailName.Text = item?.Name ?? "";
         _detailState.Text = item is null ? "" : string.Join(" · ", new[] { item.Id == _vm.State.ActiveCookieId ? "默认饼干" : "", item.Id == CurrentCookieId ? (_fromComposer ? "当前发言使用" : "当前浏览使用") : "" }.Where(s => s.Length > 0));
         _remark.IsEnabled = item is not null; _remark.Text = item?.Remark ?? "";
@@ -225,7 +225,7 @@ public sealed class CookieWindow : DialogWindow
         Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Accent");
         // 名称与凭据一起保留在导入内容里；更换内容时重新解析，避免套用上一张二维码的名字。
         _value.Password = JsonSerializer.Serialize(new { cookie = value.Cookie, name = value.Name });
-        Feedback.Text = "已识别，点击“导入并使用”保存。";
+        Feedback.Text = "已识别，点击「导入并使用」保存。";
     }
     private string ImportedName(CookieImport.Value value, CookieIdentity? existing) =>
         value.Name.Length > 0 ? value.Name : existing?.Name ?? $"饼干 {_vm.State.Cookies.Count + 1}";

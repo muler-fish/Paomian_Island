@@ -283,7 +283,7 @@ internal static class SettingsPersonalizationChecks
         {
             var nav = Named<ListBox>(window, "设置分类"); var previous = nav.SelectedItem;
             nav.SelectedItem = "外观"; await Pause();
-            Named<ComboBox>(window, "外观主题").SelectedIndex = mode == "dark" ? 1 : 0; await Pause();
+            Named<ComboBox>(window, "显示模式").SelectedIndex = mode == "dark" ? 1 : 0; await Pause();
             nav.SelectedItem = previous; await Pause();
         }
     }

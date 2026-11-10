@@ -66,7 +66,7 @@ public sealed partial class XIslandApi
             if (!response.IsSuccessStatusCode)
             {
                 if (mutation) throw new SubscriptionUnknownException();
-                throw new IslandException(response.StatusCode == HttpStatusCode.TooManyRequests ? "订阅请求过于频繁，请稍后刷新。" : $"订阅接口返回 HTTP {(int)response.StatusCode}，请稍后刷新。");
+                throw new IslandException(response.StatusCode == HttpStatusCode.TooManyRequests ? "订阅请求过于频繁，请稍后刷新。" : $"订阅暂时无法访问（HTTP {(int)response.StatusCode}），请稍后刷新。");
             }
             return JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         }

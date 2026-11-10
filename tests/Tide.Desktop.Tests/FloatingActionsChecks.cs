@@ -132,7 +132,7 @@ internal static class FloatingActionsChecks
                 Require(dialog is not null, "点击悬浮按钮没有打开编辑器");
                 Require(dialog!.Title.StartsWith(isReply ? "参与回应" : "发串"), "打开了错误的编辑器");
                 if (isReply) Require(UiRefinementChecks.Descendants<TextBlock>(dialog).Any(t => t.Text == "No.101"), "回应目标串号错误");
-                else Require(UiRefinementChecks.Descendants<ComboBox>(dialog).Any(c => AutomationProperties.GetName(c) == "发串版块" && c.SelectedItem is Forum { Id: 30 }), "发串没有选中当前板块");
+                else Require(UiRefinementChecks.Descendants<ComboBox>(dialog).Any(c => AutomationProperties.GetName(c) == "发串板块" && c.SelectedItem is Forum { Id: 30 }), "发串没有选中当前板块");
                 result.SetResult();
             }
             catch (Exception ex) { result.SetException(ex); }

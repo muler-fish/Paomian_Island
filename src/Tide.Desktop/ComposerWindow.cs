@@ -49,7 +49,7 @@ public sealed class ComposerWindow : DialogWindow
         System.Windows.Automation.AutomationProperties.SetName(_title, "可选标题");
         System.Windows.Automation.AutomationProperties.SetName(_name, "可选名称");
         _content.FontFamily = AppFonts.Family;
-        System.Windows.Automation.AutomationProperties.SetName(_forum, "发串版块");
+        System.Windows.Automation.AutomationProperties.SetName(_forum, "发串板块");
         System.Windows.Automation.AutomationProperties.SetName(_cookie, "发言使用的饼干");
         _cookie.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "CookieChoiceItem");
         ScrollViewer.SetHorizontalScrollBarVisibility(_cookie, ScrollBarVisibility.Disabled);
@@ -65,8 +65,8 @@ public sealed class ComposerWindow : DialogWindow
         existing ??= vm.State.Drafts.Find(d => d.Key == _key);
         _forum.ItemsSource = vm.State.Forums.Where(f => !f.IsTimeline).ToList();
         _forum.SelectedItem = vm.State.Forums.Find(f => !f.IsTimeline && f.Id == (existing?.ForumId ?? defaultForum));
-        if (_threadId == 0 && _reportPostId == 0) { Label("发到哪个版块"); Body.Children.Add(_forum); }
-        Label("使用的饼干");
+        if (_threadId == 0 && _reportPostId == 0) { Label("发串板块"); Body.Children.Add(_forum); }
+        Label("饼干");
         var identityBar = new DockPanel(); var manage = Button("管理饼干", () =>
         {
             var manager = new CookieWindow(vm, (_cookie.SelectedItem as CookieIdentity)?.Id ?? "") { Owner = this };
@@ -130,7 +130,7 @@ public sealed class ComposerWindow : DialogWindow
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { unavailable = true; }
         }
         _cookie.ItemTemplate = CookieItemTemplate.CreateChoice(_vm.State.ActiveCookieId, usage, unavailable);
-        _cookie.ToolTip = _threadId > 0 ? "只统计通过本机成功发送到当前串的回应。临时选择不会改变默认饼干。" : "临时选择不会改变默认饼干。";
+        _cookie.ToolTip = _threadId > 0 ? "回应次数只统计本机发送的记录；这里的选择不会改变默认饼干。" : "这里的选择不会改变默认饼干。";
         _cookie.ItemsSource = _vm.State.Cookies.ToList();
         _cookie.SelectedItem = _vm.State.Cookies.Find(c => c.Id == selectedId) ?? _vm.State.Cookies.Find(c => c.Id == _vm.State.ActiveCookieId);
     }
@@ -197,9 +197,9 @@ public sealed class ComposerWindow : DialogWindow
     private void Preview()
     {
         if (_sending) return;
-        if (string.IsNullOrWhiteSpace(_content.Text)) { Feedback.Text = _reportPostId > 0 ? "请填写举报理由。" : "先写一点正文吧。"; _content.Focus(); return; }
+        if (string.IsNullOrWhiteSpace(_content.Text)) { Feedback.Text = _reportPostId > 0 ? "请填写举报理由。" : "请填写正文。"; _content.Focus(); return; }
         if (_cookie.SelectedItem is not CookieIdentity cookie) { Feedback.Text = "请先导入并选择一份饼干。"; return; }
-        if (_threadId == 0 && _reportPostId == 0 && _forum.SelectedItem is not Forum) { Feedback.Text = "请选择一个发串版块。"; return; }
+        if (_threadId == 0 && _reportPostId == 0 && _forum.SelectedItem is not Forum) { Feedback.Text = "请选择发串板块。"; return; }
         SaveDraft();
         // 确认按钮闭包捕获这份不可变请求和选中饼干，不再读取之后可能变化的界面字段。
         // 目标楼号和值班室固定于打开举报页时；理由单独编辑，预览和提交使用同一份正文。

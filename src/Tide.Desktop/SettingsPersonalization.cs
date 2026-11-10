@@ -15,7 +15,8 @@ internal static class SettingsPersonalization
     {
         // 上一行已有分隔线，这里只用加粗小标题，避免出现两条线。
         var heading = SettingsLayout.Text("主题强调色"); heading.FontWeight = FontWeights.SemiBold; heading.Margin = new(0, 16, 0, 0); page.Children.Add(heading);
-        var hint = SettingsLayout.Text("用于主要按钮、选中状态、滑块、开关和标志。深色主题会自动换成同色相的较亮颜色；饼干、PO、SAGE 等标识颜色不受影响。", true);
+        // 只保留作用范围：强调色与标识颜色是两组独立设置。
+        var hint = SettingsLayout.Text("用于按钮、选中状态和开关；不影响饼干、PO、SAGE 等标识颜色。", true);
         hint.Margin = new(0, 4, 0, 0); page.Children.Add(hint);
         var swatches = new WrapPanel { Margin = new(-4, 10, 0, 0) };
         AutomationProperties.SetName(swatches, "预设强调色");
@@ -66,10 +67,8 @@ internal static class SettingsPersonalization
         box.SetResourceReference(Border.BackgroundProperty, "Canvas"); box.SetResourceReference(Border.BorderBrushProperty, "Line");
         AutomationProperties.SetName(box, "效果预览");
         var content = new StackPanel();
-        var header = new DockPanel();
-        var note = SettingsLayout.Text("仅展示效果，不会改动设置", true); DockPanel.SetDock(note, Dock.Right); header.Children.Add(note);
-        var title = SettingsLayout.Text("效果预览", true); title.FontWeight = FontWeights.SemiBold; header.Children.Add(title);
-        content.Children.Add(header);
+        var title = SettingsLayout.Text("效果预览", true); title.FontWeight = FontWeights.SemiBold;
+        content.Children.Add(title);
         var groups = new WrapPanel();
         StackPanel Group(string caption, params UIElement[] samples)
         {
@@ -102,7 +101,7 @@ internal static class SettingsPersonalization
     {
         var content = new StackPanel { Margin = new(10, 4, 0, 0) };
         var expander = new Expander { Header = "标识颜色", Content = content, IsExpanded = false, Margin = new(-10, 12, 0, 0) };
-        content.Children.Add(SettingsLayout.Text("只需选择主色，标签文字色和底色会按浅色、深色主题自动生成，保证足够的对比度。只改变颜色，不影响 PO、红名、SAGE 的判断。", true));
+        content.Children.Add(SettingsLayout.Text("标签的文字色和底色会按所选颜色自动生成。", true));
         // 预览用与串列表、阅读区相同的身份标签控件。
         var preview = new WrapPanel { Margin = new(0, 10, 0, 4) };
         AutomationProperties.SetName(preview, "标识颜色预览");

@@ -38,7 +38,7 @@ internal sealed class UpdateController(MainViewModel vm)
         Busy = true; SetStatus("正在下载更新…");
         try
         {
-            var progress = new Progress<int>(value => SetStatus($"正在下载并校验 · {value}%"));
+            var progress = new Progress<int>(value => SetStatus($"正在下载更新 · {value}%"));
             Staged = await _updater.DownloadAsync(Available, Root, progress, _lifetime.Token);
             SetStatus("更新已准备好，可重启安装" + (vm.State.InstallUpdatesOnExit ? "，或在退出时安装" : ""));
         }

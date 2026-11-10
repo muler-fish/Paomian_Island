@@ -116,18 +116,18 @@ public sealed partial class XIslandApi : IDisposable
         if (cookie.Length > 0) request.Headers.Add("Cookie", "userhash=" + cookie);
         using var response = await _http.SendAsync(request, ct);
         if (response.StatusCode == HttpStatusCode.TooManyRequests) throw new IslandException("请求过于频繁，请稍后再试。");
-        if (!response.IsSuccessStatusCode) throw new IslandException($"X 岛接口返回 HTTP {(int)response.StatusCode}，请稍后刷新。");
+        if (!response.IsSuccessStatusCode) throw new IslandException($"X 岛暂时无法访问（HTTP {(int)response.StatusCode}），请稍后刷新。");
         var raw = await response.Content.ReadAsStringAsync(ct);
         // HTTP 成功不代表业务成功：接口还可能返回验证网页、JSON 错误字符串或 error 对象。
         JsonDocument doc;
         try { doc = JsonDocument.Parse(raw); }
-        catch (JsonException) { throw new IslandException("接口返回了网页而非数据。可能是网络验证或服务临时异常，请稍后重试。"); }
+        catch (JsonException) { throw new IslandException("X 岛返回了网页而不是数据，可能需要网络验证，请稍后重试。"); }
         var root = doc.RootElement;
         if (root.ValueKind == JsonValueKind.String || (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out _)))
         {
             var message = root.ValueKind == JsonValueKind.String ? root.GetString() : Str(root, "error");
             doc.Dispose();
-            throw new IslandException(ContentText.Plain(message ?? "接口请求失败"), rejected: true);
+            throw new IslandException(ContentText.Plain(message ?? "请求失败"), rejected: true);
         }
         return doc;
     }
@@ -139,7 +139,7 @@ public sealed partial class XIslandApi : IDisposable
         if (string.IsNullOrWhiteSpace(post.Content) || post.Content.Length > 10000) throw new ArgumentException("正文需要为 1–10000 个字符。");
         if (post.Title.Length > 100) throw new ArgumentException("标题不能超过 100 个字符。");
         if (post.Name.Length > 100) throw new ArgumentException("名称不能超过 100 个字符。");
-        if (post.ThreadId <= 0 && post.ForumId <= 0) throw new ArgumentException("请先选择发串版块。");
+        if (post.ThreadId <= 0 && post.ForumId <= 0) throw new ArgumentException("请先选择发串板块。");
         byte[]? image = null;
         string? mime = null;
         // 在任何网络请求前读取并检查附件，避免预检成功后才发现本地文件不可用。
@@ -231,6 +231,6 @@ public sealed partial class XIslandApi : IDisposable
     private static string Str(JsonElement e, string key) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind is not JsonValueKind.Null ? v.ToString() : "";
     private static int Int(JsonElement e, string key) => int.TryParse(Str(e, key), out var n) ? n : 0;
     private static long Long(JsonElement e, string key) => long.TryParse(Str(e, key), out var n) ? n : 0;
-    private static void EnsureArray(JsonElement e) { if (e.ValueKind != JsonValueKind.Array) throw new IslandException("接口数据格式暂时无法识别，请稍后重试。"); }
+    private static void EnsureArray(JsonElement e) { if (e.ValueKind != JsonValueKind.Array) throw new IslandException("X 岛返回的数据暂时无法识别，请稍后重试。"); }
     public void Dispose() => _http.Dispose();
 }

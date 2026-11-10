@@ -83,7 +83,7 @@ internal sealed class ForumLinkPromptWindow : ChildWindow
         _detail.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         _progress.IsIndeterminate = SystemParameters.ClientAreaAnimation;
         var name = link.FindForum(model.State.Forums)?.Name ?? (link.Name.Length > 0 ? link.Name : $"{(link.Kind == IslandLinkKind.Timeline ? "时间线" : "板块")} No.{link.Id}");
-        _message.Text = $"即将跳转到‘{name}’";
+        _message.Text = $"即将跳转到「{name}」";
         _detail.Text = "正在确认板块…";
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = new Wpf.Ui.Controls.Button { Content = "取消", IsCancel = true, Margin = new(0, 0, 8, 0) };
@@ -109,11 +109,11 @@ internal sealed class ForumLinkPromptWindow : ChildWindow
             _progress.Visibility = Visibility.Collapsed;
             if (_forum is { } forum)
             {
-                _message.Text = $"即将跳转到‘{forum.Name}’";
+                _message.Text = $"即将跳转到「{forum.Name}」";
                 _detail.Text = link.Page > 1 ? $"第 {link.Page} 页" : "";
                 _detail.Visibility = link.Page > 1 ? Visibility.Visible : Visibility.Collapsed;
             }
-            else { _detail.Text = "无法在客户端打开此板块，将使用浏览器。"; _go.Content = "浏览器打开"; }
+            else { _detail.Text = "无法在程序内打开这个板块，将用浏览器打开。"; _go.Content = "浏览器打开"; }
             _go.IsEnabled = true;
         };
     }
