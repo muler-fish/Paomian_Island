@@ -39,7 +39,9 @@ internal static class ThreadFailureChecks
         foreach (var message in new[]
         {
             "请求过于频繁，请稍后再试", "服务器维护中，请稍后重试", "未知错误", "该串暂时无法访问",
-            "该串暂时不存在于缓存中，请稍后重试", "维护期间暂时没有权限访问该串"
+            "该串暂时不存在于缓存中，请稍后重试", "维护期间暂时没有权限访问该串",
+            "该串不存在于缓存中，请稍后重试", "维护期间提示该串不存在，请稍后重试",
+            "暂时无法确认该串已被删除，请稍后重试"
         })
         {
             await Check("JSON string " + message, JsonSerializer.Serialize(message), false, message);

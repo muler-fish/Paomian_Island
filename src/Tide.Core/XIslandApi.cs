@@ -137,13 +137,13 @@ public sealed partial class XIslandApi : IDisposable
     private static bool IsThreadUnavailable(string message)
     {
         var text = message.Trim();
+        // 暂时性说明优先于不存在、删除和权限短语，不能仅凭其中一段文字让历史失效。
+        if (new[] { "暂时", "维护", "稍后", "重试", "限流", "繁忙" }.Any(token => text.Contains(token, StringComparison.Ordinal))) return false;
         if (text.Contains("该串不存在", StringComparison.Ordinal) ||
             text.Contains("该主题不存在", StringComparison.Ordinal) ||
             text.Contains("串已被删除", StringComparison.Ordinal) ||
             text.Contains("该串已删除", StringComparison.Ordinal)) return true;
 
-        // 权限描述有时会出现在维护或限流提示里；这类语境不能让历史失效。
-        if (new[] { "暂时", "维护", "稍后", "重试", "限流", "繁忙" }.Any(token => text.Contains(token, StringComparison.Ordinal))) return false;
         return text.Contains("无权访问该串", StringComparison.Ordinal) ||
             text.Contains("没有权限访问该串", StringComparison.Ordinal) ||
             text.Contains("没有权限访问此串", StringComparison.Ordinal) ||
