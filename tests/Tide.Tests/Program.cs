@@ -8,6 +8,11 @@ if (args.Contains("--links")) { await LinkRoutingChecks.RunAsync(); return 0; }
 if (args.Contains("--sent-thread")) { await SentThreadChecks.RunAsync(); return 0; }
 if (args.Contains("--cookie-usage")) { CookieUsageChecks.Run(); return 0; }
 if (args.Contains("--reading-history")) { ReadingHistoryChecks.Run(); return 0; }
+if (args.Contains("--thread-failures"))
+{
+    try { await ThreadFailureChecks.RunAsync(); return 0; }
+    catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+}
 if (args.Contains("--settings-services")) { await SettingsServicesChecks.RunAsync(); return 0; }
 if (args.Contains("--branding")) { BrandingChecks.Run(); return 0; }
 if (args.Contains("--executable-rename"))
@@ -24,6 +29,7 @@ void Test(string name, Action action) => checks.Add((name, () => { action(); ret
 void AsyncTest(string name, Func<Task> action) => checks.Add((name, action));
 AsyncTest("content links and forum aliases", LinkRoutingChecks.RunAsync);
 Test("reading history back/forward navigation", ReadingHistoryChecks.Run);
+AsyncTest("thread failure classification", ThreadFailureChecks.RunAsync);
 void Assert(bool test, string why = "Assertion failed") { if (!test) throw new Exception(why); }
 void Throws<T>(Action action) where T : Exception
 {

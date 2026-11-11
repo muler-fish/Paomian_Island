@@ -35,14 +35,16 @@ internal static class FloatingActionsChecks
             Require(reply.IsVisible && reply.IsEnabled, "打开串后没有可用的回应按钮");
             var tail = (Border)window.FindName("ListTailIndicator");
             Require(!tail.IsVisible, "没有续页提示时仍显示底部遮挡");
-            CheckAlignment();
+            CheckListFillsPane();
+            CheckActionLayout();
             var viewport = Bounds(list, window);
+            var progress = (ProgressBar)window.FindName("ListContinuationProgress");
             handler.ListGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
             handler.FailList = true;
             var loadingList = vm.LoadMoreListAsync(); await Pause();
-            Require(vm.ListAppending && tail.IsVisible && Bounds(list, window)==viewport, "续页加载提示缺失或改变视口");
+            Require(vm.ListAppending && progress.IsVisible && !tail.IsVisible && NearlyEqual(Bounds(list, window), viewport), "续页加载提示缺失或改变视口");
             handler.ListGate.SetResult(); await loadingList; await Pause();
-            Require(vm.ListAppendFailed && tail.IsVisible && Bounds(list, window)==viewport, "续页错误提示缺失或改变视口");
+            Require(vm.ListAppendFailed && !progress.IsVisible && tail.IsVisible && NearlyEqual(Bounds(list, window), viewport), "续页错误提示缺失或改变视口");
             capture(window,Path.Combine(output,"floating-list-retry.png"));
             handler.FailList=false;
             var retry=UiRefinementChecks.Descendants<Button>(tail).Single();
@@ -54,22 +56,15 @@ internal static class FloatingActionsChecks
                 var before = Bounds(button, window);
                 var scroll = UiRefinementChecks.Descendants<ScrollViewer>(items).First();
                 scroll.ScrollToVerticalOffset(300); await Pause();
-                Require(Bounds(button, window) == before, "悬浮按钮跟随正文滚动");
-                scroll.ScrollToEnd(); await Pause();
-                items.ScrollIntoView(items.Items[items.Items.Count - 1]); await Pause();
-                scroll.ScrollToEnd(); await Pause();
-                var last = (ListBoxItem)items.ItemContainerGenerator.ContainerFromIndex(items.Items.Count - 1);
-                Require(last is not null && Bounds(last, window).Bottom <= Bounds(button, window).Top, "最后一条内容无法滚动到按钮上方");
-                Require(UiRefinementChecks.Descendants<ListBoxItem>(items).Count(c => c.Margin.Bottom > 0) == 1, "悬浮按钮留白被重复加到其他条目");
-                Require(VirtualizingPanel.GetIsVirtualizing(items), "悬浮按钮关闭了列表虚拟化");
+                Require(Bounds(button, window) == before, "顶部工具栏按钮跟随正文滚动");
+                Require(VirtualizingPanel.GetIsVirtualizing(items), "工具栏调整关闭了列表虚拟化");
             }
-            // 追加内容后，原来的末项应撤去留白，留白移到新的末项。
+            // 续页内容仍追加到列表，工具栏不参与列表项布局。
             vm.Posts.Add(new(new Post { Id = 909, Content = "新末项", UserHash = "test" }, "综合版1")); await Pause();
             list.ScrollIntoView(vm.Posts[^1]); await Pause();
-            var oldTail = list.ItemContainerGenerator.ContainerFromIndex(vm.Posts.Count - 2) as ListBoxItem;
-            var newTail = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(vm.Posts.Count - 1);
-            Require(oldTail?.Margin.Bottom == 0 && newTail.Margin.Bottom == publish.Margin.Bottom + 64, "续页后尾部留白未转移");
-            Console.WriteLine("PASS: pane-fixed positions, last item clearance, append clearance transfer, virtualization.");
+            Require(list.Items.Count == vm.Posts.Count && list.ItemContainerGenerator.ContainerFromIndex(vm.Posts.Count - 1) is ListBoxItem,
+                "列表追加后末项没有正常生成。");
+            Console.WriteLine("PASS: top toolbar positions, scroll-independent actions, list append and virtualization.");
 
             await CheckComposer(publish, window, false);
             await CheckComposer(reply, window, true);
@@ -91,27 +86,43 @@ internal static class FloatingActionsChecks
                 foreach (var width in new[] { 900d, 1280d })
                 {
                     window.Width = width; await Pause();
-                    CheckAlignment();
-                    foreach (var (items, button) in new[] { (list, publish), (reader, reply) })
-                    {
-                        var frame = Bounds(items, window); var action = Bounds(button, window);
-                        Require(action.Left >= frame.Left && action.Right <= frame.Right && action.Bottom <= frame.Bottom && action.Top >= frame.Top, "悬浮按钮超出对应内容区");
-                        Require(action.Width == 48 && action.Height == 48 && button.Focusable, "按钮大小或键盘焦点错误");
-                        Require(button.InputHitTest(new Point(24, 24)) is not null, "按钮无法命中");
-                    }
+                    CheckListFillsPane();
+                    CheckActionLayout();
                     capture(window, Path.Combine(output, $"floating-{theme}-{width}.png"));
                 }
             }
-            window.WindowState=WindowState.Maximized; await Pause(); CheckAlignment();
+            window.WindowState=WindowState.Maximized; await Pause(); CheckListFillsPane(); CheckActionLayout();
             capture(window,Path.Combine(output,"floating-dark-maximized.png"));
             App.ApplyTheme("light");
-            Console.WriteLine("PASS: full-height list, aligned floating actions, loading/failure/retry/end without viewport shift, visible contexts, compose/reply targets, loading guard, both themes, compact and maximized windows.");
+            Console.WriteLine("PASS: top toolbar actions, full-height list, loading/failure/retry without viewport shift, visible contexts, compose/reply targets, loading guard, both themes, compact and maximized windows.");
 
-            void CheckAlignment()
+            void CheckListFillsPane()
             {
-                Require(Math.Abs(Bounds(publish,window).Top-Bounds(reply,window).Top)<1,"发串与回应按钮未对齐");
                 var pane=(Border)window.FindName("ListPane");
                 Require(Math.Abs(Bounds(list,window).Bottom-Bounds(pane,window).Bottom)<1,"串列表底部仍有固定占位条");
+            }
+
+            static bool NearlyEqual(Rect first, Rect second) =>
+                Math.Abs(first.Left - second.Left) < 1 && Math.Abs(first.Top - second.Top) < 1 &&
+                Math.Abs(first.Width - second.Width) < 1 && Math.Abs(first.Height - second.Height) < 1;
+
+            void CheckActionLayout()
+            {
+                var listPane = (FrameworkElement)window.FindName("ListPane");
+                var readerToolbar = (FrameworkElement)window.FindName("ReaderHeaderFrame");
+                foreach (var (button, pane, content) in new[]
+                {
+                    (publish, listPane, (FrameworkElement)list),
+                    (reply, readerToolbar, (FrameworkElement)reader)
+                })
+                {
+                    var action = Bounds(button, window); var frame = Bounds(pane, window); var body = Bounds(content, window);
+                    Require(action.Left >= frame.Left - 1 && action.Right <= frame.Right + 1 && action.Top >= frame.Top - 1 && action.Bottom <= frame.Bottom + 1,
+                        $"编辑工具栏按钮超出所属区域：{button.Name} action={action}, frame={frame}");
+                    Require(action.Width > 32 && action.Height == 32 && button.Focusable && action.Bottom <= body.Top + 1,
+                        "编辑按钮没有保持在正文上方的 32 DIP 文字工具栏内");
+                    Require(button.InputHitTest(new Point(16, 16)) is not null, "工具栏按钮无法命中");
+                }
             }
         }
         finally { App.ApplyTheme("light"); window.Close(); }

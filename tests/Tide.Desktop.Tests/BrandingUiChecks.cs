@@ -31,7 +31,8 @@ internal static class BrandingUiChecks
                 foreach (var name in new[] { "RefreshListButton", "RefreshThreadButton" })
                 {
                     var button = (Wpf.Ui.Controls.Button)owner.FindName(name);
-                    Require(button.Appearance == Wpf.Ui.Controls.ControlAppearance.Secondary && ReferenceEquals(button.Style, owner.FindResource("RefreshIconButton")), "refresh priority/style");
+                    Require(ReferenceEquals(button.Style, owner.FindResource("RefreshIconButton")) &&
+                        (button.Background is null || button.Background is SolidColorBrush idle && idle.Color.A == 0), "refresh priority/style");
                     Require(button.ActualWidth == 32 && button.ActualHeight == 32 && button.Template is not null, "refresh geometry/template");
                     button.IsEnabled = false; await Pause(); Require(!button.IsEnabled, "disabled refresh state"); button.ClearValue(UIElement.IsEnabledProperty);
                 }

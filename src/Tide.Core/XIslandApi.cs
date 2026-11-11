@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace Tide.Core;
 
 /// <summary>可展示给用户的接口错误，例如访问受限、限流或明确的发言失败。</summary>
-/// <remarks>Rejected 表示服务端正常应答但明确拒绝（串不存在、已删除、无权访问等）；HTTP 状态、限流和网页验证属于暂时性错误。</remarks>
+/// <remarks>Rejected 仅表示已识别的串不存在、已删除或无权访问；暂时错误和无法识别的响应保留重试机会。</remarks>
 public sealed class IslandException(string message, bool rejected = false) : Exception(message)
 {
     public bool Rejected { get; } = rejected;
@@ -88,8 +88,8 @@ public sealed partial class XIslandApi : IDisposable
     private async Task<ThreadPage> ReadThreadPageAsync(long id, int page, string cookie, CancellationToken ct)
     {
         using var doc = await GetJsonAsync($"thread?id={id}&page={page}", ct, cookie);
-        if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("id", out _))
-            throw new IslandException("未找到这个串，可能已被删除，或当前饼干没有访问权限。", rejected: true);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object || Long(doc.RootElement, "id") != id)
+            throw new IslandException("X 岛返回的串数据暂时无法识别，请稍后重试。");
         var post = ParsePost(doc.RootElement);
         // 提示由服务端随页投放；记录相对正常回复的位置，不把它计入 19 条回复的分页。
         var replies = new List<Post>(); var tips = new List<ThreadTip>();
@@ -125,11 +125,30 @@ public sealed partial class XIslandApi : IDisposable
         var root = doc.RootElement;
         if (root.ValueKind == JsonValueKind.String || (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out _)))
         {
-            var message = root.ValueKind == JsonValueKind.String ? root.GetString() : Str(root, "error");
+            var message = ContentText.Plain((root.ValueKind == JsonValueKind.String ? root.GetString() : Str(root, "error")) ?? "");
             doc.Dispose();
-            throw new IslandException(ContentText.Plain(message ?? "请求失败"), rejected: true);
+            if (string.IsNullOrWhiteSpace(message)) message = "请求失败，请稍后重试。";
+            throw new IslandException(message, rejected: path.StartsWith("thread?", StringComparison.Ordinal) && IsThreadUnavailable(message));
         }
         return doc;
+    }
+
+    // 只识别明确的失效提示；未知文案宁可保留历史，也不把限流或维护当成删串。
+    private static bool IsThreadUnavailable(string message)
+    {
+        var text = message.Trim();
+        if (text.Contains("该串不存在", StringComparison.Ordinal) ||
+            text.Contains("该主题不存在", StringComparison.Ordinal) ||
+            text.Contains("串已被删除", StringComparison.Ordinal) ||
+            text.Contains("该串已删除", StringComparison.Ordinal)) return true;
+
+        // 权限描述有时会出现在维护或限流提示里；这类语境不能让历史失效。
+        if (new[] { "暂时", "维护", "稍后", "重试", "限流", "繁忙" }.Any(token => text.Contains(token, StringComparison.Ordinal))) return false;
+        return text.Contains("无权访问该串", StringComparison.Ordinal) ||
+            text.Contains("没有权限访问该串", StringComparison.Ordinal) ||
+            text.Contains("没有权限访问此串", StringComparison.Ordinal) ||
+            text.Contains("没有权限访问这个串", StringComparison.Ordinal) ||
+            text.Contains("必须登入领取饼干后才可以访问", StringComparison.Ordinal);
     }
 
     /// <summary>先校验输入并建立网页会话，再提交一次表单；成功、明确失败和结果未知分别处理。</summary>

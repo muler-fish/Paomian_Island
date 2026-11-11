@@ -31,7 +31,7 @@ internal static class ReadingIdentityChecks
             File.WriteAllText(Path.Combine(output,"reading-identity.json"), JsonSerializer.Serialize(new { PreviewWeight=preview.FontWeight.ToString(), Fonts=fonts, Rows=rows, Labels=labels },new JsonSerializerOptions{WriteIndented=true}));
             capture(window,Path.Combine(output,"reading-before-or-after.png"));
             var regular = fonts.Concat(rows.SelectMany(r=>r.Runs)).Where(r=>r.Text.Contains("普通正文"));
-            if (!regular.Any() || regular.Any(r=>!r.Font.EndsWith("misans-light.otf") || r.Simulated)) throw new Exception("正文没有使用较轻的实际 Light 字形");
+            if (!regular.Any() || regular.Any(r=>!r.Font.Contains("/msyh.ttc", StringComparison.OrdinalIgnoreCase) || r.Simulated)) throw new Exception("正文没有使用实际微软雅黑常规字形");
             var dice = rows.SelectMany(r=>r.Runs).Where(r=>r.Text=="2").ToArray();
             if (dice.Length==0 || dice.Any(r=>r.Simulated)) throw new Exception("骰子结果使用了模拟加粗");
             if (!labels.Contains("回应作者")) throw new Exception("串内没有显示作者名称");
@@ -42,7 +42,7 @@ internal static class ReadingIdentityChecks
                 capture(window,Path.Combine(output,"reading-"+theme+".png"));
                 ReadingPolishChecks.CaptureScreen(window,Path.Combine(output,"reading-native-"+theme+".png"));
             }
-            Console.WriteLine("PASS: real list/reader Light glyphs, dice without simulated bold, reader authors.");
+            Console.WriteLine("PASS: real list/reader Microsoft YaHei glyphs, dice without simulated bold, reader authors.");
         }
         finally { window.Close(); App.ApplyTheme("light"); }
     }

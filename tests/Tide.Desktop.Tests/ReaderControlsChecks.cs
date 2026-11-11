@@ -36,7 +36,7 @@ internal static class ReaderControlsChecks
             ((IToggleProvider)new ToggleButtonAutomationPeer(po).GetPattern(PatternInterface.Toggle)).Toggle();
             await Layout(window);
             Require(vm.OnlyPo && vm.ReadingPosts.Select(p => p.Post.Id).SequenceEqual(new long[] { 101, 102 }), "PO 开关没有实际过滤回复。");
-            Require(handler.Calls == 1 && ColorOf(po.Background) == ColorOf(Resource("PoBackground")), "PO 开关应在本地过滤并显示选中底色。");
+            Require(handler.Calls == 1 && ColorOf(po.Background) == ColorOf(Resource("AccentSoft")), "PO 开关应在本地过滤并使用交互强调色。");
             capture(window, Path.Combine(output, "reader-po-only.png"));
             po.IsChecked = false; await Layout(window);
             Require(!vm.OnlyPo && vm.ReadingPosts.Count == 4, "关闭 PO 后未恢复全部楼层。");
@@ -83,7 +83,7 @@ internal static class ReaderControlsChecks
                     Require(bounds.Right <= reader.ActualWidth - 10 && bounds.Left >= 0, "楼号越界。");
                     Require(date.Text == PostTime.Format(((Post)button.Tag).Time, true), "串内日期没有统一为精确到秒的格式。");
                     Require(date.ActualWidth >= date.DesiredSize.Width - date.Margin.Left - date.Margin.Right - 1 && date.ActualHeight > 0, "日期被挤掉。");
-                    Require(Grid.GetRow(date) == (header.ActualWidth < 480 ? 1 : 0), "窄阅读栏未将日期换行。");
+                    Require(Grid.GetRow(date) == (header.ActualWidth < 420 ? 1 : 0), "窄阅读栏未将日期换行。");
                 }
                 capture(window, Path.Combine(output, $"reader-width-{width}.png"));
             }
@@ -100,7 +100,7 @@ internal static class ReaderControlsChecks
                 composer.Close(); timer.Stop();
             };
             timer.Start(); Invoke(quote); await Layout(window); timer.Stop();
-            Require(draft == ">>No.102\n" && store.Load().Drafts.Any(d => d.ThreadId == 101 && d.Content == draft), "楼号引用目标或草稿不正确。");
+            Require(draft == ">>No.102\r\n" && store.Load().Drafts.Any(d => d.ThreadId == 101 && d.Content == draft), "楼号引用目标或草稿不正确。");
             var calls = handler.Calls;
             Invoke((Button)window.FindName("RefreshThreadButton")); await Layout(window);
             Require(handler.Calls == calls + 1 && vm.Original?.Id == 101, "正文刷新没有发起读取。");

@@ -144,7 +144,9 @@ internal static class ForumNavigationChecks
                 App.ApplyTheme(theme); refresh.Focus(); scroll.ScrollToTop();
                 await Layout(testWindow);
                 CheckHeaderWidth(firstGroup, scroll);
-                Require(refresh.Background is SolidColorBrush background && background.Color.A > 0, "刷新按钮缺少可见底座。");
+                Require(ReferenceEquals(refresh.Style, testWindow.FindResource("RefreshIconButton")) &&
+                    (refresh.Background is null || refresh.Background is SolidColorBrush background && background.Color.A == 0),
+                    "刷新按钮未使用透明的次要图标样式。");
                 var color = ((SolidColorBrush)Application.Current.FindResource("FavoriteStar")).Color;
                 foreach (var star in new[] { Star(groups, "t1"), Star(groups, "f1"), Star(favorites, "t1"), Star(favorites, "f1") })
                 {

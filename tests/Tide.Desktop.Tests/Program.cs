@@ -19,6 +19,12 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // 只走真实视图模型和模拟传输，不创建窗口或操作系统输入。
+        if (args.FirstOrDefault() == "--navigation-failures")
+        {
+            try { NavigationFailureChecks.RunAsync(args.ElementAtOrDefault(1) ?? "artifacts/navigation-failures").GetAwaiter().GetResult(); return 0; }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        }
         if (args.Length == 2 && args[0] == "--subscription-live")
         {
             try { SubscriptionLiveProbe.RunAsync(args[1]).GetAwaiter().GetResult(); return 0; }
