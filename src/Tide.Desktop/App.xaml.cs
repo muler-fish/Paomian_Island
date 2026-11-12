@@ -31,7 +31,7 @@ public partial class App : Application
             }
             var vm = new MainViewModel(new XIslandApi(), new LocalStore(root));
             // 先应用已保存主题和个性化颜色再显示窗口，避免启动时先闪出错误的颜色。
-            Personalization.Load(vm.State); PostColors.Load(vm.State.PostColors); ApplyTheme(vm.State.Theme);
+            Personalization.Load(vm.State); ApplyTheme(vm.State.Theme);
             _updates = vm.Updates;
             var window = new MainWindow(vm); MainWindow = window;
             if (smoke is not null) window.ShowInTaskbar = false;
@@ -90,7 +90,7 @@ public partial class App : Application
         if (SystemParameters.HighContrast)
         {
             foreach (var key in new[] { "Canvas", "Surface", "Sidebar", "AccentSoft", "DangerSoft", "PoBackground", "CookieBackground", "AdminCookieBackground", "SageBackground" }) Current.Resources[key] = SystemColors.WindowBrush;
-            foreach (var key in new[] { "Text", "Muted", "Accent", "Danger", "Line", "FavoriteStar", "PoForeground", "CookieForeground", "AdminCookieForeground", "OnSage", "PostGreen", "PostRed" }) Current.Resources[key] = SystemColors.WindowTextBrush;
+            foreach (var key in new[] { "Text", "Muted", "Accent", "Danger", "Line", "FavoriteStar", "PoForeground", "CookieForeground", "AdminCookieForeground", "OnSage" }) Current.Resources[key] = SystemColors.WindowTextBrush;
             Current.Resources["Hover"] = SystemColors.ControlBrush;
             Current.Resources["ReaderSelection"] = SystemColors.HighlightBrush;
             foreach (var key in new[] { "AccentButtonBackground", "AccentButtonBackgroundPointerOver", "AccentButtonBackgroundPressed" })
@@ -98,6 +98,5 @@ public partial class App : Application
             foreach (var key in new[] { "AccentButtonForeground", "AccentButtonForegroundPointerOver", "AccentButtonForegroundPressed" })
                 Current.Resources[key] = SystemColors.HighlightTextBrush;
         }
-        PostColors.ApplyTheme(dark);
     }
 }

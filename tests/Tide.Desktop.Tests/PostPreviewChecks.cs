@@ -92,7 +92,6 @@ internal static class PostPreviewChecks
             App.ApplyTheme(theme);
             foreach (var (fg, bg) in new[] { ("CookieForeground", "CookieBackground"), ("AdminCookieForeground", "AdminCookieBackground"), ("OnSage", "SageBackground") })
                 Require(Contrast(Brush(fg), Brush(bg)) >= 4.5, "标签文字对比度不足：" + fg);
-            foreach (var fg in new[] { "PostGreen", "PostRed" }) Require(Contrast(Brush(fg), Brush("Surface")) >= 4.5, "正文强调色对比度不足：" + fg);
             // 第二轮 Refined Reader 配色的固定值，防止调整饼干标签时连带改到选中背景与 PO 标签。
             Require(Brush("AccentSoft") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E6ECE8" : "#2D3533"), "饼干调色连带修改了选中背景");
             Require(Brush("PoBackground") == (Color)ColorConverter.ConvertFromString(theme == "light" ? "#E3F1FF" : "#15395B"), "饼干调色连带修改了 PO 标签");
@@ -107,7 +106,12 @@ internal static class PostPreviewChecks
                 Require(Math.Abs(replies.Right - header.Right) < 1 && replies.Left >= header.Left, "回复数未右对齐或超出栏宽");
                 var cookie = UiRefinementChecks.Descendants<PostIdentity>(first).Single();
                 Require(Bounds(cookie, window).Right <= replies.Left, "窄栏饼干与回复数重叠");
-                Require(Named(first, "CardBody").ActualHeight <= ((PostPreview)Named(first, "CardBody")).MaxHeight + 1, "栏宽改变导致正文超过七行");
+                firstBody = (PostPreview)Named(first, "CardBody");
+                Require(firstBody.ActualHeight <= firstBody.MaxHeight + 1, "栏宽改变导致正文超过七行");
+                var coloredRuns = Spans(firstBody.Inlines).SelectMany(span => span.Inlines.OfType<Run>()).ToArray();
+                Require(coloredRuns.Single(run => run.Text == "绿色强调").Foreground is SolidColorBrush { Color: var green } && green == Colors.Green &&
+                    coloredRuns.Single(run => run.Text == "红色强调").Foreground is SolidColorBrush { Color: var red } && red == Colors.Red,
+                    $"主题 {theme} 改写了串列表预览的颜色");
                 capture(window, Path.Combine(output, $"cards-{theme}-{width}.png"));
             }
         }

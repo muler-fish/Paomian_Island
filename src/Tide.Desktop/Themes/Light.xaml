@@ -22,8 +22,6 @@
   <SolidColorBrush x:Key="CookieForeground" Color="#286d59"/>
   <SolidColorBrush x:Key="AdminCookieBackground" Color="#ffe3e3"/>
   <SolidColorBrush x:Key="AdminCookieForeground" Color="#d10000"/>
-  <SolidColorBrush x:Key="PostGreen" Color="#286d59"/>
-  <SolidColorBrush x:Key="PostRed" Color="#aa4545"/>
   <SolidColorBrush x:Key="ReaderSelection" Color="#619c8c"/>
   <SolidColorBrush x:Key="SageBackground" Color="#ffe3e3"/>
   <SolidColorBrush x:Key="OnSage" Color="#d10000"/>

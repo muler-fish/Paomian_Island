@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -16,7 +17,7 @@ namespace Tide.Desktop.Tests;
 
 internal static class ReaderExperienceChecks
 {
-    private const string Html = "中文  English (ﾟ∀ﾟ) 😀<br><s>删线</s> <font color='#cc0000'>红色强调</font> <span style='color:#789922'>绿色公告</span> <span style='color:rgb(73, 113, 207)'>蓝色正文</span><br>  /\\_/\\<br> ( o.o )<br>&gt;&gt;No.12345678 后文<br>[h]未展开的示例[/h]";
+    private const string Html = "中文  English (ﾟ∀ﾟ) 😀<br><s>删线</s> <font color='#cc0000'>红色强调</font> <span style='color:#789922'>绿色公告</span> <span style='color:rgb(73, 113, 207)'>蓝色正文</span> <span style='color:#07090A'>深色文字</span> <span style='color:#abc'>浅色文字</span><br>  /\\_/\\<br> ( o.o )<br>&gt;&gt;No.12345678 后文<br>[h]未展开的示例[/h]";
     internal static XIslandApi CreateApi() => new(new HttpClient(new Fixture()));
 
     internal static async Task RunAsync(MainWindow main, string output, Action<Window, string> capture, bool colorsOnly, bool realInput)
@@ -27,8 +28,6 @@ internal static class ReaderExperienceChecks
         var vm = main.Model;
         vm.State.ReaderImages = ImageModes.Click;
         vm.State.HideSpoilers = true;
-        vm.State.PostColors = new();
-        PostColors.Load(vm.State.PostColors);
         vm.AppearanceChanged();
         await vm.OpenThreadAsync(100);
         await Layout();
@@ -41,11 +40,19 @@ internal static class ReaderExperienceChecks
             selected.Contains("[隐藏内容]") && !selected.Contains("未展开的示例"), "复制破坏正文格式或隐藏内容");
         Require(All<PostImage>(main).Any(p => p.Post is { HasImage: true }), "缺少图片混排测试入口");
         Require(heading.Text == "No.100" && heading.IsReadOnly, "串号不支持只读选择");
+        CheckLegacyColorSettings(output);
         foreach (var theme in new[] { "light", "dark" })
         {
             vm.State.Theme = theme; App.ApplyTheme(theme);
             body.Focus(); body.Selection.Select(first.ContentStart, first.ContentEnd);
             await Layout();
+            Require(Foreground(body, "红色强调") == Color.FromRgb(204, 0, 0) &&
+                Foreground(body, "绿色公告") == Color.FromRgb(120, 153, 34) &&
+                Foreground(body, "蓝色正文") == Color.FromRgb(73, 113, 207) &&
+                Foreground(body, "深色文字") == Color.FromRgb(7, 9, 10) &&
+                Foreground(body, "浅色文字") == Color.FromRgb(170, 187, 204), $"主题 {theme} 改写了帖子原色");
+            Require(((SolidColorBrush)first.Foreground).Color == Brush("BodyText") &&
+                ((SolidColorBrush)link.Foreground).Color == Brush("Link"), "普通正文或引用链接失去主题颜色");
             var ink = ((SolidColorBrush)body.SelectionBrush).Color;
             var highlight = Personalization.Mix(Brush("Surface"), ink, body.SelectionOpacity);
             var text = Personalization.Mix(Brush("BodyText"), ink, body.SelectionOpacity);
@@ -60,47 +67,30 @@ internal static class ReaderExperienceChecks
         {
             var nav = Named<ListBox>(settings, "设置分类");
             nav.SelectedItem = "外观";
-            var expander = All<Expander>(settings).Single(x => Equals(x.Header, "正文彩色文字"));
-            Require(!expander.IsExpanded, "高级设置默认展开");
-            expander.IsExpanded = true;
             await Layout();
-            var preview = Named<PostBody>(settings, "正文彩色文字预览");
-            var red = All<ColorField>(expander).First();
-            var green = All<ColorField>(expander).Last();
-            var display = Named<ComboBox>(settings, "显示方式");
-            var accent = Brush("Accent"); var identity = Brush("AdminCookieForeground");
-            var originalDocument = body.Document;
-            var oldColor = Foreground(body, "红色强调");
-            Require(Foreground(body, "绿色公告") != Foreground(body, "蓝色正文") &&
-                oldColor == Foreground(preview, "红色强调"), "正文颜色类别被合并或预览不一致");
-            display.SelectedIndex = 1;
-            Require(Foreground(body, "红色强调") != oldColor, "鲜明显示未生效");
-            red.Set("#07090A", raise: true);
-            green.Set("#36A644", raise: true);
-            await Layout();
-            var effective = Foreground(body, "红色强调");
-            Require(vm.Store.Load().PostColors is { Red: "#07090A", Green: "#36A644", Mode: PostColorOptions.Vivid } &&
-                Foreground(preview, "红色强调") == effective && Foreground(body, "绿色公告") != effective, "原始 HEX 保存或实时显示错误");
-            Require(ReferenceEquals(originalDocument, body.Document) && Brush("Accent") == accent && Brush("AdminCookieForeground") == identity &&
-                ((SolidColorBrush)link.Foreground).Color == Brush("Link"), "改配色重建了选区或影响强调色、身份、链接");
-            vm.State.Theme = "light"; App.ApplyTheme("light");
-            Require(Foreground(body, "红色强调") != effective && Foreground(preview, "红色强调") == Foreground(body, "红色强调") &&
-                vm.State.PostColors.Red == "#07090A", "浅色没有独立适配或覆盖了原始 HEX");
-            vm.State.Theme = "dark"; App.ApplyTheme("dark");
-            display.SelectedIndex = 2;
-            Require(Foreground(body, "红色强调") != Personalization.Rgb("#07090A"), "保留原色模式允许严重不可读的颜色");
-            red.Set("", raise: true); green.Set("", raise: true); display.SelectedIndex = 0;
-            Require(vm.Store.Load().PostColors == new PostColorOptions(), "正文颜色无法恢复默认");
-            expander.BringIntoView(); await Layout();
-            capture(settings, System.IO.Path.Combine(output, "post-colors-dark.png"));
+            Require(!All<Expander>(settings).Any(x => Equals(x.Header, "正文彩色文字")) &&
+                All<Expander>(settings).Any(x => Equals(x.Header, "标识颜色")), "外观仍有正文调色入口，或误删标识颜色");
             if (!colorsOnly) await CheckShortcuts(main, settings, nav, realInput);
         }
         finally { settings.Close(); }
 
         if (realInput) await CheckRealSelection(main, body, first, link, heading);
         vm.State.Theme = "light"; App.ApplyTheme("light");
-        Console.WriteLine("PASS reader colors, selection styling and persistent preferences" +
+        Console.WriteLine("PASS original post colors in both themes, selection styling, and legacy profile compatibility" +
             (colorsOnly ? "." : realInput ? ", plus real desktop selection and shortcut routing." : ", plus shortcut scopes and settings."));
+    }
+
+    private static void CheckLegacyColorSettings(string output)
+    {
+        var store = new LocalStore(Path.Combine(output, "legacy-colors"));
+        var statePath = Path.Combine(store.Root, "state.json");
+        File.WriteAllText(statePath, """{"Theme":"dark","AccentColor":"#123456","PostColors":{"Mode":"vivid","Red":"#000000","Green":"#FFFFFF"},"ShortcutBindings":{"RefreshList":"None:F9"}}""");
+        var state = store.Load();
+        Require(store.LoadWarning is null && state.Theme == "dark" && state.AccentColor == "#123456" &&
+            state.ShortcutBindings.GetValueOrDefault("RefreshList") == "None:F9", "旧正文调色字段影响了其他设置的读取");
+        store.Save(state);
+        using var saved = JsonDocument.Parse(File.ReadAllText(statePath));
+        Require(!saved.RootElement.TryGetProperty("PostColors", out _), "已移除的正文调色配置仍被保存");
     }
 
     private static async Task CheckShortcuts(MainWindow main, SettingsWindow settings, ListBox nav, bool realInput)

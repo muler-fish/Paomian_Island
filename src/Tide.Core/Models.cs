@@ -91,14 +91,6 @@ public sealed record IdentityColors
     public string Po { get; init; } = "";
 }
 
-public sealed record PostColorOptions
-{
-    public const string Default = "default", Vivid = "vivid", Original = "original";
-    public string Mode { get; init; } = Default;
-    public string Red { get; init; } = "";
-    public string Green { get; init; } = "";
-}
-
 public static class ImageModes
 {
     public const string Auto = "auto", Click = "click", Hidden = "hidden";
@@ -136,7 +128,6 @@ public sealed class UserState
     public string AccentColor { get; set; } = "";
     // 身份标识主色（#RRGGBB）；空字符串为主题默认色。标签文字色与底色由程序按主题生成。
     public IdentityColors IdentityColors { get; set; } = new();
-    public PostColorOptions PostColors { get; set; } = new();
     // 缺少条目表示用默认键，空字符串表示已清除。
     public Dictionary<string, string> ShortcutBindings { get; set; } = new();
     public bool InertialScrolling { get; set; } = true;

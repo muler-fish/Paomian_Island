@@ -130,7 +130,7 @@ internal static class Personalization
         return (Math.Max(la, lb) + .05) / (Math.Min(la, lb) + .05);
     }
     // 按 HSL 亮度逐步调整，直到达到对比度；色相不变。
-    internal static Color EnsureContrast(Color color, Color background, double ratio, bool lighten)
+    private static Color EnsureContrast(Color color, Color background, double ratio, bool lighten)
     {
         var (h, s, l) = ToHsl(color);
         for (var i = 0; i < 60 && Contrast(color, background) < ratio; i++)
