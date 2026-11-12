@@ -216,15 +216,16 @@ internal static class ReadingHistoryChecks
             // 九、快捷键与鼠标侧键：可编辑输入框里不拦截 Alt+←/→。
             var jumpBox = (TextBox)window.FindName("JumpBox");
             var body = UiRefinementChecks.Descendants<PostBody>(reader).First();
-            Require(MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.Alt, reader) == -1 && MainWindow.ReadingHistoryStep(Key.Right, ModifierKeys.Alt, list) == 1, "Alt+←/→ 没有对应后退/前进");
-            Require(MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.Alt, body) == -1 && MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.Alt, null) == -1, "正文选中文字后 Alt+← 不可用");
-            Require(MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.Alt, jumpBox) == 0 && MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.None, reader) == 0
-                && MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.Alt | ModifierKeys.Shift, reader) == 0 && MainWindow.ReadingHistoryStep(Key.Z, ModifierKeys.Control, reader) == 0
-                && MainWindow.ReadingHistoryStep(Key.Up, ModifierKeys.Alt, reader) == 0, "快捷键拦截了输入框或其他组合键");
+            var left = new ShortcutKey(Key.Left, ModifierKeys.Alt); var right = new ShortcutKey(Key.Right, ModifierKeys.Alt);
+            Require(vm.Shortcuts.Get(ShortcutId.Back).Contains(left) && vm.Shortcuts.Get(ShortcutId.Forward).Contains(right)
+                && AppShortcuts.Allows(ShortcutId.Back, left, reader) && AppShortcuts.Allows(ShortcutId.Forward, right, list), "Alt+←/→ 没有对应后退/前进");
+            Require(AppShortcuts.Allows(ShortcutId.Back, left, body) && AppShortcuts.Allows(ShortcutId.Back, left, null), "正文选中文字后 Alt+← 不可用");
+            Require(!AppShortcuts.Allows(ShortcutId.Back, left, jumpBox) &&
+                !vm.Shortcuts.Get(ShortcutId.Back).Contains(new ShortcutKey(Key.Left, ModifierKeys.Alt | ModifierKeys.Shift)), "快捷键拦截了输入框或其他组合键");
             var composer = new ComposerWindow(vm, E) { Owner = window, ShowInTaskbar = false };
             composer.Show(); await Pause();
             var editor = UiRefinementChecks.Descendants<EmojiEditor>(composer).Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "发言正文");
-            Require(MainWindow.ReadingHistoryStep(Key.Left, ModifierKeys.Alt, editor) == 0, "快捷键会拦截回应编辑器");
+            Require(!AppShortcuts.Allows(ShortcutId.Back, left, editor), "快捷键会拦截回应编辑器");
             composer.Close(); await Pause();
             var index = vm.Navigation.Index;
             Side(reader, MouseButton.XButton1); await Opened(C, "鼠标后退键没有后退");
@@ -301,9 +302,9 @@ internal static class ReadingHistoryChecks
                 Guard(handle); SetCursorPos((int)point.X, (int)point.Y); await Task.Delay(80);
                 mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); await Task.Delay(60); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero); await Pause();
             }
-            async Task Chord(ushort modifier, ushort key, bool extended = false)
+            async Task Chord(ushort modifier, ushort key, bool extended = false, nint? target = null)
             {
-                Guard(handle);
+                Guard(target ?? handle);
                 Send(KeyInput(modifier, false)); Send(KeyInput(key, false, extended)); Send(KeyInput(key, true, extended)); Send(KeyInput(modifier, true));
                 await Pause(250);
             }
@@ -353,13 +354,20 @@ internal static class ReadingHistoryChecks
             await Pause();
             Require(editor.Text.EndsWith("abc", StringComparison.Ordinal), $"真实输入没有进入回应编辑器：{editor.Text}");
             var typed = editor.Text; var index = vm.Navigation.Index;
-            await Chord(0x12, 0x25, true);
+            await Chord(0x12, 0x25, true, composerHandle);
             Require(vm.Navigation.Index == index && vm.Original?.Id == A && editor.Text == typed, "在回应编辑器里按 Alt+← 影响了主窗口或正文");
-            await Chord(0x11, 0x5A);
+            await Chord(0x11, 0x5A, target: composerHandle);
             Require(editor.Text != typed && !editor.Text.EndsWith("abc", StringComparison.Ordinal), $"Ctrl+Z 没有撤销：{editor.Text}");
-            await Chord(0x11, 0x59);
+            await Chord(0x11, 0x59, target: composerHandle);
             Require(editor.Text == typed, $"Ctrl+Y 没有重做：{editor.Text}");
-            log.Add("PASS composer typing, Ctrl+Z, Ctrl+Y; Alt+Left stays in composer");
+            await Chord(0x11, 0x41, target: composerHandle);
+            await Chord(0x11, 0x43, target: composerHandle);
+            Require(Clipboard.GetText().TrimEnd('\r', '\n') == typed.TrimEnd('\r', '\n'), "回应编辑器全选或复制失败");
+            await Chord(0x11, 0x58, target: composerHandle);
+            Require(editor.Text.Length == 0, "回应编辑器剪切失败");
+            await Chord(0x11, 0x56, target: composerHandle);
+            Require(editor.Text.TrimEnd('\r', '\n') == typed.TrimEnd('\r', '\n'), "回应编辑器粘贴失败");
+            log.Add("PASS composer typing, Ctrl+A/C/X/V/Z/Y; Alt+Left stays in composer");
             capture(window, Path.Combine(output, "real-input-main.png"));
             File.WriteAllLines(Path.Combine(output, "real-input.txt"), log);
             Console.WriteLine("PASS: real mouse click after reference jump, real Alt+Left/Right, ignored in jump box, side buttons one step, composer undo/redo unaffected.");
@@ -401,7 +409,7 @@ internal static class ReadingHistoryChecks
     private static object CheckHeader(MainWindow window, double scale, string theme, double readerWidth)
     {
         var frame = (Grid)window.FindName("ReaderHeaderFrame");
-        var heading = (TextBlock)window.FindName("ReaderHeading");
+        var heading = (TextBox)window.FindName("ReaderHeading");
         var actions = (FrameworkElement)window.FindName("ReaderHeaderActions");
         var buttons = new[] { "ReaderBackButton", "ReaderForwardButton", "OnlyPoButton", "ThreadSubscriptionButton", "CopyThreadLinkButton", "RefreshThreadButton", "ReplyButton" }
             .Select(n => (FrameworkElement)window.FindName(n)).ToArray();

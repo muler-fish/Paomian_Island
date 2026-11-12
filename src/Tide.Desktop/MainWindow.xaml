@@ -6,11 +6,6 @@
  WindowStartupLocation="CenterScreen" ExtendsContentIntoTitleBar="True" WindowBackdropType="None"
  Style="{StaticResource {x:Type ui:FluentWindow}}">
   <!-- 沿用按屏幕工作区与 DPI 限制初始尺寸；窗口按钮由 WPF UI 托管。 -->
-  <ui:FluentWindow.InputBindings>
-    <KeyBinding Key="F5" Command="{Binding RefreshListCommand}"/>
-    <KeyBinding Modifiers="Control" Key="R" Command="{Binding RefreshThreadCommand}"/>
-    <KeyBinding Modifiers="Control" Key="D" Command="{Binding SubscriptionCommand}"/>
-  </ui:FluentWindow.InputBindings>
   <ui:FluentWindow.Resources>
     <ContextMenu x:Key="PostContextMenu" x:Shared="False" Opened="PostMenu_Opened"/>
     <ContextMenu x:Key="ThreadContextMenu" x:Shared="False" Opened="ThreadMenu_Opened"/>
@@ -93,7 +88,7 @@
           <Grid Width="312" Margin="0,0,16,0" VerticalAlignment="Center">
             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions>
             <ui:TextBox x:Name="JumpBox" Text="{Binding JumpText, UpdateSourceTrigger=PropertyChanged}"
-              PlaceholderText="串号或链接 · Ctrl+L" Height="32" AutomationProperties.Name="跳转串号或链接" KeyDown="Jump_KeyDown"/>
+              PlaceholderText="{Binding JumpPlaceholder}" ToolTip="{Binding JumpPlaceholder}" Height="32" AutomationProperties.Name="跳转串号或链接" KeyDown="Jump_KeyDown"/>
             <Button Grid.Column="1" Command="{Binding JumpCommand}" ToolTip="跳转到串" AutomationProperties.Name="跳转到串" Style="{StaticResource Quiet}" Margin="4,0,0,0" Padding="6">
               <ui:SymbolIcon Symbol="ArrowRight24" FontSize="16"/>
             </Button>
@@ -173,7 +168,7 @@
             <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding ListTitle}" FontSize="19" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ListPageLabel}" Style="{StaticResource MutedText}" Margin="0,5,0,0"/></StackPanel>
               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                <ui:Button x:Name="RefreshListButton" Style="{StaticResource RefreshIconButton}" Command="{Binding RefreshListCommand}" ToolTip="刷新列表 · F5" AutomationProperties.Name="刷新串列表"><ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="16"/></ui:Button>
+                <ui:Button x:Name="RefreshListButton" Style="{StaticResource RefreshIconButton}" Command="{Binding RefreshListCommand}" ToolTip="{Binding RefreshListHint}" AutomationProperties.Name="刷新串列表"><ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="16"/></ui:Button>
                 <ui:Button x:Name="NewThreadButton" Style="{StaticResource Primary}" Height="32" Margin="8,0,0,0" Visibility="{Binding ShowNewThreadAction, Converter={StaticResource Visible}}" Click="NewThread_Click" AutomationProperties.Name="发串"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="Edit24" FontSize="16" Margin="0,0,6,0"/><TextBlock Text="发串"/></StackPanel></ui:Button>
               </StackPanel>
             </Grid>
@@ -265,16 +260,16 @@
               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
               <StackPanel x:Name="ReaderHeaderTitle" VerticalAlignment="Center" Margin="0,0,12,0">
                 <TextBlock x:Name="ReaderForum" Text="{Binding ReaderMeta}" Style="{StaticResource MutedText}" TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="ReaderHeading" Text="{Binding ReaderTitle}" FontSize="19" FontWeight="SemiBold" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
+                <TextBox x:Name="ReaderHeading" Text="{Binding ReaderTitle, Mode=OneWay}" Style="{StaticResource ReaderNumber}" IsReadOnly="True" FontSize="19" FontWeight="SemiBold" Margin="0,5,0,0" AutomationProperties.Name="当前串号"/>
               </StackPanel>
               <!-- 阅读历史排在串操作之前；窄栏时它留在串号这一行，其余操作换到下一行，标题栏仍是两行。 -->
               <StackPanel x:Name="ReaderHistoryActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
-                <ui:Button x:Name="ReaderBackButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding BackCommand}" ToolTip="{Binding BackLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="后退" AutomationProperties.AcceleratorKey="Alt+Left" Margin="0,0,2,0"><ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16"/></ui:Button>
-                <ui:Button x:Name="ReaderForwardButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding ForwardCommand}" ToolTip="{Binding ForwardLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="前进" AutomationProperties.AcceleratorKey="Alt+Right"><ui:SymbolIcon Symbol="ArrowRight24" FontSize="16"/></ui:Button>
+                <ui:Button x:Name="ReaderBackButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding BackCommand}" ToolTip="{Binding BackLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="后退" AutomationProperties.AcceleratorKey="{Binding BackShortcut}" Margin="0,0,2,0"><ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16"/></ui:Button>
+                <ui:Button x:Name="ReaderForwardButton" Style="{StaticResource SecondaryIconButton}" Command="{Binding ForwardCommand}" ToolTip="{Binding ForwardLabel}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="前进" AutomationProperties.AcceleratorKey="{Binding ForwardShortcut}"><ui:SymbolIcon Symbol="ArrowRight24" FontSize="16"/></ui:Button>
               </StackPanel>
               <StackPanel x:Name="ReaderHeaderActions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                   <ToggleButton x:Name="OnlyPoButton" Content="PO" IsChecked="{Binding OnlyPo, Mode=TwoWay}" Style="{StaticResource ReaderToggle}" VerticalAlignment="Center" Margin="0,0,6,0" AutomationProperties.Name="只看 PO" ToolTip="只看 PO"/>
-                  <Button x:Name="ThreadSubscriptionButton" Command="{Binding SubscriptionCommand}" ToolTip="{Binding SubscriptionLabel, StringFormat={}{0} · Ctrl+D}" AutomationProperties.Name="{Binding SubscriptionLabel}" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6">
+                  <Button x:Name="ThreadSubscriptionButton" Command="{Binding SubscriptionCommand}" ToolTip="{Binding SubscriptionShortcutHint}" AutomationProperties.Name="{Binding SubscriptionLabel}" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6">
                     <Grid>
                     <ui:SymbolIcon Symbol="Star24" Filled="{Binding IsSubscribed}" FontSize="16">
                       <ui:SymbolIcon.Style><Style TargetType="ui:SymbolIcon"><Setter Property="Foreground" Value="{DynamicResource Text}"/><Style.Triggers><DataTrigger Binding="{Binding IsSubscribed}" Value="True"><Setter Property="Foreground" Value="{DynamicResource FavoriteStar}"/></DataTrigger></Style.Triggers></Style></ui:SymbolIcon.Style>
@@ -283,7 +278,7 @@
                     </Grid>
                   </Button>
                   <Button x:Name="CopyThreadLinkButton" Click="CopyThreadLink_Click" ToolTip="复制串链接" AutomationProperties.Name="复制串链接" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6" Margin="2,0"><ui:SymbolIcon Symbol="Copy24" FontSize="16"/></Button>
-                  <ui:Button x:Name="RefreshThreadButton" Command="{Binding RefreshThreadCommand}" Style="{StaticResource RefreshIconButton}" ToolTip="刷新正文 · Ctrl+R" AutomationProperties.Name="刷新正文"><ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="16"/></ui:Button>
+                  <ui:Button x:Name="RefreshThreadButton" Command="{Binding RefreshThreadCommand}" Style="{StaticResource RefreshIconButton}" ToolTip="{Binding RefreshThreadHint}" AutomationProperties.Name="刷新正文"><ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="16"/></ui:Button>
                 <ui:Button x:Name="ReplyButton" Style="{StaticResource Primary}" Height="32" Margin="8,0,0,0" Click="Reply_Click" IsEnabled="{Binding CanInteractThread}" AutomationProperties.Name="参与回应"><StackPanel Orientation="Horizontal"><ui:SymbolIcon Symbol="ArrowReply24" FontSize="16" Margin="0,0,6,0"/><TextBlock Text="回应"/></StackPanel></ui:Button>
               </StackPanel>
             </Grid>

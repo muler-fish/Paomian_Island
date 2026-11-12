@@ -71,6 +71,13 @@ public sealed partial class LocalStore
             state.AccentColor = HexColor(state.AccentColor);
             var identity = state.IdentityColors ?? new();
             state.IdentityColors = new() { Cookie = HexColor(identity.Cookie), Admin = HexColor(identity.Admin), Sage = HexColor(identity.Sage), Po = HexColor(identity.Po) };
+            var postColors = state.PostColors ?? new();
+            state.PostColors = new()
+            {
+                Mode = postColors.Mode is PostColorOptions.Vivid or PostColorOptions.Original ? postColors.Mode : PostColorOptions.Default,
+                Red = HexColor(postColors.Red), Green = HexColor(postColors.Green)
+            };
+            state.ShortcutBindings ??= new();
             return state;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)

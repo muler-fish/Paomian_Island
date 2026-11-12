@@ -261,7 +261,8 @@ internal static class ImageViewerChecks
     private static string Info(Window window) => string.Join("|", Children<TextBlock>(window).Select(t => t.Text));
     private static bool Text(Window window, string text) => Children<TextBlock>(window).Any(t => t.IsVisible && t.Text == text);
     private static void Click(Window window, string text) => Buttons(window).Single(b => b.IsVisible && (Equals(b.Tag, text) || Equals(b.Content, text))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-    private static void PressKey(Window window, Key key) => window.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+    private static void PressKey(Window window, Key key) => window.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, key)
+    { RoutedEvent = key == Key.Escape ? Keyboard.PreviewKeyDownEvent : Keyboard.KeyDownEvent });
     private static async Task Pause() { await Task.Delay(100); }
     private static async Task Wait(Func<bool> condition) { for (var i = 0; i < 60 && !condition(); i++) await Task.Delay(50); Require(condition(), "等待图片状态超时"); }
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

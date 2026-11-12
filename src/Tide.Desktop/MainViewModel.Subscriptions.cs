@@ -181,7 +181,7 @@ public sealed partial class MainViewModel
 
     private void NotifySubscriptions()
     {
-        foreach (var name in new[] { nameof(IsSubscribed), nameof(CurrentSubscriptionKnown), nameof(SubscriptionKnown), nameof(SubscriptionBusy), nameof(SubscriptionCount), nameof(SubscriptionLabel), nameof(SubscriptionSyncStatus), nameof(SubscriptionListLabel), nameof(ListPageLabel), nameof(EmptyList), nameof(ListLoading), nameof(ListLoadingText) }) Changed(name);
+        foreach (var name in new[] { nameof(IsSubscribed), nameof(CurrentSubscriptionKnown), nameof(SubscriptionKnown), nameof(SubscriptionBusy), nameof(SubscriptionCount), nameof(SubscriptionLabel), nameof(SubscriptionShortcutHint), nameof(SubscriptionSyncStatus), nameof(SubscriptionListLabel), nameof(ListPageLabel), nameof(EmptyList), nameof(ListLoading), nameof(ListLoadingText) }) Changed(name);
         NotifyIncrementalLoading(); SubscriptionCommand?.Refresh(); RefreshCommands();
     }
 

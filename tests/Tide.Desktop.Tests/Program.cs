@@ -113,14 +113,16 @@ internal static class Program
         if (args.FirstOrDefault() == "--reading-history") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reading-history");
         if (args.FirstOrDefault() == "--ui-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/ui-copy");
         var windowFocusOnly = args.FirstOrDefault() == "--window-focus";
+        var readerExperienceOnly = args.FirstOrDefault() is "--reader-experience" or "--reader-colors";
+        if (readerExperienceOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reader-experience");
         if (windowFocusOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/window-focus");
         Directory.CreateDirectory(output);
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
         App.ApplyTheme("light");
-        var api = windowFocusOnly ? WindowFocusChecks.CreateApi() : refinedOnly ? RefinedReaderChecks.CreateApi() : UiRefinementChecks.CreateApi();
+        var api = readerExperienceOnly ? ReaderExperienceChecks.CreateApi() : windowFocusOnly ? WindowFocusChecks.CreateApi() : refinedOnly ? RefinedReaderChecks.CreateApi() : UiRefinementChecks.CreateApi();
         var vm = new MainViewModel(api, new LocalStore(Path.Combine(output, "profile")));
-        var window = new MainWindow(vm) { ShowInTaskbar = windowFocusOnly || args.Contains("--hold") };
+        var window = new MainWindow(vm) { ShowInTaskbar = windowFocusOnly || args.Contains("--hold") || readerExperienceOnly && args.Contains("--real-input") };
         var started = false;
         window.ContentRendered += async (_, _) =>
         {
@@ -128,6 +130,11 @@ internal static class Program
             started = true;
             try
             {
+                if (readerExperienceOnly)
+                {
+                    await ReaderExperienceChecks.RunAsync(window, output, Capture, args[0] == "--reader-colors", args.Contains("--real-input"));
+                    app.Shutdown(0); return;
+                }
                 if (windowFocusOnly)
                 {
                     var desktop = Array.IndexOf(args, "--desktop-from");

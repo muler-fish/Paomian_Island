@@ -141,6 +141,8 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public MainViewModel(XIslandApi api, LocalStore store)
     {
         Api = api; Store = store; State = store.Load();
+        Shortcuts = new(State);
+        Shortcuts.Changed += ShortcutsChanged;
         ReadingTypography.Apply(State);
         NetworkClients.IslandUseProxy = State.IslandUseProxy;
         NetworkClients.UpdateUseProxy = State.UpdateUseProxy;
@@ -482,7 +484,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     private void NotifyReader()
     {
         // 这些是由内部字段计算的属性，需要显式通知 WPF 重新读取绑定值。
-        foreach (var p in new[] { nameof(Original), nameof(OriginalTitle), nameof(HasThread), nameof(HasNoThread), nameof(CanInteractThread), nameof(ThreadPageLabel), nameof(SubscriptionLabel), nameof(IsSubscribed), nameof(CurrentSubscriptionKnown) }) Changed(p);
+        foreach (var p in new[] { nameof(Original), nameof(OriginalTitle), nameof(HasThread), nameof(HasNoThread), nameof(CanInteractThread), nameof(ThreadPageLabel), nameof(SubscriptionLabel), nameof(SubscriptionShortcutHint), nameof(IsSubscribed), nameof(CurrentSubscriptionKnown) }) Changed(p);
         RefreshCommands();
     }
     private void RefreshCommands()

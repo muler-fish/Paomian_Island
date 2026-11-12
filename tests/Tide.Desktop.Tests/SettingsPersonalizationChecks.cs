@@ -54,7 +54,7 @@ internal static class SettingsPersonalizationChecks
         try
         {
             var nav = Named<ListBox>(settings, "设置分类");
-            Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "内容与图片", "网络", "缓存", "数据与记录", "关于" }), "分类不是七类");
+            Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "快捷键", "内容与图片", "网络", "缓存", "数据与记录", "关于" }), "设置分类不完整");
             async Task Select(string page) { nav.SelectedItem = page; await Pause(); }
             await Select("外观");
             var expander = All<Expander>(settings).Single(e => Equals(e.Header, "标识颜色"));
@@ -185,7 +185,7 @@ internal static class SettingsPersonalizationChecks
             await Theme(settings, "light");
             Click(Named<Button>(settings, "PO颜色恢复默认")); await Pause();
             Require(store.Load().IdentityColors is { Po: "", Cookie: "#8E44AD" } && Brush("PoForeground") == Personalization.Rgb("#0068C9"), "单项恢复默认失败");
-            Click(All<Button>(settings).Single(b => Equals(b.Content, "全部恢复默认"))); await Pause();
+            Click(All<Button>(expander).Single(b => Equals(b.Content, "全部恢复默认"))); await Pause();
             Require(store.Load().IdentityColors is { Cookie: "", Admin: "", Sage: "", Po: "" } && Brush("CookieForeground") == themeCookie, "全部恢复默认失败");
 
             // 4. 再设置一组颜色，检查重启后（重新载入资料目录、重新套用主题）仍然有效
@@ -276,7 +276,7 @@ internal static class SettingsPersonalizationChecks
             Require(cancelled, "滚动经过的图片没有延迟请求");
         }
         File.WriteAllText(Path.Combine(output, "settings-personalization.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
-        Console.WriteLine("PASS settings personalization: seven categories, accent presets/custom/2D picker sync/reset, preview area with contrast in light+dark, identity colors per item/all reset with contrast and badge sync, persistence after reload, image modes, cache clear keeps personal data, legacy/invalid state, PostImage hidden/click-to-load/settle delay, DPI.");
+        Console.WriteLine("PASS settings personalization: eight categories, accent presets/custom/2D picker sync/reset, preview area with contrast in light+dark, identity colors per item/all reset with contrast and badge sync, persistence after reload, image modes, cache clear keeps personal data, legacy/invalid state, PostImage hidden/click-to-load/settle delay, DPI.");
         Console.WriteLine(JsonSerializer.Serialize(report));
 
         async Task Theme(SettingsWindow window, string mode)

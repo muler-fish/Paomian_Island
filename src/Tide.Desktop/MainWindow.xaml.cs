@@ -24,6 +24,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         // DataContext 是 MainWindow.xaml 里普通 Binding 的默认数据来源。
         InitializeComponent(); Model = model; DataContext = model; _openBrowser = openBrowser;
+        ReaderSelection.Attach(ReaderHeading, () => ReaderHeading.SelectionLength > 0);
         _readingProgress = new(ReaderList, model);
         model.ReaderLeaving += _readingProgress.Flush;
         Closing += (_, _) => _readingProgress.Flush();
@@ -41,16 +42,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         PostImage.ImageClicked += OpenImage;
         model.PropertyChanged += ReadingStateChanged;
         ((INotifyCollectionChanged)ThreadList.Items).CollectionChanged += ThreadItemsChanged;
-        PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key == Key.L && Keyboard.Modifiers == ModifierKeys.Control) { JumpBox.Focus(); JumpBox.SelectAll(); e.Handled = true; }
-            else if (ReadingHistoryStep(e.Key == Key.System ? e.SystemKey : e.Key, Keyboard.Modifiers, Keyboard.FocusedElement) is not 0 and var step)
-            {
-                // 按住不放时不连续后退；处理掉按键，避免焦点控件再响应同一组合键。
-                if (!e.IsRepeat) NavigateReadingHistory(step);
-                e.Handled = true;
-            }
-        };
+        model.Shortcuts.Bind(this, ShortcutId.Jump, new ActionCommand(_ => { JumpBox.Focus(); JumpBox.SelectAll(); }));
+        model.Shortcuts.Bind(this, ShortcutId.Back, model.BackCommand);
+        model.Shortcuts.Bind(this, ShortcutId.Forward, model.ForwardCommand);
+        model.Shortcuts.Bind(this, ShortcutId.RefreshList, model.RefreshListCommand);
+        model.Shortcuts.Bind(this, ShortcutId.RefreshThread, model.RefreshThreadCommand);
+        model.Shortcuts.Bind(this, ShortcutId.Subscription, model.SubscriptionCommand);
+        PreviewKeyDown += (_, e) => AppShortcuts.RouteTextShortcut(this, e);
         // 鼠标侧键与浏览器一致：XButton1 后退，XButton2 前进。
         PreviewMouseDown += (_, e) =>
         {
@@ -125,9 +123,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         try { ThreadList.SelectedItem = target; }
         finally { _syncingThreadSelection = false; }
     }
-    /// <summary>Alt+←/→ 对应阅读历史后退/前进；焦点在可编辑的输入框里时不处理，保留输入框自己的按键。</summary>
-    internal static int ReadingHistoryStep(Key key, ModifierKeys modifiers, IInputElement? focused) =>
-        modifiers != ModifierKeys.Alt || focused is TextBoxBase { IsReadOnly: false } ? 0 : key switch { Key.Left => -1, Key.Right => 1, _ => 0 };
     internal void NavigateReadingHistory(int step) => (step < 0 ? Model.BackCommand : Model.ForwardCommand).Execute(null);
     private void MyPosts_Click(object sender, RoutedEventArgs e) => new MyPostsWindow(Model) { Owner = this }.Show();
     private void Jump_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Model.JumpCommand.Execute(null); e.Handled = true; } }

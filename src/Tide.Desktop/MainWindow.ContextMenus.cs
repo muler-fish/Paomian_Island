@@ -43,14 +43,15 @@ public partial class MainWindow
         if (menu.PlacementTarget is not FrameworkElement { DataContext: ReadPost entry } target) return;
         var body = target as PostBody ?? ReadingAnchor.Children<PostBody>(target).FirstOrDefault();
         // 从已经渲染的文档复制，保留换行和彩色 emoji，且不会泄漏未展开的防剧透文字。
-        // “复制正文”始终复制整楼；选区复制仍使用正文原有的 Ctrl+C。
+        var selected = body?.SelectedText() ?? "";
         var text = body is null ? "" : EmojiText.Read(body.Document.ContentStart, body.Document.ContentEnd).TrimEnd('\r', '\n');
         void Copy(string label, string value) => MenuAction(menu, label, () =>
         {
-            try { Clipboard.SetText(value); ShowFeedback(label == "复制串号" ? "已复制串号" : "已复制正文", FeedbackArea.Reader, anchor: target); }
+            try { Clipboard.SetText(value); ShowFeedback(label switch { "复制串号" => "已复制串号", "复制选中文本" => "已复制选中文本", _ => "已复制正文" }, FeedbackArea.Reader, anchor: target); }
             catch (ExternalException) { ShowFeedback("剪贴板暂时不可用，请重试。", FeedbackArea.Reader, true, target); }
         }, value.Length > 0);
         if (!entry.IsTip && entry.Post.Id > 0) Copy("复制串号", entry.Post.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Copy("复制选中文本", selected);
         Copy("复制正文", text);
         // Tips 不是发言，不能回应或举报；菜单捕获当前目标，避免异步切串改变操作对象。
         if (!entry.IsTip && Model.Original is { } original)

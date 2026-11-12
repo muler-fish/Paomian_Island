@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using Tide.Core;
 
@@ -12,6 +13,8 @@ namespace Tide.Desktop;
 /// <summary>把帖子正文转换成可选择复制的 WPF 文档，只支持有限的格式和安全链接，不执行 HTML。</summary>
 public sealed class PostBody : System.Windows.Controls.RichTextBox
 {
+    private PostLink? _pressedLink;
+    private Point _pressPoint;
     private double LineHeightRatio => ReadingTypography.GetLineHeight(this);
     // 依赖属性使控件可直接在 XAML 中绑定正文；列表复用控件并换绑内容时会重新渲染。
     public static readonly DependencyProperty HtmlProperty = DependencyProperty.Register(nameof(Html), typeof(string), typeof(PostBody), new PropertyMetadata("", (d, _) => ((PostBody)d).Render()));
@@ -27,21 +30,84 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         Background = Brushes.Transparent; VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
         HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled; AcceptsTab = false;
         SetResourceReference(ForegroundProperty, "BodyText");
-        SetResourceReference(SelectionBrushProperty, "AccentSoft");
+        ReaderSelection.Attach(this, () => !Selection.IsEmpty);
         FontFamily = AppFonts.Family;
         FontWeight = AppFonts.ReadingWeight;
         SetResourceReference(StyleProperty, "ReaderDocument");
         AppFonts.ApplyReadingRendering(this);
         SetResourceReference(HideSpoilersProperty, "HideSpoilers");
         ReadingTypography.Bind(this);
-        DataObject.AddCopyingHandler(this, (_, e) =>
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, e) =>
         {
-            var text = EmojiText.Read(Selection.Start, Selection.End);
-            // WPF's default RTF/XAML payload would otherwise contain the masked original text.
-            e.CancelCommand();
+            e.Handled = true;
+            var text = SelectedText();
+            if (text.Length == 0) return;
             try { Clipboard.SetText(text); }
-            catch (System.Runtime.InteropServices.ExternalException) { /* Keep the default rich payload cancelled when the clipboard is busy. */ }
+            catch (System.Runtime.InteropServices.ExternalException) { System.Media.SystemSounds.Beep.Play(); }
+        }, (_, e) => { e.CanExecute = !Selection.IsEmpty; e.Handled = true; }));
+        // 禁止富文本拖出，以免默认 RTF/XAML 携带未展开的剧透。
+        DataObject.AddCopyingHandler(this, (_, e) => e.CancelCommand());
+    }
+
+    internal string SelectedText() => EmojiText.Read(Selection.Start, Selection.End);
+
+    protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseLeftButtonDown(e);
+        _pressPoint = e.GetPosition(this);
+        _pressedLink = e.ClickCount == 1 && Keyboard.Modifiers == ModifierKeys.None ? LinkAt(_pressPoint) : null;
+    }
+
+    protected override void OnPreviewMouseMove(MouseEventArgs e)
+    {
+        base.OnPreviewMouseMove(e);
+        if (_pressedLink is not null && Moved(e.GetPosition(this))) _pressedLink = null;
+    }
+
+    protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseLeftButtonUp(e);
+        var link = _pressedLink;
+        _pressedLink = null;
+        var point = e.GetPosition(this);
+        if (link is null || Moved(point) || !ReferenceEquals(LinkAt(point), link)) return;
+        // 先让 RichTextBox 结束选区捕获，再进入引用或链接的原有打开流程。
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            if (IsLoaded && ReferenceEquals(Ancestor<PostBody>(link), this))
+                link.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent, link));
         });
+    }
+
+    private PostLink? LinkAt(Point point)
+    {
+        var element = GetPositionFromPoint(point, false)?.Parent;
+        return SpoilerSpan.HiddenAncestor(element) is null ? Ancestor<PostLink>(element) : null;
+    }
+
+    private bool Moved(Point point) => Math.Abs(point.X - _pressPoint.X) >= SystemParameters.MinimumHorizontalDragDistance
+        || Math.Abs(point.Y - _pressPoint.Y) >= SystemParameters.MinimumVerticalDragDistance;
+
+    private static T? Ancestor<T>(DependencyObject? source) where T : DependencyObject
+    {
+        for (var element = source; element is not null; element = LogicalTreeHelper.GetParent(element))
+            if (element is T match) return match;
+        return null;
+    }
+
+    private sealed class PostLink : Hyperlink
+    {
+        internal PostLink() { Cursor = Cursors.Hand; }
+
+        // 正文由 RichTextBox 处理鼠标捕获，键盘和自动化仍使用 Hyperlink 的原生操作。
+        protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+        {
+            if (Ancestor<PostBody>(this) is null) base.OnMouseLeftButtonDown(e);
+        }
+        protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+        {
+            if (Ancestor<PostBody>(this) is null) base.OnMouseLeftButtonUp(e);
+        }
     }
 
     private void Render()
@@ -103,8 +169,6 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
                 if (tag is "s" or "del") span.TextDecorations = TextDecorations.Strikethrough;
                 if (tag == "u") span.TextDecorations = TextDecorations.Underline;
                 if (Regex.IsMatch(token, @"font-weight\s*:\s*(bold|[6-9]00)", RegexOptions.IgnoreCase)) span.FontWeight = FontWeights.SemiBold;
-                if (Regex.IsMatch(token, @"(?:color\s*=\s*[""']?|color\s*:\s*)(?:red|#(?:cc0000|ff0000))", RegexOptions.IgnoreCase)) span.SetResourceReference(ForegroundProperty, "PostRed");
-                else if (tag == "font" || Regex.IsMatch(token, @"color\s*:", RegexOptions.IgnoreCase)) span.SetResourceReference(ForegroundProperty, "PostGreen");
                 if (tag == "a" && !suppressLinkChildren)
                 {
                     var href = Regex.Match(token, @"(?<![\w:-])href\s*=\s*(?:""(?<url>[^""]*)""|'(?<url>[^']*)'|(?<url>[^\s>]+))", RegexOptions.IgnoreCase);
@@ -112,11 +176,12 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
                     // 包括站内相对路径与 // 外站地址，统一补全后再做 HTTP/HTTPS 校验。
                     if (IslandLink.TryWebUri(url, out var uri))
                     {
-                        var link = new Hyperlink { ToolTip = uri.AbsoluteUri };
+                        var link = new PostLink { ToolTip = uri.AbsoluteUri };
                         link.SetResourceReference(ForegroundProperty, "Link");
                         link.Click += (_, _) => Navigate(link, uri.AbsoluteUri); span = link; suppressLinkChildren = true;
                     }
                 }
+                if (!suppressLinkChildren) PostColors.Apply(span, token);
                 Destination().Add(span); stack.Push((tag, current)); current = span; continue;
             }
             var text = WebUtility.HtmlDecode(token);
@@ -156,7 +221,8 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
             long id = 0;
             if (match.Groups["id"].Success && (!long.TryParse(match.Groups["id"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out id) || id <= 0))
             { target.Add(new Run(value)); start = match.Index + match.Length; continue; }
-            var link = new Hyperlink(new Run(value));
+            var link = new PostLink();
+            link.Inlines.Add(new Run(value));
             link.SetResourceReference(ForegroundProperty, "Link");
             link.ToolTip = match.Groups["id"].Success ? "查看引用" : value;
             if (match.Groups["id"].Success) link.Click += (_, _) => ReferenceClicked?.Invoke(link, id);

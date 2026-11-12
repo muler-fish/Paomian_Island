@@ -33,7 +33,7 @@ internal static class SettingsLayoutChecks
             var nav = Named<ListBox>(settings, "设置分类");
             var scroll = Named<ScrollViewer>(settings, "设置内容");
             async Task Select(string page) { nav.SelectedItem = page; await Pause(); Require(scroll.VerticalOffset < 1, "category did not reset scroll"); }
-            Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "内容与图片", "网络", "缓存", "数据与记录", "关于" }), "categories incomplete or reordered");
+            Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "快捷键", "内容与图片", "网络", "缓存", "数据与记录", "关于" }), "categories incomplete or reordered");
             Require(Equals(nav.SelectedItem, "阅读"), "default category not reading");
             Require(File.ReadAllText(Path.Combine(vm.Store.Root, "state.json")) == initialState, "opening settings modified saved state");
             var font = Named<Slider>(settings, "正文字号"); var line = Named<Slider>(settings, "行间距"); var spacing = Named<Slider>(settings, "字间距");
@@ -79,7 +79,7 @@ internal static class SettingsLayoutChecks
             foreach (var mode in new[] { "light", "dark" })
             {
                 await Select("外观"); theme.SelectedIndex = mode == "dark" ? 1 : 0; await Pause();
-                foreach (var entry in new[] { ("阅读", "reading"), ("外观", "appearance"), ("内容与图片", "content"), ("网络", "network"), ("缓存", "cache"), ("数据与记录", "data"), ("关于", "about") })
+                foreach (var entry in new[] { ("阅读", "reading"), ("外观", "appearance"), ("快捷键", "shortcuts"), ("内容与图片", "content"), ("网络", "network"), ("缓存", "cache"), ("数据与记录", "data"), ("关于", "about") })
                 {
                     await Select(entry.Item1);
                     FixedActions(settings);
@@ -144,7 +144,7 @@ internal static class SettingsLayoutChecks
         Require(Equals(Named<ListBox>(reopened, "设置分类").SelectedItem, "阅读") && Named<Slider>(reopened, "正文字号").Value == 17, "reopen reset saved reading values or wrong default category");
         reopened.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(reopened)!, 0, Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
         Require(!reopened.IsVisible, "Esc no longer closes");
-        Console.WriteLine("PASS settings: seven categories, live preview/ranges/persistence, pending input across theme/category changes, network isolation, cache validation/usage/migration/clear, update states, record counts, fixed actions/scrolling at 100/125/150%, keyboard and reopen/Esc.");
+        Console.WriteLine("PASS settings: eight categories, live preview/ranges/persistence, pending input across theme/category changes, network isolation, cache validation/usage/migration/clear, update states, record counts, fixed actions/scrolling at 100/125/150%, keyboard and reopen/Esc.");
     }
     private static void FixedActions(Window window)
     {

@@ -67,6 +67,8 @@ public sealed class SettingsWindow : DialogWindow
         SettingsLayout.Row(appearance, "显示模式", null, themes);
         SettingsPersonalization.Accent(appearance, vm, (label, action) => Button(label, action));
         SettingsPersonalization.Identity(appearance, vm, (label, action) => Button(label, action));
+        SettingsPostColors.Add(appearance, this, vm, (label, action) => Button(label, action));
+        SettingsShortcuts.Add(Page("快捷键"), this, vm.Shortcuts, (label, action) => Button(label, action));
 
         // 内容与图片：列表缩略图、串内图片分开设置；原图只在看图窗口按需加载。
         var content = Page("内容与图片");

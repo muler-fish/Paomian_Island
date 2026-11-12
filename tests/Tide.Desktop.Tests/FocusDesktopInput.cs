@@ -53,6 +53,55 @@ internal sealed class FocusDesktopInput : IDisposable
         Send([KeyInput(key), KeyInput(key, true)]);
     }
 
+    internal static void Chord(nint expected, ushort modifier, ushort key)
+    {
+        Guard(expected);
+        Send([KeyInput(modifier), KeyInput(key), KeyInput(key, true), KeyInput(modifier, true)]);
+    }
+
+    internal static void ClickAt(FrameworkElement element, Point location, nint expected) =>
+        ClickPoint(CheckedPoint(element, location, expected));
+
+    internal static void RightClick(FrameworkElement element, Point location, nint expected)
+    {
+        var point = CheckedPoint(element, location, expected);
+        Require(SetCursorPos(point.X, point.Y), "无法定位鼠标");
+        Send([MouseInputFor(0x08), MouseInputFor(0x10)]);
+    }
+
+    internal static async Task Drag(FrameworkElement element, Point from, Point to, nint expected)
+    {
+        var start = CheckedPoint(element, from, expected);
+        var end = CheckedPoint(element, to, expected);
+        Require(SetCursorPos(start.X, start.Y), "无法定位拖选起点");
+        await Task.Delay(30);
+        Guard(expected);
+        Send([MouseInputFor(0x02)]);
+        try
+        {
+            for (var step = 1; step <= 6; step++)
+            {
+                await Task.Delay(28);
+                Guard(expected);
+                Require(SetCursorPos(start.X + (end.X - start.X) * step / 6, start.Y + (end.Y - start.Y) * step / 6), "无法拖动光标");
+            }
+            await Task.Delay(40);
+        }
+        finally { Send([MouseInputFor(0x04)]); }
+        await Task.Delay(80);
+    }
+
+    private static NativePoint CheckedPoint(FrameworkElement element, Point location, nint expected)
+    {
+        Guard(expected);
+        var p = element.PointToScreen(location);
+        var point = new NativePoint { X = (int)p.X, Y = (int)p.Y };
+        Require(GetAncestor(WindowFromPoint(point), 2) == expected, "测试位置被遮挡");
+        return point;
+    }
+
+    private static NativeInput MouseInputFor(uint flags) => new() { Data = new() { Mouse = new() { Flags = flags } } };
+
     internal static async Task AltTabAsync(nint expected, bool advanceTwice = false)
     {
         Guard(expected);

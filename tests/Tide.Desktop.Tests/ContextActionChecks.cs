@@ -41,7 +41,8 @@ internal static class ContextActionChecks
 
             // 菜单是真实 XAML 绑定的实例，复制取显示文档，不能漏出折叠剧透或丢失 emoji。
             body.Selection.Select(body.Document.ContentStart, body.Document.ContentStart);
-            var postMenu = Open(body); Require(Labels(postMenu).SequenceEqual(new[] { "复制串号", "复制正文", "回应", "举报" }), "回应菜单条目错误");
+            var postMenu = Open(body); Require(Labels(postMenu).SequenceEqual(new[] { "复制串号", "复制选中文本", "复制正文", "回应", "举报" }), "回应菜单缺少独立的选区复制命令");
+            Require(!postMenu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "复制选中文本")).IsEnabled, "无选区时仍能复制选区");
             Click(postMenu, "复制正文");
             var copied = Clipboard.GetText();
             Require(copied.Contains("😀") && copied.Contains("\n") && !copied.Contains("秘密"),
@@ -49,7 +50,11 @@ internal static class ContextActionChecks
             Require(HasBubble(overlay, "已复制正文"), "复制没有气泡");
             var run = body.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).OfType<Run>().First(r => r.Text.Contains("正文"));
             body.Selection.Select(run.ContentStart, run.ContentEnd);
+            ApplicationCommands.Copy.Execute(null, body);
+            Require(Clipboard.GetText() == run.Text, "正文 Copy 命令未复制选区");
+            postMenu = Open(body); Click(postMenu, "复制选中文本"); Require(Clipboard.GetText() == run.Text, "右键未复制选区");
             postMenu = Open(body); Click(postMenu, "复制正文"); Require(Clipboard.GetText() == copied, "复制正文被选区截断");
+            Require(window.FindName("ReaderHeading") is TextBox { IsReadOnly: true, Text: "No.1000" }, "顶部串号缺少只读选区");
             postMenu = Open(body); Click(postMenu, "复制串号"); Require(Clipboard.GetText() == "1000", "主楼串号复制错误");
             var replyBody=UiRefinementChecks.Descendants<PostBody>(reader).First(b=>b.DataContext is ReadPost {Post.Id:3001});
             var replyMenu=Open(replyBody); Click(replyMenu,"复制串号"); Require(Clipboard.GetText()=="3001","回应复制了父串号");
@@ -64,7 +69,7 @@ internal static class ContextActionChecks
             Require(vm.State.Drafts.Any(d => d.ThreadId == 1000 && d.Content.Contains(">>No.1000")), "回应草稿目标或引用错误");
             Require(handler.Posts == 0, "专项测试误提交请求");
             var tip = UiRefinementChecks.Descendants<PostBody>(reader).First(b => b.DataContext is ReadPost { IsTip: true });
-            var tipMenu = Open(tip); Require(Labels(tipMenu).SequenceEqual(new[] { "复制正文" }), "Tips 被当作普通发言回应"); tipMenu.IsOpen = false;
+            var tipMenu = Open(tip); Require(Labels(tipMenu).SequenceEqual(new[] { "复制选中文本", "复制正文" }), "Tips 被当作普通发言回应"); tipMenu.IsOpen = false;
 
             // 举报入口只影响串内菜单；单独入口避免连带执行列表屏蔽、系统鼠标定位及气泡计时。
             if (postMenuOnly)

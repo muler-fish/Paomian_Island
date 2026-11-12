@@ -23,8 +23,8 @@ public sealed partial class MainViewModel
     private int NavigationIndex => _traversalTarget ?? _navigation.Index;
     public bool CanGoBack => !_disposed && NavigationIndex > 0;
     public bool CanGoForward => !_disposed && NavigationIndex >= 0 && NavigationIndex < _navigation.Count - 1;
-    public string BackLabel => CanGoBack ? $"后退到 No.{_navigation.At(NavigationIndex - 1)!.ThreadId} · Alt+←" : "后退 · Alt+←";
-    public string ForwardLabel => CanGoForward ? $"前进到 No.{_navigation.At(NavigationIndex + 1)!.ThreadId} · Alt+→" : "前进 · Alt+→";
+    public string BackLabel => Shortcuts.Hint(CanGoBack ? $"后退到 No.{_navigation.At(NavigationIndex - 1)!.ThreadId}" : "后退", ShortcutId.Back);
+    public string ForwardLabel => Shortcuts.Hint(CanGoForward ? $"前进到 No.{_navigation.At(NavigationIndex + 1)!.ThreadId}" : "前进", ShortcutId.Forward);
     public TaskCommand BackCommand { get; private set; } = null!;
     public TaskCommand ForwardCommand { get; private set; } = null!;
 

@@ -118,7 +118,7 @@ internal static class ReaderControlsChecks
     private static void CheckThreadHeading(Window window, MainViewModel vm)
     {
         Require(vm.ReaderTitle == "No.101" && vm.ReaderMeta == vm.ForumName(4), "串内标题未改为串号，或顶部元信息仍包含串号/回复数。");
-        var heading = (TextBlock)window.FindName("ReaderHeading");
+        var heading = (TextBox)window.FindName("ReaderHeading");
         var forum = (TextBlock)window.FindName("ReaderForum");
         Require(heading.Text == vm.ReaderTitle && heading.IsVisible, "串号标题未实际显示。");
         Require(forum.Text == vm.ReaderMeta && forum.IsVisible, "顶部板块名称未实际显示。");

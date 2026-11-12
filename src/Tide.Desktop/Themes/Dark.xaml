@@ -22,8 +22,9 @@
   <SolidColorBrush x:Key="CookieForeground" Color="#71cbb1"/>
   <SolidColorBrush x:Key="AdminCookieBackground" Color="#581719"/>
   <SolidColorBrush x:Key="AdminCookieForeground" Color="#f76b6b"/>
-  <SolidColorBrush x:Key="PostGreen" Color="#94bba9"/>
-  <SolidColorBrush x:Key="PostRed" Color="#dda8ab"/>
+  <SolidColorBrush x:Key="PostGreen" Color="#77cb9c"/>
+  <SolidColorBrush x:Key="PostRed" Color="#ff8188"/>
+  <SolidColorBrush x:Key="ReaderSelection" Color="#70b19d"/>
   <SolidColorBrush x:Key="SageBackground" Color="#581719"/>
   <SolidColorBrush x:Key="OnSage" Color="#f76b6b"/>
   <SolidColorBrush x:Key="FavoriteStar" Color="#d6b568"/>

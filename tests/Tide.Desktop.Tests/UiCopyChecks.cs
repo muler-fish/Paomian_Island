@@ -46,7 +46,7 @@ internal static class UiCopyChecks
                 }
             }
             File.WriteAllText(Path.Combine(output, "ui-copy-results.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine("PASS ui copy: settings (7 categories), cookie management/import, composer (new/reply), emoticon editor; no removed technical wording or curly quotes, single-line rows centred, no overflow, licence entry, light/dark at 100/125/150%.");
+            Console.WriteLine("PASS ui copy: settings (8 categories), cookie management/import, composer (new/reply), emoticon editor; no removed technical wording or curly quotes, single-line rows centred, no overflow, licence entry, light/dark at 100/125/150%.");
         }
         finally { App.ApplyTheme("light"); }
     }

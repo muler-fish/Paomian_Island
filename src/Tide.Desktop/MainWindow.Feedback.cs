@@ -13,7 +13,7 @@ public partial class MainWindow
         var origin = _actionOrigin is { } action && action.Area == feedback.Area ? action.Origin
             : feedback.Area == FeedbackArea.Navigation ? _favoriteOrigin : null;
         if (feedback.Area == FeedbackArea.Navigation) _favoriteOrigin = null;
-        // 订阅也可由 Ctrl+D 触发，仍以工具栏星标为动画起点。
+        // 订阅也可由快捷键触发，仍以工具栏星标为动画起点。
         ShowFeedback(feedback.Message, feedback.Area, feedback.IsError,
             feedback.Area == FeedbackArea.Reader ? ThreadSubscriptionButton : null, origin);
     }

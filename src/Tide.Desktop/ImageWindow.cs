@@ -130,7 +130,38 @@ public sealed class ImageWindow : ChildWindow
         };
         _canvas.MouseLeftButtonUp += (_, _) => _canvas.ReleaseMouseCapture();
         _canvas.LostMouseCapture += (_, _) => _dragging = false;
-        PreviewKeyDown += ViewerKeyDown;
+        SourceInitialized += (_, _) =>
+        {
+            var shortcuts = AppShortcuts.Defaults;
+            for (var owner = Owner; owner is not null; owner = owner.Owner)
+                if (owner is MainWindow main) { shortcuts = main.Model.Shortcuts; break; }
+            shortcuts.Bind(this, ShortcutId.PreviousImage, new ActionCommand(_ => Move(-1)));
+            shortcuts.Bind(this, ShortcutId.NextImage, new ActionCommand(_ => Move(1)));
+            shortcuts.Bind(this, ShortcutId.ZoomIn, new ActionCommand(_ => ZoomAt(_scale * 1.25, Center)));
+            shortcuts.Bind(this, ShortcutId.ZoomOut, new ActionCommand(_ => ZoomAt(_scale / 1.25, Center)));
+            shortcuts.Bind(this, ShortcutId.FitImage, new ActionCommand(_ => Fit()));
+            shortcuts.Bind(this, ShortcutId.ActualImage, new ActionCommand(_ => ZoomAt(1, Center)));
+            shortcuts.Bind(this, ShortcutId.RotateImage, new ActionCommand(_ => Rotate()));
+            void Hint(Button button, string label, ShortcutId id)
+            {
+                button.ToolTip = shortcuts.Hint(label, id);
+                AutomationProperties.SetName(button, label);
+                AutomationProperties.SetAcceleratorKey(button, shortcuts.Label(id));
+            }
+            void RefreshHints()
+            {
+                Hint(_previous, "上一张", ShortcutId.PreviousImage);
+                Hint(_next, "下一张", ShortcutId.NextImage);
+                Hint(minus, "缩小", ShortcutId.ZoomOut);
+                Hint(plus, "放大", ShortcutId.ZoomIn);
+                Hint(rotate, "向左旋转", ShortcutId.RotateImage);
+                actual.ToolTip = shortcuts.Hint("原始大小", ShortcutId.ActualImage) + " / " + shortcuts.Hint("适应窗口", ShortcutId.FitImage);
+                AutomationProperties.SetName(actual, "原始大小或适应窗口");
+            }
+            RefreshHints();
+            shortcuts.Changed += RefreshHints;
+            Closed += (_, _) => shortcuts.Changed -= RefreshHints;
+        };
         Loaded += async (_, _) => { await LoadCurrentAsync(); if (!_closed && IsActive) _canvas.Focus(); };
         Closed += (_, _) => { _closed = true; _endNoticeTimer.Stop(); ++_generation; _lifetime.Cancel(); _lifetime.Dispose(); _request?.Cancel(); _request?.Dispose(); _playback?.Dispose(); _playback = null; _cache.Clear(); _recent.Clear(); _bytes = null; _image.Source = null; };
     }
@@ -336,21 +367,6 @@ public sealed class ImageWindow : ChildWindow
         _rotation = (_rotation + 3) % 4;
         if (_fit) Fit();
         else { _x = (_canvas.ActualWidth - ImageWidth * _scale) / 2; _y = (_canvas.ActualHeight - ImageHeight * _scale) / 2; Position(); }
-    }
-    private void ViewerKeyDown(object sender, KeyEventArgs e)
-    {
-        switch (e.Key)
-        {
-            case Key.Left: Move(-1); break;
-            case Key.Right: Move(1); break;
-            case Key.Add: case Key.OemPlus: ZoomAt(_scale * 1.25, Center); break;
-            case Key.Subtract: case Key.OemMinus: ZoomAt(_scale / 1.25, Center); break;
-            case Key.D0: case Key.NumPad0: Fit(); break;
-            case Key.D1: case Key.NumPad1: ZoomAt(1, Center); break;
-            case Key.R: Rotate(); break;
-            default: return;
-        }
-        e.Handled = true;
     }
     private void Save()
     {
