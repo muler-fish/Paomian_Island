@@ -4,6 +4,8 @@ using System.Text.Json;
 using Tide.Core;
 
 // 局部验证入口：仅运行链接及其目录映射，避免重复执行无关功能回归。
+if (args.FirstOrDefault() == "--cache-perf") { CachePerformanceChecks.Run(args.ElementAtOrDefault(1) ?? "artifacts/cache-perf"); return 0; }
+if (args.Contains("--disk-cache")) { DiskCacheChecks.Run(); return 0; }
 if (args.Contains("--links")) { await LinkRoutingChecks.RunAsync(); return 0; }
 if (args.Contains("--sent-thread")) { await SentThreadChecks.RunAsync(); return 0; }
 if (args.Contains("--cookie-usage")) { CookieUsageChecks.Run(); return 0; }
@@ -30,6 +32,7 @@ void AsyncTest(string name, Func<Task> action) => checks.Add((name, action));
 AsyncTest("content links and forum aliases", LinkRoutingChecks.RunAsync);
 Test("reading history back/forward navigation", ReadingHistoryChecks.Run);
 AsyncTest("thread failure classification", ThreadFailureChecks.RunAsync);
+Test("disk cache accounting and eviction", DiskCacheChecks.Run);
 void Assert(bool test, string why = "Assertion failed") { if (!test) throw new Exception(why); }
 void Throws<T>(Action action) where T : Exception
 {

@@ -9,6 +9,9 @@ public sealed class DiskCache
 {
     private readonly object _gate = new();
     private readonly string _profile, _key;
+    // 本实例的写入增量计数；定期及显式统计时重新扫描，校正外部文件变化。
+    private long? _sizeBytes;
+    private long _recheckAt;
     public string Root { get; private set; }
     public long LimitBytes { get; private set; } = 256_000_000;
     public DiskCache(string profile)
@@ -21,6 +24,7 @@ public sealed class DiskCache
     {
         lock (_gate)
         {
+            _sizeBytes = null;
             var next = string.IsNullOrWhiteSpace(parent) ? Path.Combine(_profile, "cache") : Path.Combine(Path.GetFullPath(parent), "TideCache-" + _key);
             NoLinks(next);
             Directory.CreateDirectory(next);
@@ -38,7 +42,7 @@ public sealed class DiskCache
                     var dest = Path.Combine(next, Path.GetRelativePath(previous, file.FullName));
                     NoLinks(dest); Directory.CreateDirectory(Path.GetDirectoryName(dest)!); File.Copy(file.FullName, dest, true);
                 }
-                var old = Files().ToArray(); Root = next;
+                var old = Files(); Root = next;
                 foreach (var file in old) { try { file.Delete(); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
             }
             LimitBytes = Math.Clamp(limitMb, 0, 4096) * 1_000_000L; Trim();
@@ -61,22 +65,37 @@ public sealed class DiskCache
             if (bytes.LongLength > LimitBytes || LimitBytes == 0) return;
             try
             {
+                if (_sizeBytes is null || Environment.TickCount64 >= _recheckAt) Trim();
+                var previousBytes = File.Exists(path) ? new FileInfo(path).Length : 0;
+                var temp = path + ".tmp";
+                NoLinks(temp);
+                // 上次写入中断可能留下临时文件；完成替换后重新核算，避免重复计费。
+                if (File.Exists(temp)) _sizeBytes = null;
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllBytes(path + ".tmp", bytes); File.Move(path + ".tmp", path, true); Trim();
+                File.WriteAllBytes(temp, bytes); File.Move(temp, path, true);
+                _sizeBytes += bytes.LongLength - previousBytes;
+                if (_sizeBytes is null || _sizeBytes < 0 || _sizeBytes > LimitBytes) Trim();
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* Cache failure must not fail a successful read/send. */ }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { _sizeBytes = null; /* Cache failure must not fail a successful read/send. */ }
         }
     }
-    public long SizeBytes() { lock (_gate) return Files().Sum(f => f.Length); }
-    public void Remove(string key) { lock (_gate) { var path = Resolve(key); if (File.Exists(path)) File.Delete(path); } }
-    public void Clear() { lock (_gate) { foreach (var file in Files()) file.Delete(); } }
+    public long SizeBytes()
+    {
+        lock (_gate) { _sizeBytes = null; var total = Files().Sum(f => f.Length); RememberSize(total); return total; }
+    }
+    public void Remove(string key) { lock (_gate) { _sizeBytes = null; var path = Resolve(key); if (File.Exists(path)) File.Delete(path); } }
+    public void Clear() { lock (_gate) { _sizeBytes = null; foreach (var file in Files()) file.Delete(); RememberSize(0); } }
     private void Trim()
     {
-        var files = Files().OrderBy(f => f.LastWriteTimeUtc).ToArray(); var total = files.Sum(f => f.Length);
-        foreach (var file in files)
-        { if (total <= LimitBytes) break; var size = file.Length; file.Delete(); total -= size; }
+        var files = Files(); var total = files.Sum(f => f.Length);
+        if (total > LimitBytes)
+            foreach (var file in files.OrderBy(f => f.LastWriteTimeUtc))
+            { if (total <= LimitBytes) break; var size = file.Length; file.Delete(); total -= size; }
+        RememberSize(total);
     }
-    private IEnumerable<FileInfo> Files()
+    private void RememberSize(long total) { _sizeBytes = total; _recheckAt = Environment.TickCount64 + 30_000; }
+    private FileInfo[] Files()
     {
         NoLinks(Root);
         if (!Directory.Exists(Root)) return [];

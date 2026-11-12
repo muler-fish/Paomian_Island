@@ -321,13 +321,19 @@ public sealed partial class MainViewModel : Observable, IDisposable
             try
             {
                 result = await ReadThreadAsync(id, page, refresh, ct, traversal is null ? RecentThreadAge : TraversalThreadAge);
-                // 写缓存失败只提示保存问题，不阻止展示已经成功下载的正文。
-                try { Store.SavePage(result, identity); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { SetError("正文已加载，但无法写入离线缓存。", FeedbackArea.Reader); }
+                // 正文序列化、写盘及缓存淘汰不占用界面线程；身份沿用本次请求开始时的快照。
+                var downloaded = result;
+                try { await Task.Run(() => Store.SavePage(downloaded, identity), ct); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    if (version == _threadVersion && !_disposed && !ct.IsCancellationRequested)
+                        SetError("正文已加载，但无法写入离线缓存。", FeedbackArea.Reader);
+                }
             }
             catch (Exception ex) when (ex is HttpRequestException || ex is OperationCanceledException && !ct.IsCancellationRequested)
             {
                 // 仅网络失败或超时尝试离线回退；主动取消和服务端权限错误不会触发缓存回看。
-                var cached = Store.ReadPage(id, page, identity);
+                var cached = await Task.Run(() => Store.ReadPage(id, page, identity), ct);
                 if (cached is null) throw;
                 result = cached;
                 offline = true;

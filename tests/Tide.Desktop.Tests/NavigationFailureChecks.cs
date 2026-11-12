@@ -58,22 +58,56 @@ internal static class NavigationFailureChecks
         await vm.GoBackAsync();
         Require(vm.Original?.Id == C && vm.ReadingThreadId == C && vm.Navigation.Entries.Select(e => e.ThreadId).SequenceEqual([A, C])
             && vm.Navigation.Index == 1 && vm.Error.Contains("已从后退/前进记录中移除"), "明确失效的串没有从历史移除");
+        // 缓存读写移到后台后，离线回退、迟到结果和身份隔离必须保持原行为。
+        handler.Failure = null; handler.NetworkDown = true; vm.ClearTemporaryCache();
+        await vm.OpenThreadAsync(B, refresh: true);
+        Require(vm.Original?.Id == B && vm.Status.StartsWith("离线阅读", StringComparison.Ordinal), "后台缓存读取未恢复离线正文");
+        handler.NetworkDown = false;
+        var gate = handler.Block(B);
+        var stale = vm.OpenThreadAsync(B, refresh: true);
+        await gate.Hit.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await vm.OpenThreadAsync(A, refresh: true);
+        gate.Release.SetResult(); await stale;
+        Require(vm.Original?.Id == A && vm.ReadingThreadId == A, "迟到请求覆盖了新串");
+        gate = handler.Block(B);
+        stale = vm.OpenThreadAsync(B, refresh: true);
+        await gate.Hit.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        vm.State.ActiveCookieId = "test-identity"; vm.ApplyCookie();
+        gate.Release.SetResult(); await stale;
+        Require(vm.Original is null && vm.ReadingThreadId is null && vm.Store.ReadPage(B, 1, "test-identity") is null,
+            "身份切换后旧结果写进新身份或恢复旧正文");
+        const long D = 69711080;
+        await vm.OpenThreadAsync(D, refresh: true);
+        Require(vm.Store.ReadPage(D, 1, "test-identity")?.Original.Id == D && vm.Store.ReadPage(D, 1, "") is null,
+            "后台写盘没有使用固定的请求身份");
         Console.WriteLine("PASS: navigation failures preserve back/forward history and retry; confirmed missing threads are removed (no windows or live requests).");
+        Console.WriteLine("PASS: background cache I/O retains offline fallback, cancellation and identity isolation.");
+    }
+
+    private sealed class Gate
+    {
+        internal TaskCompletionSource Hit { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private sealed class FailureHandler : HttpMessageHandler
     {
         internal string? Failure { get; set; }
+        internal bool NetworkDown { get; set; }
         internal int Calls { get; private set; }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        private readonly Dictionary<long, Gate> _gates = [];
+        internal Gate Block(long id) => _gates[id] = new();
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request.Method != HttpMethod.Get || !request.RequestUri!.AbsolutePath.EndsWith("/thread", StringComparison.Ordinal))
                 throw new InvalidOperationException("测试只允许模拟读串请求。");
             Calls++;
             var query = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
             var id = long.Parse(query["id"]!);
+            if (_gates.Remove(id, out var gate)) { gate.Hit.SetResult(); await gate.Release.Task; }
+            if (NetworkDown) throw new HttpRequestException("模拟离线");
             var body = Failure ?? JsonSerializer.Serialize(new { id, fid = 4, content = "模拟正文", Replies = Array.Empty<object>() });
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
         }
     }
 
