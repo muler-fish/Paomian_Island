@@ -1,8 +1,11 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Documents;
+using System.Windows.Interop;
 using System.Windows.Media;
 using Wpf.Ui.Controls;
 using TextBlock = System.Windows.Controls.TextBlock;
@@ -79,6 +82,28 @@ public abstract class ChildWindow : FluentWindow
         // Esc 和标题栏关闭都走正常 Window.Close；编辑器仍能在 Closing 中保存草稿或取消关闭。
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(); e.Handled = true; } };
     }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        if (e.Cancel || Owner is not { IsVisible: true, IsEnabled: true, WindowState: not WindowState.Minimized } owner)
+            return;
+
+        var handle = new WindowInteropHelper(this).Handle;
+        var ownerHandle = new WindowInteropHelper(owner).Handle;
+        if (handle == 0 || GetActiveWindow() != handle || !IsWindowVisible(ownerHandle) || !IsWindowEnabled(ownerHandle))
+            return;
+
+        // 模态窗口的 Owner 仍被 WPF 禁用，等框架恢复。非模态窗在销毁 HWND 前交还同一输入队列的焦点。
+        var foreground = GetForegroundWindow();
+        if (foreground == handle || foreground == 0) _ = SetActiveWindow(ownerHandle);
+    }
+
+    [DllImport("user32.dll")] private static extern nint GetActiveWindow();
+    [DllImport("user32.dll")] private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern nint SetActiveWindow(nint window);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(nint window);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowEnabled(nint window);
 
     private AdornerLayer? _ownerLayer;
     private Scrim? _scrim;

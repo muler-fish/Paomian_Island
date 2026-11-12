@@ -18,7 +18,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
     public string Html { get => (string)GetValue(HtmlProperty); set => SetValue(HtmlProperty, value); }
     public static readonly DependencyProperty HideSpoilersProperty = DependencyProperty.Register(nameof(HideSpoilers), typeof(bool), typeof(PostBody), new PropertyMetadata(false, (d, _) => ((PostBody)d).Render()));
     public bool HideSpoilers { get => (bool)GetValue(HideSpoilersProperty); set => SetValue(HideSpoilersProperty, value); }
-    public static event Action<long>? ReferenceClicked;
+    public static event Action<Hyperlink, long>? ReferenceClicked;
     public static event Action<Hyperlink, string>? UrlClicked;
 
     public PostBody()
@@ -159,7 +159,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
             var link = new Hyperlink(new Run(value));
             link.SetResourceReference(ForegroundProperty, "Link");
             link.ToolTip = match.Groups["id"].Success ? "查看引用" : value;
-            if (match.Groups["id"].Success) link.Click += (_, _) => ReferenceClicked?.Invoke(id);
+            if (match.Groups["id"].Success) link.Click += (_, _) => ReferenceClicked?.Invoke(link, id);
             else link.Click += (_, _) => Navigate(link, value);
             target.Add(link); start = match.Index + match.Length;
         }
@@ -170,7 +170,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         // 网页包在 a 标签里的 >>No. 仍是引用；普通链接交给拥有该正文的主窗口统一导航。
         var text = new TextRange(source.ContentStart, source.ContentEnd).Text.Trim();
         if (text.StartsWith(">>") && ContentText.ParseThreadId(text) is { } id &&
-            IslandLink.TryWebUri(url, out var uri) && ContentText.IsIslandHost(uri.Host)) ReferenceClicked?.Invoke(id);
+            IslandLink.TryWebUri(url, out var uri) && ContentText.IsIslandHost(uri.Host)) ReferenceClicked?.Invoke(source, id);
         else UrlClicked?.Invoke(source, url);
     }
 }

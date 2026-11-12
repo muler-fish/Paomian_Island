@@ -99,9 +99,10 @@ internal static class ContentLinkChecks
             Require(external.Count == 1, "未知板块确认未打开网页");
             await window.OpenContentLinkAsync("https://outside.example/test?a=1&b=2"); Require(external.Count == 2, "外链交接改变");
             source.SetHtml("&gt;&gt;No.5678"); ClickLink(source);
-            await Until(() => window.OwnedWindows.OfType<TextWindow>().Any(w => w.Title.StartsWith("引用")));
-            foreach (var quote in window.OwnedWindows.OfType<TextWindow>().Where(w => w.Title.StartsWith("引用")).ToArray()) quote.Close();
-            foreach (var quote in owner.OwnedWindows.OfType<TextWindow>().Where(w => w.Title.StartsWith("引用")).ToArray()) quote.Close();
+            await Until(() => source.OwnedWindows.OfType<TextWindow>().Any(w => w.Title.StartsWith("引用")));
+            var quote = Application.Current.Windows.OfType<TextWindow>().Single(w => w.Title.StartsWith("引用"));
+            Require(ReferenceEquals(quote.Owner, source), "嵌套引用未保留直接 Owner");
+            quote.Close();
             File.WriteAllText(Path.Combine(output, "link-results.json"), JsonSerializer.Serialize(new { Preview = true, ConfirmForum = true, ReadingPreserved = true, Retry = true, Cancellation = true, PageAndReply = true, ExternalFallback = true }));
             Console.WriteLine("PASS: thread preview/close/open, title/body/image entry, temporary cache, reading/PO/history preservation, local error/retry, forum prompt/cancel/confirm, legacy pages/replies, nested owners, themes, cancellation and fallback.");
         }

@@ -29,7 +29,7 @@ internal static class ChildWindowChecks
             ("reply", () => new ComposerWindow(vm, 123)),
             ("cookies", () => new CookieWindow(vm)),
             ("settings", () => new SettingsWindow(vm)),
-            ("drafts", () => new DraftWindow(vm, _ => { })),
+            ("drafts", () => new DraftWindow(vm, (_, _) => { })),
             ("reference", () => new TextWindow("引用 · No.101", "引用窗口标题栏验证。")),
             ("send-preview", () => new TextWindow("发送预览", "仅验证窗口，不发送发言。")),
             // 缺失图片地址进入现有错误提示路径；标题栏测试不下载图片、不依赖公网。

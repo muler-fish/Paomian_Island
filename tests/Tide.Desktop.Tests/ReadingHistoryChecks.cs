@@ -431,8 +431,7 @@ internal static class ReadingHistoryChecks
         link.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
         TextWindow? dialog = null;
         await Until(() => (dialog = window.OwnedWindows.OfType<TextWindow>().FirstOrDefault(w => w.IsVisible && w.Title == $"引用 · No.{id}" && HasButton(w, "打开串"))) is not null, "引用预览没有出现「打开串」");
-        // 测试宿主窗口也订阅了静态引用事件，关掉它打开的预览。
-        foreach (var other in owner.OwnedWindows.OfType<TextWindow>().ToArray()) other.Close();
+        Require(!owner.OwnedWindows.OfType<TextWindow>().Any(), "宿主窗口也响应了子主窗口中的引用");
         return dialog!;
     }
 

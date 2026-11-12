@@ -187,9 +187,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private void Drafts_Click(object sender, RoutedEventArgs e)
     {
-        new DraftWindow(Model, draft =>
+        new DraftWindow(Model, (drafts, draft) =>
         {
-            var composer = new ComposerWindow(Model, draft.ThreadId, "", draft) { Owner = this };
+            var composer = new ComposerWindow(Model, draft.ThreadId, "", draft) { Owner = drafts };
             composer.ShowDialog();
             if (composer.Delivered) ShowFeedback(composer.DeliveredMessage, FeedbackArea.General);
         }) { Owner = this }.ShowDialog();
@@ -240,13 +240,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         catch (Exception ex) { Model.Report(ex); }
     }
+    private Window? ContentOwner(DependencyObject source)
+    {
+        var window = Window.GetWindow(source);
+        for (var owner = window; owner is not null; owner = owner.Owner)
+            if (owner is MainWindow) return ReferenceEquals(owner, this) ? window : null;
+        return null;
+    }
     private async void ContentLinkClicked(System.Windows.Documents.Hyperlink source, string url)
     {
-        // 引用/版规等子窗口也属于其主窗口；其他主窗口不能响应同一个静态事件。
-        var owner = Window.GetWindow(source);
-        while (owner is not null && owner is not MainWindow) owner = owner.Owner;
-        if (!ReferenceEquals(owner, this)) return;
-        await OpenContentLinkAsync(url, Window.GetWindow(source));
+        if (ContentOwner(source) is { } owner) await OpenContentLinkAsync(url, owner);
     }
     internal Task OpenContentLinkAsync(string url, Window? sourceWindow = null)
     {
@@ -264,10 +267,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         catch (Exception ex) { if (!_closed) Model.Report(ex); }
         return Task.CompletedTask;
     }
-    private async void Reference(long id)
+    private async void Reference(System.Windows.Documents.Hyperlink source, long id)
     {
+        if (_closed || ContentOwner(source) is not { IsVisible: true } owner) return;
         // 先展示占位窗口再异步读取，用户不必等待网络即可关闭弹窗。
-        var dialog = new TextWindow($"引用 · No.{id}", "正在读取引用…", referencePreview: true, Model.ReadingFontSize) { Owner = this };
+        var dialog = new TextWindow($"引用 · No.{id}", "正在读取引用…", referencePreview: true, Model.ReadingFontSize) { Owner = owner };
         dialog.Show();
         // 取消源跟随弹窗生命周期；保存 Token 供 await 后检查，不能在此方法返回时提前 Dispose。
         var cts = new CancellationTokenSource(); var ct = cts.Token;
@@ -287,11 +291,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private void OpenImage(PostImage source, Post post)
     {
+        if (_closed || ContentOwner(source) is not { IsVisible: true } owner) return;
         // 仅从串阅读区进入时串联同串图片；串列表与引用弹窗保持单图，避免混入其他串。
         DependencyObject? parent = source;
         while (parent is not null && !ReferenceEquals(parent, ReaderList)) parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
         var gallery = parent is null ? new[] { post } : Model.ReadingPosts.Select(p => p.Post).Where(p => p.HasImage).ToArray();
         new ImageWindow(gallery.Length == 0 ? [post] : gallery, post.Id, ImageService.BytesAsync,
-            parent is null ? null : Model.CreateImageCursor()) { Owner = this }.Show();
+            parent is null ? null : Model.CreateImageCursor()) { Owner = owner }.Show();
     }
 }

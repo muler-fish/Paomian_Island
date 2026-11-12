@@ -131,7 +131,7 @@ public sealed class ImageWindow : ChildWindow
         _canvas.MouseLeftButtonUp += (_, _) => _canvas.ReleaseMouseCapture();
         _canvas.LostMouseCapture += (_, _) => _dragging = false;
         PreviewKeyDown += ViewerKeyDown;
-        Loaded += async (_, _) => { await LoadCurrentAsync(); if (!_closed) _canvas.Focus(); };
+        Loaded += async (_, _) => { await LoadCurrentAsync(); if (!_closed && IsActive) _canvas.Focus(); };
         Closed += (_, _) => { _closed = true; _endNoticeTimer.Stop(); ++_generation; _lifetime.Cancel(); _lifetime.Dispose(); _request?.Cancel(); _request?.Dispose(); _playback?.Dispose(); _playback = null; _cache.Clear(); _recent.Clear(); _bytes = null; _image.Source = null; };
     }
 

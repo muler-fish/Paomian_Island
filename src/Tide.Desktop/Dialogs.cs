@@ -122,7 +122,7 @@ public sealed class TextWindow : DialogWindow
 /// <summary>列出未发送草稿，通过回调打开编辑器；编辑器关闭后重新读取列表。</summary>
 public sealed class DraftWindow : DialogWindow
 {
-    public DraftWindow(MainViewModel vm, Action<Draft> open) : base("草稿箱")
+    public DraftWindow(MainViewModel vm, Action<DraftWindow, Draft> open) : base("草稿箱")
     {
         void Refresh()
         {
@@ -133,7 +133,7 @@ public sealed class DraftWindow : DialogWindow
                 var panel = new StackPanel { Margin = new(0, 12, 0, 16) };
                 panel.Children.Add(new TextBlock { Text = draft.ReportPostId > 0 ? $"举报 No.{draft.ReportPostId}" : draft.ThreadId > 0 ? $"回复 No.{draft.ThreadId}" : "新串 · " + vm.ForumName(draft.ForumId), FontWeight = FontWeights.SemiBold });
                 var preview = ContentText.Plain(draft.Content, vm.State.HideSpoilers); panel.Children.Add(Hint(preview.Length > 100 ? preview[..100] + "…" : preview));
-                var bar = new WrapPanel(); bar.Children.Add(Button("继续编辑", () => { open(draft); Refresh(); }));
+                var bar = new WrapPanel(); bar.Children.Add(Button("继续编辑", () => { open(this, draft); Refresh(); }));
                 bar.Children.Add(Button("删除草稿", () =>
                 {
                     if (!ConfirmWindow.Ask(this, "删除草稿", "删除这份本机草稿？")) return;

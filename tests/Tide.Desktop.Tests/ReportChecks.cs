@@ -30,7 +30,7 @@ internal static class ReportChecks
                 (new CookieWindow(vm), "饼干管理"), (new SubscriptionWindow(vm), "订阅号管理"),
                 (new SettingsWindow(vm), "设置"), (new ComposerWindow(vm, 0), "发串"),
                 (new ComposerWindow(vm, 101), "参与回应"), (new TextWindow("发送预览", ""), "发送预览"),
-                (new DraftWindow(vm, _ => { }), "草稿箱")
+                (new DraftWindow(vm, (_, _) => { }), "草稿箱")
             })
             {
                 Require(dialog.Title == expected, "弹窗标题未统一：" + dialog.Title);

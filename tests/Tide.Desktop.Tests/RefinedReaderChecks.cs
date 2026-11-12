@@ -122,7 +122,7 @@ internal static class RefinedReaderChecks
                 dialog.Close();await Layout(window);
             }
             foreach(var extra in new ChildWindow[] {
-                new SubscriptionWindow(vm),new BlockedThreadsWindow(vm),new DraftWindow(vm,_=>{}),
+                new SubscriptionWindow(vm),new BlockedThreadsWindow(vm),new DraftWindow(vm,(_,_)=>{}),
                 new TextWindow("引用预览","&gt;&gt;No.52752005<br>(ﾟ∀ﾟ) 留个脚印，慢慢看。"),
                 new SiteNoticeWindow(new SiteNotice("reader-fixture","这是一条界面验证通知。\n正文可滚动和复制，确认操作始终可见。")),
                 new MyPostsWindow(vm),new ThreadLinkPreviewWindow(vm,IslandLink.Parse("https://www.nmbxd.com/t/52752005")!),
