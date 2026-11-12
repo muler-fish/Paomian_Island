@@ -180,6 +180,7 @@
     </Style>
 
       <Style TargetType="Separator"><Setter Property="Background" Value="{DynamicResource Line}"/><Setter Property="Margin" Value="0,10"/></Style>
+      <SolidColorBrush x:Key="Link" Color="#4882a9"/>
       <Style TargetType="Hyperlink"><Setter Property="Foreground" Value="{DynamicResource Link}"/></Style>
 
 

@@ -28,7 +28,6 @@
   <SolidColorBrush x:Key="FavoriteStar" Color="#d6b568"/>
   <SolidColorBrush x:Key="PoBackground" Color="#15395b"/>
   <SolidColorBrush x:Key="PoForeground" Color="#4ea5f5"/>
-  <SolidColorBrush x:Key="Link" Color="#91b6cf"/>
   <SolidColorBrush x:Key="Scrim" Color="#660b1010"/>
   <SolidColorBrush x:Key="AccentHover" Color="#a4c8b7"/>
   <SolidColorBrush x:Key="AccentPressed" Color="#81a694"/>

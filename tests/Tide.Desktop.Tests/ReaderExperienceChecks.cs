@@ -18,6 +18,7 @@ namespace Tide.Desktop.Tests;
 internal static class ReaderExperienceChecks
 {
     private const string Html = "中文  English (ﾟ∀ﾟ) 😀<br><s>删线</s> <font color='#cc0000'>红色强调</font> <span style='color:#789922'>绿色公告</span> <span style='color:rgb(73, 113, 207)'>蓝色正文</span> <span style='color:#07090A'>深色文字</span> <span style='color:#abc'>浅色文字</span><br>  /\\_/\\<br> ( o.o )<br>&gt;&gt;No.12345678 后文<br>[h]未展开的示例[/h]";
+    private const string LinkHtml = "<span style='color:#789922'><a href='https://example.com/color' style='color:#d02090'>链接指定色<span style='color:#ee55aa'>链接局部色</span></a> <a href='https://example.com/inherit'>链接继承色</a> &gt;&gt;No.23456789 https://example.com/auto</span> <a href='https://example.com/plain'>普通链接</a>";
     internal static XIslandApi CreateApi() => new(new HttpClient(new Fixture()));
 
     internal static async Task RunAsync(MainWindow main, string output, Action<Window, string> capture, bool colorsOnly, bool realInput)
@@ -32,6 +33,7 @@ internal static class ReaderExperienceChecks
         await vm.OpenThreadAsync(100);
         await Layout();
         var body = All<PostBody>(main).First(b => b.DataContext is ReadPost { Post.Id: 100 });
+        var reply = All<PostBody>(main).First(b => b.DataContext is ReadPost { Post.Id: 101 });
         var heading = (TextBox)main.FindName("ReaderHeading");
         var first = Runs(body).First(r => r.Text.Contains("中文"));
         var link = InlineTree(body.Document.Blocks.OfType<Paragraph>().Single().Inlines).OfType<Hyperlink>().Single();
@@ -51,8 +53,16 @@ internal static class ReaderExperienceChecks
                 Foreground(body, "蓝色正文") == Color.FromRgb(73, 113, 207) &&
                 Foreground(body, "深色文字") == Color.FromRgb(7, 9, 10) &&
                 Foreground(body, "浅色文字") == Color.FromRgb(170, 187, 204), $"主题 {theme} 改写了帖子原色");
-            Require(((SolidColorBrush)first.Foreground).Color == Brush("BodyText") &&
-                ((SolidColorBrush)link.Foreground).Color == Brush("Link"), "普通正文或引用链接失去主题颜色");
+            var fixedLink = Color.FromRgb(72, 130, 169);
+            var inherited = Color.FromRgb(120, 153, 34);
+            Require(((SolidColorBrush)first.Foreground).Color == Brush("BodyText"), "普通正文失去主题前景色");
+            Require(((SolidColorBrush)link.Foreground).Color == fixedLink &&
+                Foreground(reply, "普通链接") == fixedLink, $"主题 {theme} 改写了默认链接色");
+            Require(Foreground(reply, "链接指定色") == Color.FromRgb(208, 32, 144) &&
+                Foreground(reply, "链接局部色") == Color.FromRgb(238, 85, 170) &&
+                Foreground(reply, "链接继承色") == inherited &&
+                Foreground(reply, ">>No.23456789") == inherited &&
+                Foreground(reply, "https://example.com/auto") == inherited, $"主题 {theme} 改写了链接或引用的正文原色");
             var ink = ((SolidColorBrush)body.SelectionBrush).Color;
             var highlight = Personalization.Mix(Brush("Surface"), ink, body.SelectionOpacity);
             var text = Personalization.Mix(Brush("BodyText"), ink, body.SelectionOpacity);
@@ -222,7 +232,7 @@ internal static class ReaderExperienceChecks
             var json = reference ? """{"id":12345678,"content":"引用示例"}""" : JsonSerializer.Serialize(new
             {
                 id = 100, fid = 4, content = Html, ReplyCount = 1,
-                Replies = new[] { new { id = 101, fid = 4, content = "带图的回应", img = "fixture/image", ext = ".png" } }
+                Replies = new[] { new { id = 101, fid = 4, content = LinkHtml, img = "fixture/image", ext = ".png" } }
             });
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) });
         }

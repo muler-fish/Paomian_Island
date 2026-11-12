@@ -97,7 +97,18 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
 
     private sealed class PostLink : Hyperlink
     {
-        internal PostLink() { Cursor = Cursors.Hand; }
+        internal PostLink(Span? parent)
+        {
+            Cursor = Cursors.Hand;
+            // 自动识别网址或引用时，优先沿用发言中包住它的颜色。
+            for (var span = parent; span is not null; span = span.Parent as Span)
+            {
+                if (span.ReadLocalValue(ForegroundProperty) is not SolidColorBrush color) continue;
+                Foreground = color;
+                return;
+            }
+            SetResourceReference(ForegroundProperty, "Link");
+        }
 
         // 正文由 RichTextBox 处理鼠标捕获，键盘和自动化仍使用 Hyperlink 的原生操作。
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -176,18 +187,17 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
                     // 包括站内相对路径与 // 外站地址，统一补全后再做 HTTP/HTTPS 校验。
                     if (IslandLink.TryWebUri(url, out var uri))
                     {
-                        var link = new PostLink { ToolTip = uri.AbsoluteUri };
-                        link.SetResourceReference(ForegroundProperty, "Link");
+                        var link = new PostLink(current) { ToolTip = uri.AbsoluteUri };
                         link.Click += (_, _) => Navigate(link, uri.AbsoluteUri); span = link; suppressLinkChildren = true;
                     }
                 }
-                if (!suppressLinkChildren) PostColors.Apply(span, token);
+                PostColors.Apply(span, token);
                 Destination().Add(span); stack.Push((tag, current)); current = span; continue;
             }
             var text = WebUtility.HtmlDecode(token);
             // 已位于 HTML 链接内部的文字不再识别成新链接，防止生成嵌套 Hyperlink。
             if (suppressLinkChildren) Destination().Add(new Run(text));
-            else AddText(Destination(), text);
+            else AddText(Destination(), current, text);
         }
     }
 
@@ -207,7 +217,7 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
         else if (Document is not null) Document.LineHeight = FontSize * LineHeightRatio;
     }
 
-    private static void AddText(InlineCollection target, string text)
+    private static void AddText(InlineCollection target, Span? parent, string text)
     {
         // 先匹配完整网址，避免其中的数字被拆成引用。显式 >>No. 保留短楼号兼容；
         // 其他连续八位及以上数字只给数字加链接，No. 等前缀仍是原文。
@@ -221,9 +231,8 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
             long id = 0;
             if (match.Groups["id"].Success && (!long.TryParse(match.Groups["id"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out id) || id <= 0))
             { target.Add(new Run(value)); start = match.Index + match.Length; continue; }
-            var link = new PostLink();
+            var link = new PostLink(parent);
             link.Inlines.Add(new Run(value));
-            link.SetResourceReference(ForegroundProperty, "Link");
             link.ToolTip = match.Groups["id"].Success ? "查看引用" : value;
             if (match.Groups["id"].Success) link.Click += (_, _) => ReferenceClicked?.Invoke(link, id);
             else link.Click += (_, _) => Navigate(link, value);
