@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Paomian.KeyboardPrototype</RootNamespace>
+    <Description>泡面岛键盘交互独立原型</Description>
+    <ApplicationManifest>../../src/Tide.Desktop/app.manifest</ApplicationManifest>
+    <ApplicationIcon>../../src/Tide.Desktop/Assets/paomian.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Page Include="../../src/Tide.Desktop/Themes/Light.xaml" Link="Themes/Light.xaml" />
+    <Compile Include="../../src/Tide.Desktop/UiMetrics.cs" Link="UiMetrics.cs" />
+    <Compile Include="../../src/Tide.Desktop/WindowPlacement.cs" Link="WindowPlacement.cs" />
+    <Resource Include="../../src/Tide.Desktop/Assets/paomian.png" Link="Assets/paomian.png" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,105 @@
+<Application x:Class="Paomian.KeyboardPrototype.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:metrics="clr-namespace:Tide.Desktop"
+             ShutdownMode="OnMainWindowClose">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/Light.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <Style TargetType="Window">
+        <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="{DynamicResource Canvas}"/>
+        <Setter Property="UseLayoutRounding" Value="True"/>
+        <Setter Property="KeyboardNavigation.TabNavigation" Value="Cycle"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+      </Style>
+      <Style TargetType="Button">
+        <Setter Property="MinHeight" Value="{x:Static metrics:UiMetrics.ControlHeight}"/>
+        <Setter Property="Padding" Value="{x:Static metrics:UiMetrics.ButtonPadding}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                      BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
+                      CornerRadius="{x:Static metrics:UiMetrics.ControlCornerRadius}">
+                <ContentPresenter RecognizesAccessKey="True" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+              </Border>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource Pressed}"/></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{DynamicResource Accent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource AccentHover}"/></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource AccentPressed}"/></Trigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="RowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Grid Background="{TemplateBinding Background}">
+                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                <Border x:Name="CurrentLine" Width="2" HorizontalAlignment="Left" Visibility="Collapsed"
+                        Background="{DynamicResource SelectionLine}" IsHitTestVisible="False"/>
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="Tag" Value="Current">
+                  <Setter TargetName="CurrentLine" Property="Visibility" Value="Visible"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+          <Trigger Property="Tag" Value="Current"><Setter Property="Background" Value="{DynamicResource Selected}"/></Trigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="InlineAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="Padding" Value="4,1"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource PoForeground}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+      </Style>
+      <Style TargetType="TextBox">
+        <Setter Property="MinHeight" Value="{x:Static metrics:UiMetrics.ControlHeight}"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+      </Style>
+      <Style TargetType="ScrollViewer">
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="CanContentScroll" Value="False"/>
+      </Style>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>
