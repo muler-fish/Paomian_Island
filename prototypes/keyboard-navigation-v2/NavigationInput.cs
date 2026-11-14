@@ -1,62 +1,50 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
 
 namespace Paomian.KeyboardPrototype;
-
-internal enum Scheme { Letters, Enter }
 
 internal sealed class NavigationInput
 {
     private const string Alphabet = "ASDFGHJKLWER";
     private readonly Window _window;
     private readonly ReadingRegion[] _regions;
-    private readonly bool _dialog;
-    private ReadingRegion? _lastRegion;
-    private Choice? _choice, _choiceToRestore;
+    private readonly ForumTree? _forums;
+    private HintSession? _hints;
     private bool _openPending;
 
-    private sealed class Choice(ReadingRegion region, VisibleTarget[] targets, double originalOffset, string[] labels)
+    private sealed class HintSession(ReadingRegion region, HintLabel[] labels, double offset)
     {
         internal ReadingRegion Region { get; } = region;
-        internal VisibleTarget[] Targets { get; } = targets;
-        internal double OriginalOffset { get; } = originalOffset;
-        internal string[] Labels { get; } = labels;
+        internal HintLabel[] Labels { get; } = labels;
+        internal double Offset { get; } = offset;
         internal string Prefix { get; set; } = "";
-        internal int Index { get; set; }
-        internal VisibleTarget Current => Targets[Index];
     }
 
-    internal Scheme Scheme { get; private set; }
-    internal string[] HintLabels => _choice?.Labels ?? [];
-    internal VisibleTarget[] Candidates => _choice?.Targets ?? [];
-    internal ReadingTarget? SelectedTarget => _choice is { Labels.Length: 0 } choice ? choice.Current.Target : null;
+    internal IReadOnlyList<HintLabel> Hints => _hints?.Labels ?? [];
 
-    internal NavigationInput(Window window, ReadingRegion[] regions, Scheme scheme, bool dialog = false)
+    internal NavigationInput(Window window, ReadingRegion[] regions, ForumTree? forums = null)
     {
         _window = window;
         _regions = regions;
-        _dialog = dialog;
-        Scheme = scheme;
-        _lastRegion = regions.FirstOrDefault();
-        window.PreviewKeyDown += KeyDown;
+        _forums = forums;
+        window.PreviewKeyDown += (_, e) =>
+        {
+            if (HandleKey(e.Key, e.KeyboardDevice.Modifiers, e.IsRepeat)) e.Handled = true;
+        };
         window.PreviewKeyUp += (_, e) =>
         {
             if (e.Key is Key.Up or Key.Down)
-                ReadingFocus()?.Scroll.Release(e.Key == Key.Up ? -1 : 1);
+                FocusedRegion()?.Scroll.Release(e.Key == Key.Up ? -1 : 1);
         };
-        window.GotKeyboardFocus += (_, _) =>
-        {
-            _lastRegion = _regions.FirstOrDefault(region => region.Root.IsKeyboardFocusWithin) ?? _lastRegion;
-            if (_choice?.Region != ReadingFocus()) Leave(restorePosition: false);
-        };
+        window.GotKeyboardFocus += (_, _) => CancelHints();
         window.LostKeyboardFocus += (_, e) =>
         {
             foreach (var region in regions)
-                if (e.OldFocus == region.View) region.Scroll.Stop();
+                if (e.NewFocus is not Visual next || !next.IsDescendantOf(region.Root)) region.Scroll.Stop();
         };
         window.PreviewMouseDown += (_, _) => Interrupt();
         window.PreviewMouseWheel += (_, _) => Interrupt();
@@ -64,166 +52,145 @@ internal sealed class NavigationInput
         window.Closed += (_, _) => Interrupt();
         foreach (var region in regions)
         {
-            region.Root.SizeChanged += (_, _) => InvalidateChoice(region);
-            region.View.ScrollChanged += (_, _) => InvalidateChoice(region);
+            region.Root.SizeChanged += (_, _) =>
+            {
+                if (_hints?.Region == region) CancelHints();
+            };
+            region.View.ScrollChanged += (_, e) =>
+            {
+                if (_hints?.Region == region && (e.VerticalChange != 0 || e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0)) CancelHints();
+            };
         }
-    }
-
-    internal void SetScheme(Scheme value)
-    {
-        Leave(restorePosition: true);
-        StopScroll();
-        Scheme = value;
     }
 
     internal void ShowModal(Window child)
     {
         if (_openPending) return;
-        StopScroll();
+        Interrupt();
+        _window.UpdateLayout();
         var previousFocus = Keyboard.FocusedElement as UIElement;
         var offsets = _regions.Select(region => region.View.VerticalOffset).ToArray();
-        var selection = _choiceToRestore;
-        Leave(restorePosition: false);
+        var forumOffset = _forums?.VerticalOffset ?? 0;
         _openPending = true;
         child.Owner = _window;
         child.ShowInTaskbar = false;
+        // 等按键或点击的路由结束，再进入拥有者自己的模态循环。
         _window.Dispatcher.InvokeAsync(() =>
         {
-            if (!_window.IsVisible || !_window.IsActive)
-            {
-                _openPending = false;
-                return;
-            }
-            var content = (UIElement)_window.Content;
-            var layer = AdornerLayer.GetAdornerLayer(content);
-            var scrim = new OwnerScrim(content) { IsHitTestVisible = false };
-            layer?.Add(scrim);
             try
             {
-                child.ShowDialog();
+                if (!_window.IsVisible || !_window.IsActive) return;
+                var content = (UIElement)_window.Content;
+                var layer = AdornerLayer.GetAdornerLayer(content);
+                var scrim = new OwnerScrim(content) { IsHitTestVisible = false };
+                layer?.Add(scrim);
+                try { child.ShowDialog(); }
+                finally { layer?.Remove(scrim); }
+
+                if (!_window.IsVisible) return;
+                // ShowDialog 恢复直接父窗。只有父窗活动时才恢复真实键盘焦点。
+                if (_window.IsActive && previousFocus is { IsVisible: true, IsEnabled: true, Focusable: true } && Window.GetWindow(previousFocus) == _window)
+                    previousFocus.Focus();
+                for (var i = 0; i < _regions.Length; i++) _regions[i].View.ScrollToVerticalOffset(offsets[i]);
+                _forums?.RestoreOffset(forumOffset);
+                _window.UpdateLayout();
             }
-            finally
-            {
-                layer?.Remove(scrim);
-                _openPending = false;
-            }
-            if (_window.IsVisible)
-                _window.Dispatcher.InvokeAsync(() => Restore(previousFocus, offsets, selection), DispatcherPriority.Input);
+            finally { _openPending = false; }
         });
-    }
-
-    private void Restore(UIElement? focus, double[] offsets, Choice? selection)
-    {
-        if (!_window.IsVisible) return;
-        if (focus is not { IsVisible: true, IsEnabled: true, Focusable: true } || Window.GetWindow(focus) != _window)
-            focus = _lastRegion?.View;
-        if (focus is not null)
-        {
-            FocusManager.SetFocusedElement(FocusManager.GetFocusScope(focus), focus);
-            if (_window.IsActive) focus.Focus();
-        }
-
-        for (var i = 0; i < _regions.Length; i++) _regions[i].View.ScrollToVerticalOffset(offsets[i]);
-        _window.UpdateLayout();
-        if (selection is null || !_window.IsActive || Keyboard.FocusedElement != selection.Region.View) return;
-
-        var targets = selection.Region.VisibleTargets();
-        var index = Array.FindIndex(targets, target => target.Target == selection.Current.Target);
-        if (index < 0) return;
-        _choice = new Choice(selection.Region, targets, selection.OriginalOffset, []) { Index = index };
-        PaintChoice();
-    }
-
-    private void KeyDown(object sender, KeyEventArgs e)
-    {
-        if (HandleKey(e.Key, e.KeyboardDevice.Modifiers, e.IsRepeat)) e.Handled = true;
     }
 
     internal bool HandleKey(Key key, ModifierKeys modifiers, bool repeat = false)
     {
         if (key is Key.System or Key.ImeProcessed or Key.DeadCharProcessed) return false;
+        var region = FocusedRegion();
+        var inTree = _forums?.IsKeyboardFocusWithin == true;
+        var editing = Keyboard.FocusedElement is TextBoxBase;
         if (key == Key.Tab && (modifiers is ModifierKeys.None or ModifierKeys.Shift))
         {
-            Leave(restorePosition: true);
+            CancelHints(restore: true);
             StopScroll();
+            if (_forums is not null && !editing && (region is not null || inTree))
+            {
+                if (!repeat) CycleRegion(region, modifiers == ModifierKeys.Shift ? -1 : 1);
+                return true;
+            }
             foreach (var tabRegion in _regions) tabRegion.PrepareTabStops();
             return false;
         }
 
-        if (key == Key.F6 && (modifiers is ModifierKeys.None or ModifierKeys.Shift) && _regions.Length > 0)
+        if (modifiers != ModifierKeys.None || editing) return false;
+        if (key == Key.Escape)
         {
-            if (!repeat) CycleRegion(modifiers == ModifierKeys.Shift ? -1 : 1);
-            return true;
+            if (_hints is not null)
+            {
+                if (!repeat) CancelHints(restore: true);
+                return true;
+            }
+            if (_forums is null && region is not null)
+            {
+                if (!repeat) _window.Close();
+                return true;
+            }
+            return false;
         }
 
-        if (modifiers != ModifierKeys.None || Keyboard.FocusedElement is TextBoxBase) return false;
-        if (key == Key.Escape && (_choice is not null || _dialog))
-        {
-            if (repeat) return true;
-            if (_choice is not null) Leave(restorePosition: true);
-            else _window.Close();
-            return true;
-        }
-
-        var region = ReadingFocus();
+        if (inTree) return _forums!.HandleKey(key, repeat);
         if (region is null || _openPending) return false;
-        if (_choice is { } choice)
+        if (_hints is { } hints)
         {
-            if (choice.Labels.Length > 0 && (key is >= Key.A and <= Key.Z or Key.Back))
+            if (key is >= Key.A and <= Key.Z or Key.Back)
             {
-                if (!repeat) TypeHint(choice, key);
+                if (!repeat) TypeHint(hints, key);
                 return true;
             }
-
-            if (choice.Labels.Length == 0 && (key is Key.Up or Key.Down or Key.Enter))
-            {
-                if (key == Key.Enter)
-                {
-                    if (!repeat) Execute(choice);
-                }
-                else
-                {
-                    choice.Index = Math.Clamp(choice.Index + (key == Key.Up ? -1 : 1), 0, choice.Targets.Length - 1);
-                    PaintChoice();
-                }
-                return true;
-            }
-
-            if (key is Key.Up or Key.Down or Key.PageUp or Key.PageDown) Leave(restorePosition: true);
+            if (key == Key.Enter) return true;
+            if (key is Key.Up or Key.Down or Key.PageUp or Key.PageDown) CancelHints(restore: true);
         }
-        else if ((Scheme == Scheme.Letters && key == Key.F) || (Scheme == Scheme.Enter && key == Key.Enter))
+        else if (key == Key.F)
         {
-            if (!repeat) Choose(region);
+            if (!repeat) ShowHints(region);
             return true;
         }
 
         switch (key)
         {
             case Key.Up or Key.Down:
-                if (!repeat) region.Scroll.Press(key == Key.Up ? -1 : 1);
+                if (!repeat)
+                {
+                    region.View.Focus();
+                    region.Scroll.Press(key == Key.Up ? -1 : 1);
+                }
                 return true;
             case Key.PageUp or Key.PageDown:
-                if (!repeat) region.Scroll.Page(key == Key.PageUp ? -1 : 1);
+                if (!repeat)
+                {
+                    region.View.Focus();
+                    region.Scroll.Page(key == Key.PageUp ? -1 : 1);
+                }
+                return true;
+            case Key.Left or Key.Right:
                 return true;
             default:
                 return false;
         }
     }
 
-    private ReadingRegion? ReadingFocus() => _regions.FirstOrDefault(region => region.View.IsKeyboardFocused);
+    private ReadingRegion? FocusedRegion() => _regions.FirstOrDefault(region => region.Root.IsKeyboardFocusWithin);
 
-    private void CycleRegion(int step)
+    private void CycleRegion(ReadingRegion? region, int step)
     {
-        Leave(restorePosition: true);
-        StopScroll();
-        var index = Array.IndexOf(_regions, _lastRegion);
-        _regions[(index + step + _regions.Length) % _regions.Length].View.Focus();
+        // 树为第 0 栏，侧栏与两个物理滚动区域各自保留位置。
+        var count = _regions.Length + 1;
+        var index = Array.IndexOf(_regions, region) + 1;
+        var next = (index + step + count) % count;
+        if (next == 0) _forums!.FocusSelection();
+        else _regions[next - 1].View.Focus();
     }
 
-    private void Choose(ReadingRegion region)
+    private void ShowHints(ReadingRegion region)
     {
         region.Scroll.Stop();
-        region.View.UpdateLayout();
+        region.Root.UpdateLayout();
         var targets = region.VisibleTargets();
         if (targets.Length == 0)
         {
@@ -231,77 +198,54 @@ internal sealed class NavigationInput
             return;
         }
 
-        string[] labels = [];
-        if (Scheme == Scheme.Letters)
+        var width = 1;
+        for (long capacity = Alphabet.Length; capacity < targets.Length; capacity *= Alphabet.Length) width++;
+        var codes = new string[targets.Length];
+        for (var i = 0; i < codes.Length; i++)
         {
-            var width = 1;
-            for (long capacity = Alphabet.Length; capacity < targets.Length; capacity *= Alphabet.Length) width++;
-            labels = new string[targets.Length];
-            for (var i = 0; i < labels.Length; i++)
+            var number = i;
+            var digits = new char[width];
+            for (var digit = width - 1; digit >= 0; digit--)
             {
-                var number = i;
-                var digits = new char[width];
-                for (var digit = width - 1; digit >= 0; digit--)
-                {
-                    digits[digit] = Alphabet[number % Alphabet.Length];
-                    number /= Alphabet.Length;
-                }
-                labels[i] = new string(digits);
+                digits[digit] = Alphabet[number % Alphabet.Length];
+                number /= Alphabet.Length;
             }
+            codes[i] = new string(digits);
         }
-
-        _choice = new Choice(region, targets, region.View.VerticalOffset, labels);
-        PaintChoice();
+        var labels = region.PlaceHints(targets, codes);
+        if (labels.Length == 0) return;
+        _hints = new HintSession(region, labels, region.View.VerticalOffset);
+        region.DrawHints(labels, "");
     }
 
-    private void TypeHint(Choice choice, Key key)
+    private void TypeHint(HintSession hints, Key key)
     {
         if (key == Key.Back)
         {
-            if (choice.Prefix.Length > 0) choice.Prefix = choice.Prefix[..^1];
+            if (hints.Prefix.Length > 0) hints.Prefix = hints.Prefix[..^1];
         }
         else
         {
-            var prefix = choice.Prefix + (char)('A' + (key - Key.A));
-            var exact = Array.IndexOf(choice.Labels, prefix);
-            if (exact >= 0)
+            var prefix = hints.Prefix + (char)('A' + (key - Key.A));
+            if (hints.Labels.FirstOrDefault(label => label.Text == prefix) is { } match)
             {
-                choice.Index = exact;
-                Execute(choice);
+                var visible = hints.Region.VisibleTargets().Any(item => item.Target == match.Item.Target);
+                CancelHints(restore: true);
+                if (visible) match.Item.Target.Execute();
                 return;
             }
-            if (choice.Labels.Any(label => label.StartsWith(prefix, StringComparison.Ordinal))) choice.Prefix = prefix;
+            if (hints.Labels.Any(label => label.Text.StartsWith(prefix, StringComparison.Ordinal))) hints.Prefix = prefix;
         }
-        PaintChoice();
+        hints.Region.DrawHints(hints.Labels, hints.Prefix);
     }
 
-    private void Execute(Choice choice)
+    private void CancelHints(bool restore = false)
     {
-        Leave(restorePosition: false);
-        _choiceToRestore = choice.Labels.Length == 0 ? choice : null;
-        try { choice.Current.Target.Execute(); }
-        finally { _choiceToRestore = null; }
-    }
-
-    private void PaintChoice()
-    {
-        if (_choice is not { } choice) return;
-        if (choice.Labels.Length == 0) choice.Region.ShowSelection(choice.Current, choice.Index, choice.Targets.Length);
-        else choice.Region.ShowHints(choice.Targets, choice.Labels, choice.Prefix);
-    }
-
-    private void InvalidateChoice(ReadingRegion region)
-    {
-        if (_choice?.Region == region) Leave(restorePosition: false);
-    }
-
-    private void Leave(bool restorePosition)
-    {
-        if (_choice is not { } choice) return;
-        _choice = null;
-        choice.Region.ClearOverlay();
-        if (restorePosition && Math.Abs(choice.Region.View.VerticalOffset - choice.OriginalOffset) > .01)
-            choice.Region.View.ScrollToVerticalOffset(choice.OriginalOffset);
+        if (_hints is not { } hints) return;
+        _hints = null;
+        hints.Region.ClearOverlay();
+        if (restore && Math.Abs(hints.Region.View.VerticalOffset - hints.Offset) > .01)
+            hints.Region.View.ScrollToVerticalOffset(hints.Offset);
     }
 
     private void StopScroll()
@@ -312,7 +256,7 @@ internal sealed class NavigationInput
     private void Interrupt()
     {
         StopScroll();
-        Leave(restorePosition: false);
+        CancelHints();
     }
 
     private sealed class OwnerScrim(UIElement owner) : Adorner(owner)

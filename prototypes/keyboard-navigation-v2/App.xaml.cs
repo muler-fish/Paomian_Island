@@ -5,6 +5,16 @@ namespace Paomian.KeyboardPrototype;
 
 public partial class App : Application
 {
+    internal bool IsDark { get; private set; }
+
+    internal void SetTheme(bool dark)
+    {
+        if (IsDark == dark) return;
+        var dictionaries = Resources.MergedDictionaries;
+        dictionaries[0] = new ResourceDictionary { Source = new Uri($"Themes/{(dark ? "Dark" : "Light")}.xaml", UriKind.Relative) };
+        IsDark = dark;
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);

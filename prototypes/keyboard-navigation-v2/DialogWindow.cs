@@ -31,21 +31,64 @@ internal sealed class PreviewDialog : DialogWindow
     internal ReadingRegion Region { get; }
     internal NavigationInput Navigation { get; }
 
-    internal PreviewDialog(string title, Scheme scheme, DemoPost? post = null, string? text = null, ImageSource? image = null)
-        : this(title, scheme, post, text, image, new ReadingRegion("预览正文", "Surface", footer: true)) { }
+    internal PreviewDialog(string title, DemoPost? post = null, string? text = null, ImageSource? image = null)
+        : this(title, post, text, image, new ReadingRegion("预览正文", "Surface", footer: true)) { }
 
-    private PreviewDialog(string title, Scheme scheme, DemoPost? post, string? text, ImageSource? image, ReadingRegion region)
+    private PreviewDialog(string title, DemoPost? post, string? text, ImageSource? image, ReadingRegion region)
         : base(title, region.Root, region.View, post is not null && post.Paragraphs.Length > 2 ? 520 : 350)
     {
         Region = region;
-        Region.Heading.Text = scheme == Scheme.Letters ? "F 显示目标" : "Enter 选择目标";
-        Navigation = new NavigationInput(this, [Region], scheme, dialog: true);
+        Region.Heading.Text = "F 显示操作";
+        Navigation = new NavigationInput(this, [Region]);
         var body = new StackPanel { Margin = UiMetrics.DialogBodyMargin };
         if (post is not null) body.Children.Add(PostView.Build(Region, Navigation, post));
         if (text is not null) body.Children.Add(PostView.Paragraph(text));
         if (image is not null) body.Children.Add(new Image { Source = image, MaxWidth = 480, Stretch = Stretch.Uniform });
         Region.View.Content = body;
         Region.ToolbarButton("关闭", Close, bottom: true);
+    }
+}
+
+internal class FormDialog : DialogWindow
+{
+    internal FormDialog(string title, FrameworkElement content, IInputElement? initialFocus = null)
+        : this(title, content, initialFocus, new Button { Content = "完成" }) { }
+
+    private FormDialog(string title, FrameworkElement content, IInputElement? initialFocus, Button close)
+        : base(title, BuildContent(content, close), initialFocus ?? close, 290)
+    {
+        close.Click += (_, _) => Close();
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase ||
+                e.KeyboardDevice.Modifiers != ModifierKeys.None) return;
+            e.Handled = true;
+            if (!e.IsRepeat) Close();
+        };
+    }
+
+    private static Grid BuildContent(FrameworkElement content, Button close)
+    {
+        var layout = new Grid { Margin = new Thickness(UiMetrics.DialogInset) };
+        layout.RowDefinitions.Add(new());
+        layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        layout.Children.Add(new ScrollViewer { Content = content });
+        close.HorizontalAlignment = HorizontalAlignment.Right;
+        close.Margin = new Thickness(0, 12, 0, 0);
+        Grid.SetRow(close, 1);
+        layout.Children.Add(close);
+        return layout;
+    }
+}
+
+internal sealed class SettingsDialog : FormDialog
+{
+    internal SettingsDialog() : this(new CheckBox { Content = "深色模式", IsChecked = ((App)Application.Current).IsDark }) { }
+
+    private SettingsDialog(CheckBox dark) : base("设置", dark, dark)
+    {
+        dark.Checked += (_, _) => ((App)Application.Current).SetTheme(dark: true);
+        dark.Unchecked += (_, _) => ((App)Application.Current).SetTheme(dark: false);
     }
 }
 
@@ -81,6 +124,7 @@ internal sealed class ComposeDialog : DialogWindow
         body.RowDefinitions.Add(new());
         body.RowDefinitions.Add(new() { Height = GridLength.Auto });
         var label = new TextBlock { Text = "正文 · 模拟输入", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "Text");
         body.Children.Add(label);
         AutomationProperties.SetLabeledBy(editor, label);
         Grid.SetRow(editor, 1);

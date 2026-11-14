@@ -11,12 +11,10 @@ namespace Paomian.KeyboardPrototype;
 
 internal sealed class ReaderWindow : Window
 {
-    private readonly ReadingRegion _forums = new("版块导航", "Sidebar");
-    private readonly Dictionary<string, List<Button>> _forumRows = [];
+    private readonly StackPanel _headerControls = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+    private readonly RegionPane _forumPane = new("版块导航", "Sidebar");
     private readonly Dictionary<int, Button> _threadRows = [];
     private readonly StackPanel _threads = new();
-    private readonly Button _schemeButton = new();
-    private readonly TextBlock _instructions = new() { FontSize = 12 };
     private readonly TextBox _jumpBox = new() { Text = "710001", Width = 120, Height = UiMetrics.ControlHeight };
     private readonly ColumnDefinition _forumColumn = new() { MinWidth = 148, MaxWidth = 300 };
     private readonly ColumnDefinition _threadColumn = new() { MinWidth = 236 };
@@ -24,11 +22,13 @@ internal sealed class ReaderWindow : Window
     private DemoThread? _thread;
     private bool _laidOutColumns;
 
+    internal ForumTree Forums { get; } = new();
     internal ReadingRegion ThreadList { get; } = new("串列表", "ListSurface");
     internal ReadingRegion Reader { get; } = new("串阅读区", "Surface", footer: true);
     internal NavigationInput Navigation { get; }
     internal int? CurrentThread => _thread?.Number;
     internal TextBox JumpBox => _jumpBox;
+    internal bool ShowsForumFocus => _forumPane.ShowsFocus;
 
     internal ReaderWindow()
     {
@@ -40,12 +40,11 @@ internal sealed class ReaderWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         WindowPlacement.FitOnStartup(this);
 
-        Navigation = new NavigationInput(this, [_forums, ThreadList, Reader], Scheme.Letters);
+        Navigation = new NavigationInput(this, [ThreadList, Reader], Forums);
         BuildForums();
         BuildToolbars();
         SetForum("综合线", focusList: false);
         OpenThread(DemoContent.Threads[0]);
-        UpdateSchemeHeader();
 
         var root = new Grid();
         root.SetResourceReference(Panel.BackgroundProperty, "Canvas");
@@ -68,15 +67,26 @@ internal sealed class ReaderWindow : Window
             ThreadList.View.Focus();
         };
 
-        PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key != Key.F8 || e.KeyboardDevice.Modifiers != ModifierKeys.None) return;
-            e.Handled = true;
-            if (!e.IsRepeat) ToggleScheme();
-        };
         var jump = new RoutedCommand();
         InputBindings.Add(new KeyBinding(jump, Key.L, ModifierKeys.Control));
         CommandBindings.Add(new CommandBinding(jump, (_, _) => { _jumpBox.Focus(); _jumpBox.SelectAll(); }));
+        ReadingRegion? returnTo = null;
+        UIElement? previousBrowsingFocus = null;
+        _headerControls.GotKeyboardFocus += (_, e) =>
+        {
+            if (e.OldFocus is UIElement old && !old.IsDescendantOf(_headerControls) && Window.GetWindow(old) == this)
+            {
+                previousBrowsingFocus = old;
+                returnTo = old.IsDescendantOf(Reader.Root) ? Reader : ThreadList;
+            }
+        };
+        _headerControls.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape || e.KeyboardDevice.Modifiers != ModifierKeys.None) return;
+            e.Handled = true;
+            if (!e.IsRepeat && (previousBrowsingFocus is not { IsVisible: true, IsEnabled: true, Focusable: true } || !previousBrowsingFocus.Focus()))
+                (returnTo ?? ThreadList).View.Focus();
+        };
     }
 
     private UIElement BuildHeader()
@@ -88,18 +98,14 @@ internal sealed class ReaderWindow : Window
             Source = new BitmapImage(new Uri("pack://application:,,,/KeyboardNavigationV2;component/Assets/paomian.png")),
             Width = 22, Height = 22, Margin = new(0, 0, 9, 0)
         });
-        brand.Children.Add(new TextBlock { Text = "泡面岛", FontSize = 15, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        brand.Children.Add(new TextBlock { Text = "X 岛匿名版", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new(10, 0, 0, 0) });
+        var name = new TextBlock { Text = "泡面岛", FontSize = 15, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        name.SetResourceReference(TextBlock.ForegroundProperty, "Text");
+        brand.Children.Add(name);
+        brand.Children.Add(PostView.Muted("X 岛匿名版", new Thickness(10, 0, 0, 0)));
         DockPanel.SetDock(brand, Dock.Left);
         header.Children.Add(brand);
 
-        var controls = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        DockPanel.SetDock(controls, Dock.Right);
-        _schemeButton.ToolTip = "切换方案 · F8";
-        _schemeButton.Margin = new(0, 0, 12, 0);
-        _schemeButton.Click += (_, _) => ToggleScheme();
-        AutomationProperties.SetAcceleratorKey(_schemeButton, "F8");
-        controls.Children.Add(_schemeButton);
+        DockPanel.SetDock(_headerControls, Dock.Right);
 
         AutomationProperties.SetName(_jumpBox, "串号");
         _jumpBox.ToolTip = "输入串号 · Ctrl+L";
@@ -109,18 +115,16 @@ internal sealed class ReaderWindow : Window
             Jump();
             e.Handled = true;
         };
-        controls.Children.Add(_jumpBox);
+        _headerControls.Children.Add(_jumpBox);
         var jump = PlainButton("跳转", Jump);
         jump.Margin = new(5, 0, 0, 0);
-        controls.Children.Add(jump);
-        header.Children.Add(controls);
+        _headerControls.Children.Add(jump);
+        header.Children.Add(_headerControls);
 
-        _instructions.VerticalAlignment = VerticalAlignment.Center;
-        _instructions.HorizontalAlignment = HorizontalAlignment.Center;
-        _instructions.TextTrimming = TextTrimming.CharacterEllipsis;
-        _instructions.Margin = new(8, 0, 8, 0);
-        _instructions.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        header.Children.Add(_instructions);
+        var instructions = PostView.Muted("Tab 切栏 · ↑ ↓ 浏览 · F 显示操作", new Thickness(8, 0, 8, 0));
+        instructions.HorizontalAlignment = HorizontalAlignment.Center;
+        instructions.TextTrimming = TextTrimming.CharacterEllipsis;
+        header.Children.Add(instructions);
         var border = new Border { Child = header, BorderThickness = new(0, 0, 0, 1) };
         border.SetResourceReference(Border.BorderBrushProperty, "Line");
         return border;
@@ -129,12 +133,15 @@ internal sealed class ReaderWindow : Window
     private Grid BuildColumns()
     {
         var columns = new Grid();
+        KeyboardNavigation.SetDirectionalNavigation(columns, KeyboardNavigationMode.None);
         columns.ColumnDefinitions.Add(_forumColumn);
         columns.ColumnDefinitions.Add(new() { Width = new GridLength(1) });
         columns.ColumnDefinitions.Add(_threadColumn);
         columns.ColumnDefinitions.Add(new() { Width = new GridLength(1) });
         columns.ColumnDefinitions.Add(new() { MinWidth = 280 });
-        columns.Children.Add(_forums.Root);
+        _forumPane.Root.Children.Add(Forums);
+        Grid.SetRow(Forums, 1);
+        columns.Children.Add(_forumPane.Root);
         Grid.SetColumn(ThreadList.Root, 2);
         columns.Children.Add(ThreadList.Root);
         Grid.SetColumn(Reader.Root, 4);
@@ -153,8 +160,10 @@ internal sealed class ReaderWindow : Window
             {
                 Width = 9, Margin = new Thickness(-4, 0, -4, 0), HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Stretch, ResizeBehavior = GridResizeBehavior.PreviousAndNext,
-                Background = Brushes.Transparent
+                Background = Brushes.Transparent, Focusable = false, IsTabStop = false
             };
+            KeyboardNavigation.SetTabNavigation(splitter, KeyboardNavigationMode.None);
+            KeyboardNavigation.SetDirectionalNavigation(splitter, KeyboardNavigationMode.None);
             AutomationProperties.SetName(splitter, name);
             Grid.SetColumn(splitter, column);
             Panel.SetZIndex(splitter, 2);
@@ -164,66 +173,70 @@ internal sealed class ReaderWindow : Window
 
     private void BuildForums()
     {
-        var menu = new StackPanel { Margin = new Thickness(10, 8, 10, 12) };
-        menu.Children.Add(ForumRow("综合线"));
-        menu.Children.Add(PostView.Muted("收藏版块", new Thickness(8, 14, 0, 4)));
-        menu.Children.Add(ForumRow("日常"));
-        var (allButton, all) = Group(menu, "全部版块", expanded: true);
-        allButton.Margin = new Thickness(0, 12, 0, 0);
-        var (_, chat) = Group(all, "综合讨论", expanded: true);
-        chat.Children.Add(ForumRow("日常"));
-        chat.Children.Add(ForumRow("读书"));
-        var (_, interests) = Group(all, "兴趣交流", expanded: true);
-        interests.Children.Add(ForumRow("摄影"));
-        interests.Children.Add(ForumRow("数码"));
-        _forums.View.Content = menu;
-
-        (Button Toggle, StackPanel Items) Group(Panel parent, string name, bool expanded)
-        {
-            var items = new StackPanel { Margin = new Thickness(12, 0, 0, 2), Visibility = expanded ? Visibility.Visible : Visibility.Collapsed };
-            Button toggle = null!;
-            toggle = _forums.ActionButton(name, () =>
-            {
-                items.Visibility = items.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
-                UpdateToggle();
-            }, "RowButton");
-            void UpdateToggle()
-            {
-                var isOpen = items.Visibility == Visibility.Visible;
-                toggle.Content = (isOpen ? "▾  " : "▸  ") + name;
-                AutomationProperties.SetName(toggle, (isOpen ? "收起" : "展开") + name);
-            }
-            UpdateToggle();
-            parent.Children.Add(toggle);
-            parent.Children.Add(items);
-            return (toggle, items);
-        }
-
-        Button ForumRow(string name)
-        {
-            var button = _forums.ActionButton(name, () => SetForum(name), "RowButton");
-            if (!_forumRows.TryGetValue(name, out var rows)) _forumRows[name] = rows = [];
-            rows.Add(button);
-            return button;
-        }
+        var home = Forums.AddItem(Forums, "综合线", () => SetForum("综合线"));
+        var favorites = Forums.AddItem(Forums, "收藏版块", expanded: true);
+        Forums.AddItem(favorites, "日常", () => SetForum("日常"));
+        var all = Forums.AddItem(Forums, "全部版块", expanded: true);
+        var chat = Forums.AddItem(all, "综合讨论", expanded: true);
+        Forums.AddItem(chat, "日常", () => SetForum("日常"));
+        Forums.AddItem(chat, "读书", () => SetForum("读书"));
+        var interests = Forums.AddItem(all, "兴趣交流", expanded: true);
+        Forums.AddItem(interests, "摄影", () => SetForum("摄影"));
+        Forums.AddItem(interests, "数码", () => SetForum("数码"));
+        Forums.AddItem(Forums, "设置", () => Navigation.ShowModal(new SettingsDialog()));
+        Forums.AddItem(Forums, "饼干管理", () => Navigation.ShowModal(new FormDialog("饼干管理", PostView.Paragraph("暂无模拟饼干。"))));
+        Forums.AddItem(Forums, "草稿箱", () => Navigation.ShowModal(new FormDialog("草稿箱", PostView.Paragraph("暂无模拟草稿。"))));
+        home.IsSelected = true;
     }
 
     private void BuildToolbars()
     {
         ThreadList.View.Content = _threads;
-        ThreadList.ToolbarButton("版规", () => Navigation.ShowModal(new PreviewDialog("版规", Navigation.Scheme,
+        ThreadList.ToolbarButton("刷新", () =>
+        {
+            var offset = ThreadList.View.VerticalOffset;
+            LoadForum(_forum);
+            ThreadList.View.ScrollToVerticalOffset(offset);
+            ThreadList.Feedback("列表已刷新");
+        });
+        ThreadList.ToolbarButton("版规", () => Navigation.ShowModal(new PreviewDialog("版规",
             text: "实验数据中的版块规则：发言请留在对应版块。这里可以试用 Tab 和 Esc，再返回列表原位置。")));
         ThreadList.ToolbarButton("发串", () => Navigation.ShowModal(new ComposeDialog("发串")), primary: true);
         Reader.ToolbarButton("回应", () => Navigation.ShowModal(new ComposeDialog("回应")), primary: true);
-        Reader.ToolbarButton("回到顶部", () => Reader.View.ScrollToTop(), bottom: true);
-        Reader.ToolbarButton("向下翻页", () => Reader.Scroll.Page(1), bottom: true);
+        var top = Reader.ToolbarButton("回到顶部", () =>
+        {
+            Reader.View.Focus();
+            Reader.View.ScrollToTop();
+        }, bottom: true);
+        var next = Reader.ToolbarButton("向下翻页", () =>
+        {
+            Reader.View.Focus();
+            Reader.Scroll.Page(1);
+        }, bottom: true);
+        void UpdatePaging()
+        {
+            top.IsEnabled = Reader.View.VerticalOffset > .01;
+            next.IsEnabled = Reader.View.VerticalOffset < Reader.View.ScrollableHeight - .01;
+        }
+        Reader.View.ScrollChanged += (_, _) => UpdatePaging();
+        UpdatePaging();
     }
 
     private void SetForum(string forum, bool focusList = true)
     {
+        if (_threads.Children.Count > 0 && _forum == forum)
+        {
+            if (focusList) ThreadList.View.Focus();
+            return;
+        }
+        LoadForum(forum);
+        ThreadList.View.ScrollToTop();
+        if (focusList) ThreadList.View.Focus();
+    }
+
+    private void LoadForum(string forum)
+    {
         _forum = forum;
-        foreach (var (name, buttons) in _forumRows)
-            foreach (var button in buttons) button.Tag = name == forum ? "Current" : null;
         _threads.Children.Clear();
         _threadRows.Clear();
         ThreadList.ClearScrollTargets();
@@ -243,8 +256,6 @@ internal sealed class ReaderWindow : Window
             row.SetResourceReference(Border.BorderBrushProperty, "Hairline");
             _threads.Children.Add(row);
         }
-        ThreadList.View.ScrollToTop();
-        if (focusList) ThreadList.View.Focus();
     }
 
     private void OpenThread(DemoThread thread, bool focusReader = false)
@@ -257,11 +268,13 @@ internal sealed class ReaderWindow : Window
             Reader.Heading.Text = $"No.{thread.Number}";
             Reader.ClearScrollTargets();
             var posts = new StackPanel { Margin = new Thickness(20, 16, 20, 20), MaxWidth = UiMetrics.ReadingWidth };
-            posts.Children.Add(new TextBlock
+            var title = new TextBlock
             {
                 Text = thread.Title, FontSize = 20, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 14),
                 TextWrapping = TextWrapping.Wrap
-            });
+            };
+            title.SetResourceReference(TextBlock.ForegroundProperty, "Text");
+            posts.Children.Add(title);
             foreach (var post in thread.Posts)
                 posts.Children.Add(PostView.Build(Reader, Navigation, post, mainPost: post.Number == thread.Number));
             Reader.View.Content = posts;
@@ -279,24 +292,11 @@ internal sealed class ReaderWindow : Window
             : null;
         if (thread is null)
         {
-            Navigation.ShowModal(new PreviewDialog("跳转到串", Navigation.Scheme, text: "请输入模拟数据中的串号，例如 710001。"));
+            Navigation.ShowModal(new PreviewDialog("跳转到串", text: "请输入模拟数据中的串号，例如 710001。"));
             return;
         }
         if (_forum != "综合线" && _forum != thread.Forum) SetForum("综合线", focusList: false);
         OpenThread(thread, focusReader: true);
-    }
-
-    private void ToggleScheme()
-    {
-        Navigation.SetScheme(Navigation.Scheme == Scheme.Letters ? Scheme.Enter : Scheme.Letters);
-        UpdateSchemeHeader();
-    }
-
-    private void UpdateSchemeHeader()
-    {
-        var letters = Navigation.Scheme == Scheme.Letters;
-        _schemeButton.Content = (letters ? "A · 字母提示" : "B · Enter 选择") + "  F8";
-        _instructions.Text = letters ? "F6 切栏 · F 显示目标 · Tab 访问控件" : "F6 切栏 · Enter 选择 · Tab 访问控件";
     }
 
     private static Button PlainButton(string name, Action action)

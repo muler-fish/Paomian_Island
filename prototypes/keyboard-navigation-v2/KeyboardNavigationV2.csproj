@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Page Include="../../src/Tide.Desktop/Themes/Light.xaml" Link="Themes/Light.xaml" />
+    <Page Include="../../src/Tide.Desktop/Themes/Dark.xaml" Link="Themes/Dark.xaml" />
     <Compile Include="../../src/Tide.Desktop/UiMetrics.cs" Link="UiMetrics.cs" />
     <Compile Include="../../src/Tide.Desktop/WindowPlacement.cs" Link="WindowPlacement.cs" />
     <Resource Include="../../src/Tide.Desktop/Assets/paomian.png" Link="Assets/paomian.png" />

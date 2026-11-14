@@ -25,11 +25,11 @@ internal static class PostView
             content.Children.Add(Paragraph(post.Paragraphs[i]));
             if (i + 1 == post.InsertActionsAfter && post.Actions.Length != 0)
             {
-                var actions = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
+                var actions = new WrapPanel { Margin = new Thickness(0, 9, 0, 6) };
                 foreach (var action in post.Actions)
                 {
                     var button = region.ActionButton(action.Name, () => Open(navigation, action), "InlineAction");
-                    button.Margin = new Thickness(0, 0, 6, 8);
+                    button.Margin = new Thickness(0, 0, 6, 14);
                     button.VerticalAlignment = VerticalAlignment.Top;
                     if (action.Kind == ActionKind.Image)
                     {
@@ -72,12 +72,11 @@ internal static class PostView
 
     private static void Open(NavigationInput navigation, PostAction action)
     {
-        var scheme = navigation.Scheme;
         navigation.ShowModal(action.Kind switch
         {
-            ActionKind.Quote => new PreviewDialog($"引用 · No.{action.Reference}", scheme, post: DemoContent.Quote(action.Reference)),
-            ActionKind.Link => new PreviewDialog(action.Name, scheme, text: "这是模拟链接。可以用 Esc 回到原楼层。"),
-            _ => new PreviewDialog(action.Name, scheme, image: Map(action.Reference != 0))
+            ActionKind.Quote => new PreviewDialog($"引用 · No.{action.Reference}", post: DemoContent.Quote(action.Reference)),
+            ActionKind.Link => new PreviewDialog(action.Name, text: "这是模拟链接。可以用 Esc 回到原楼层。"),
+            _ => new PreviewDialog(action.Name, image: Map(action.Reference != 0))
         });
     }
 
