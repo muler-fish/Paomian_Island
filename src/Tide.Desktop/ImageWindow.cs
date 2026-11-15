@@ -243,6 +243,7 @@ public sealed class ImageWindow : ChildWindow
         {
             if (generation != _generation || _closed) return;
             ShowImageError(ex);
+            if (_bytes is null) await ShowCachedThumbnailAsync(post, generation, token);
         }
     }
 
@@ -251,6 +252,22 @@ public sealed class ImageWindow : ChildWindow
         _feedback.Children.Clear(); _message.Text = _bytes is null ? ImageService.ErrorMessage(error) : "无法预览，可保存原图";
         _feedback.Children.Add(_message); _feedback.Children.Add(_retry); _feedback.Visibility = Visibility.Visible;
         foreach (var button in _zoomButtons) button.IsEnabled = false;
+    }
+
+    private async Task ShowCachedThumbnailAsync(Post post, int generation, CancellationToken token)
+    {
+        try
+        {
+            var thumbnail = await ImageService.ReadCachedThumbnailAsync(post, token);
+            if (thumbnail is null || generation != _generation || _closed || token.IsCancellationRequested) return;
+            _message.Text += "，显示缩略图";
+            _feedback.Children.Insert(1, new Image
+            {
+                Source = thumbnail, MaxWidth = 260, MaxHeight = 180, Stretch = Stretch.Uniform,
+                Margin = new(0, 10, 0, 10), IsHitTestVisible = false
+            });
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
     }
 
     private void Remember(string url, byte[] bytes)

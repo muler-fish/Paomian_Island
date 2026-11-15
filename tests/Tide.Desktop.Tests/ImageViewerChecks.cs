@@ -51,6 +51,9 @@ internal static class ImageViewerChecks
         var first = new TaskCompletionSource<byte[]>(); var closing = new TaskCompletionSource<byte[]>();
         var calls = new Dictionary<string, int>(); bool closeCanceled = false;
         var posts = Enumerable.Range(301, 5).Select(id => new Post { Id = id, ImagePath = $"fixture/{id}", Extension = ".png" }).ToArray();
+        var thumbnailKey = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(posts[2].ImageUrl(thumbnail: true)!)));
+        ImageService.DiskCache!.Write($"images/{thumbnailKey}.bin", bytes);
         Task<byte[]> Download(string url, CancellationToken token)
         {
             calls[url] = calls.GetValueOrDefault(url) + 1; var n = calls[url];
@@ -99,8 +102,10 @@ internal static class ImageViewerChecks
         PressKey(viewer, Key.R); PressKey(viewer, Key.R); PressKey(viewer, Key.R);
         Require(image.RenderTransform.Value.M11 > 0 && image.RenderTransform.Value.M12 == 0, "四次旋转未恢复");
         Require(!Buttons(viewer).Any(b => Equals(b.Tag, "更多")), "仍保留更多按钮");
-        PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "图片加载失败（HTTP 502）"));
-        Require(!Buttons(viewer).Single(b => Equals(b.Tag, "保存原图")).IsEnabled, "失败时还能保存旧图");
+        PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "图片加载失败（HTTP 502），显示缩略图"));
+        Require(Children<Image>(viewer).Any(i => i.IsVisible && i.Parent is StackPanel && i.Source is BitmapSource { PixelWidth: 700 }),
+            "原图下载失败时没有显示已缓存的缩略图");
+        Require(Image(viewer).Source is null && !Buttons(viewer).Single(b => Equals(b.Tag, "保存原图")).IsEnabled, "失败时还能保存旧图或缩略图");
         capture(viewer, Path.Combine(output, "image-failure.png"));
         Click(viewer, "重试"); await Wait(() => Image(viewer).Source is not null);
         PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "无法预览，可保存原图"));
@@ -112,7 +117,7 @@ internal static class ImageViewerChecks
         PressKey(viewer, Key.Escape); closing.SetResult(bytes); await Pause();
         Require(!viewer.IsVisible && closeCanceled, "关闭窗口没有取消请求");
         App.ApplyTheme("light");
-        await CheckThumbnails(owner, bytes, output, capture);
+        await CheckThumbnails(bytes, output, capture);
         await CheckPaging(owner, bytes, output, capture);
         await CheckModelCursor(output);
         File.WriteAllText(Path.Combine(output, "image-results.json"), JsonSerializer.Serialize(new { Loading = true, StaleResponse = true, Cache = true, RetryDownloadAndDecode = true, ZoomAndPan = true, NarrowThemes = true, CloseCancellation = true, ThumbnailRecycling = true, NoImageMode = true, TailPagination = true, ReaderAndIdentityIsolation = true }));
@@ -184,12 +189,12 @@ internal static class ImageViewerChecks
         Require(canceled, "关闭看图窗口没有取消续页");
         Console.WriteLine("PASS: tail auto paging, empty-page scanning, serial requests, retry same page, navigation intent, deduplication, end stop, bounded scan, reader isolation and close cancellation.");
     }
-    private static async Task CheckThumbnails(Window owner, byte[] bytes, string output, Action<Window, string> capture)
+    private static async Task CheckThumbnails(byte[] bytes, string output, Action<Window, string> capture)
     {
         var bitmap = ImageService.Decode(bytes, 100); var gate = new TaskCompletionSource<BitmapSource>(); var calls = 0;
         var post = new Post { Id = 801, ImagePath = "fixture/thumb", Extension = ".png" };
         var thumb = new PostImage((_, _) => { calls++; return calls == 1 ? gate.Task : Task.FromResult(bitmap); }) { Post = post, PreviewHeight = 72, PreviewMaxWidth = 72 };
-        var host = new ThumbnailWindow(thumb) { Owner = owner, ShowInTaskbar = false }; host.Show(); await Pause();
+        var host = new ThumbnailWindow(thumb) { ShowInTaskbar = false }; host.Show(); await Pause();
         Require(Children<ProgressBar>(thumb).Any(p => p.IsVisible), "缩略图加载反馈未显示");
         capture(host, Path.Combine(output, "thumbnail-loading.png"));
         thumb.Post = post with { Id = 802, ImagePath = "fixture/next" }; await Pause(); gate.SetResult(bitmap); await Pause();
@@ -198,6 +203,12 @@ internal static class ImageViewerChecks
         var retry = new PostImage((_, _) => ++failedCalls == 1 ? Task.FromException<BitmapSource>(new TimeoutException()) : Task.FromResult(bitmap)) { Post = post };
         host.Set(retry); await Pause();
         Require(Buttons(host).Any(b => Equals(b.Content, "重试") && Equals(b.ToolTip, "图片加载超时，点击重试")), "缩略图超时未显示原因和重试入口");
+        var opened = false;
+        void Open(PostImage source, Post selected) => opened = ReferenceEquals(source, retry) && selected.Id == post.Id;
+        PostImage.ImageClicked += Open;
+        try { Click(host, "查看原图"); }
+        finally { PostImage.ImageClicked -= Open; }
+        Require(opened && failedCalls == 1, "缩略图失败后没有直接打开对应原图的入口");
         Click(host, "重试"); await Pause();
         Require(failedCalls == 2 && Children<Image>(retry).Any(), "缩略图失败不能重试");
         var noImageCalls = 0; var manual = new PostImage((_, _) => { noImageCalls++; return Task.FromResult(bitmap); }) { Post = post, ShowImages = false };

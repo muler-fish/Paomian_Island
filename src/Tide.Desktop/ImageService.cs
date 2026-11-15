@@ -26,6 +26,7 @@ public static class ImageService
     }
     private static string ImageKey(string url) => "images/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url))) + ".bin";
     private static readonly SemaphoreSlim Slots = new(4);
+    private const int PreviewDecodeWidth = 700;
     internal static TimeSpan ScrollSettleDelay { get; set; } = TimeSpan.FromMilliseconds(120);
     // 已解码的缩略图缓存在内存，当前调用方在 WPF 界面线程上访问此字典。
     private static readonly Dictionary<string, LoadedImage> Cache = [];
@@ -74,38 +75,58 @@ public static class ImageService
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
             deadline.CancelAfter(http.Timeout);
             var token = deadline.Token;
-            using var response = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, token);
-            response.EnsureSuccessStatusCode();
-            var mime = response.Content.Headers.ContentType?.MediaType;
-            if (string.Equals(mime, "text/html", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(mime, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(mime, "application/json", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("收到的响应不是图片");
-            const int limit = 20 * 1024 * 1024;
-            // 同时检查响应声明和实际读取量，避免缺少 Content-Length 时绕过大小限制。
-            if (response.Content.Headers.ContentLength > limit) throw new InvalidDataException("图片超过 20 MB，请在网页中查看。");
-            using var input = await response.Content.ReadAsStreamAsync(token);
-            using var output = new MemoryStream();
-            var buffer = new byte[65536]; int count;
-            while ((count = await input.ReadAsync(buffer, token)) > 0)
+            try { return await ReadResponseAsync(http, uri, token); }
+            catch (Exception ex) when (IsInterrupted(ex))
             {
-                if (output.Length + count > limit) throw new InvalidDataException("图片过大。");
-                output.Write(buffer, 0, count);
+                // 断流只重取一次，两次请求共用原下载时限。
+                await Task.Delay(150, token);
+                return await ReadResponseAsync(http, uri, token);
             }
-            token.ThrowIfCancellationRequested();
-            if (output.Length == 0) throw new InvalidDataException("收到空的图片响应");
-            return output.ToArray();
         }
         catch (OperationCanceledException ex) when (!ct.IsCancellationRequested) { throw new TimeoutException("图片加载超时", ex); }
         finally { Slots.Release(); }
     }
+
+    private static async Task<byte[]> ReadResponseAsync(HttpClient http, Uri uri, CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri)
+        {
+            Version = HttpVersion.Version20, VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+        };
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+        response.EnsureSuccessStatusCode();
+        var mime = response.Content.Headers.ContentType?.MediaType;
+        if (string.Equals(mime, "text/html", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(mime, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(mime, "application/json", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("收到的响应不是图片");
+        const int limit = 20 * 1024 * 1024;
+        // 同时检查响应声明和实际读取量，避免缺少 Content-Length 时绕过大小限制。
+        if (response.Content.Headers.ContentLength > limit) throw new InvalidDataException("图片超过 20 MB，请在网页中查看。");
+        using var input = await response.Content.ReadAsStreamAsync(token);
+        using var output = new MemoryStream();
+        var buffer = new byte[65536]; int count;
+        while ((count = await input.ReadAsync(buffer, token)) > 0)
+        {
+            if (output.Length + count > limit) throw new InvalidDataException("图片过大。");
+            output.Write(buffer, 0, count);
+        }
+        token.ThrowIfCancellationRequested();
+        if (output.Length == 0) throw new InvalidDataException("收到空的图片响应");
+        return output.ToArray();
+    }
+
+    private static bool IsInterrupted(Exception error) => error is
+        HttpRequestException { HttpRequestError: HttpRequestError.ResponseEnded or HttpRequestError.HttpProtocolError } or
+        HttpIOException { HttpRequestError: HttpRequestError.ResponseEnded or HttpRequestError.HttpProtocolError };
+
     internal static async Task<LoadedImage> LoadPreviewAsync(string url, CancellationToken ct)
     {
         if (Cache.TryGetValue(url, out var cached)) return cached;
         // 内存里没有时稍等片刻再请求：快速滚过的条目在这段时间内被回收、取消，不会发出下载。
         await Task.Delay(ScrollSettleDelay, ct);
         // 列表缩略图限制解码宽度并最多保留 80 项，减少长期阅读时的内存占用。
-        var loaded = await LoadAsync(Http, DiskCache, url, 700, ct);
+        var loaded = await LoadAsync(Http, DiskCache, url, PreviewDecodeWidth, ct);
         var image = loaded.Image ?? throw new InvalidDataException("无法解码图片");
         ct.ThrowIfCancellationRequested();
         Cache[url] = image;
@@ -113,10 +134,20 @@ public static class ImageService
         return image;
     }
 
+    internal static async Task<BitmapSource?> ReadCachedThumbnailAsync(Post post, CancellationToken ct)
+    {
+        if (post.ImageUrl(thumbnail: true) is not { } url) return null;
+        if (Cache.TryGetValue(url, out var cached)) return cached.Poster;
+        var cache = DiskCache;
+        if (cache is null || await Task.Run(() => cache.Read(ImageKey(url)), ct) is not { } bytes) return null;
+        return (await DecodeAsync(bytes, PreviewDecodeWidth, ct)).Image?.Poster;
+    }
+
     internal static string ErrorMessage(Exception? error) => error switch
     {
         TimeoutException => "图片加载超时",
         HttpRequestException { StatusCode: HttpStatusCode status } => $"图片加载失败（HTTP {(int)status}）",
+        { } interrupted when IsInterrupted(interrupted) => "图片传输中断",
         InvalidDataException => error.Message.TrimEnd('。'),
         _ => "图片加载失败"
     };
@@ -189,17 +220,20 @@ public sealed class PostImage : ContentControl
         System.Windows.Automation.AutomationProperties.SetName(button, $"查看 {post.Number} 的图片");
         Content = button;
         // 点击加载模式：第一次点击在原处加载缩略图，之后再点击打开看图窗口加载原图。
-        var failed = false;
         void Fail(string message)
         {
-            if (version != _version) return;
-            failed = true; button.Content = "重试"; button.ToolTip = $"{message}，点击重试";
-            System.Windows.Automation.AutomationProperties.SetName(button, $"重新加载 {post.Number} 的图片");
+            if (version != _version || Content != button) return;
+            var retry = new Button { Content = "重试", ToolTip = $"{message}，点击重试", VerticalAlignment = VerticalAlignment.Center };
+            System.Windows.Automation.AutomationProperties.SetName(retry, $"重新加载 {post.Number} 的图片");
+            retry.Click += (_, _) => { ImageService.Forget(url); Update(); };
+            var original = new Button { Content = "查看原图", Margin = new(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            System.Windows.Automation.AutomationProperties.SetName(original, $"查看 {post.Number} 的原图");
+            original.Click += (_, _) => ImageClicked?.Invoke(this, post);
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Height = PreviewHeight, Children = { retry, original } };
         }
         button.Click += (_, _) =>
         {
-            if (failed) { ImageService.Forget(url); Update(); }
-            else if (!show) { _requested = url; Update(); }
+            if (!show) { _requested = url; Update(); }
             else ImageClicked?.Invoke(this, post);
         };
         if (!show) return;
