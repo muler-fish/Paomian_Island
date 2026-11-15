@@ -356,7 +356,7 @@
         <Grid Visibility="{Binding HasNoThread, Converter={StaticResource Visible}}" Margin="28">
           <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             <TextBlock Text="选择一个串开始阅读" FontSize="20" FontWeight="SemiBold"/>
-            <Button Content="全岛版规 ↗" Tag="50000001" Click="QuickThread_Click" HorizontalAlignment="Left" Margin="0,16,0,0"/>
+            <Button Content="全岛版规 ↗" Tag="50000001" Click="QuickThread_Click" HorizontalAlignment="Center" Margin="0,16,0,0"/>
           </StackPanel>
         </Grid>
         <!-- 放在 HasThread 容器外：第一次打开串也能看到，不吞掉底层控件点击。 -->

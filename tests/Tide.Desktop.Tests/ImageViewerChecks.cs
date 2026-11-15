@@ -138,7 +138,10 @@ internal static class ImageViewerChecks
         PressKey(viewer, Key.Right); await Wait(() => calls.Count == 1);
         await Wait(() => Image(viewer).Source is not null);
         var retained = Image(viewer).Source;
-        Require(Text(viewer, "正在加载下一页图片"), "末图自动续页没有状态");
+        var loading = Children<TextBlock>(viewer).Single(t => t.IsVisible && t.Text == "正在加载下一页图片");
+        var canvas = (Canvas)Image(viewer).Parent;
+        var loadingCenter = loading.TranslatePoint(new Point(loading.ActualWidth / 2, 0), canvas).X;
+        Require(Math.Abs(loadingCenter - canvas.ActualWidth / 2) <= 1, "看图续页提示未在视口居中");
         if (checkNoticeLifetime) { await Task.Delay(2600); Require(Text(viewer, "正在加载下一页图片"), "续页加载提示被末图计时提前隐藏"); }
         for (var i = 0; i < 5; i++) PressKey(viewer, Key.Right);
         Require(calls.Count == 1 && Image(viewer).Source == retained, "连点并发请求或清空当前图");

@@ -24,7 +24,13 @@ internal static class ReaderControlsChecks
         var window = new MainWindow(vm) { Owner = owner, ShowInTaskbar = false, Width = 1460, Height = 780 };
         try
         {
-            window.Show(); await vm.OpenThreadAsync(101); await vm.LoadSubscriptionsAsync(); await Layout(window);
+            window.Show(); await Layout(window);
+            var readerPane = (Grid)window.FindName("ReaderPane");
+            var rules = UiRefinementChecks.Descendants<Button>(readerPane).Single(b => b.IsVisible && Equals(b.Content, "全岛版规 ↗"));
+            var rulesCenter = rules.TranslatePoint(new Point(rules.ActualWidth / 2, 0), readerPane).X;
+            Require(Math.Abs(rulesCenter - readerPane.ActualWidth / 2) <= 1, "全岛版规按钮未在空阅读栏居中。");
+            capture(window, Path.Combine(output, "reader-empty.png"));
+            await vm.OpenThreadAsync(101); await vm.LoadSubscriptionsAsync(); await Layout(window);
             var reader = (ListBox)window.FindName("ReaderList");
             var po = (ToggleButton)window.FindName("OnlyPoButton");
             var star = (Button)window.FindName("ThreadSubscriptionButton");

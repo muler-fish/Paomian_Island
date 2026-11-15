@@ -22,7 +22,8 @@ public sealed class ImageWindow : ChildWindow
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Border _pageNotice = new() { CornerRadius = new(6), Padding = new(12, 6, 12, 6), Margin = new(40, 0, 40, 14),
         HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Visibility = Visibility.Collapsed };
-    private readonly TextBlock _pageText = new() { Text = "已到最后一张", MaxWidth = 300, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _pageText = new() { Text = "已到最后一张", MaxWidth = 300, TextWrapping = TextWrapping.Wrap,
+        TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly ProgressBar _pageProgress = new() { Height = 3, Margin = new(0, 0, 0, 6), Value = 50, Visibility = Visibility.Collapsed };
     private readonly Button _pageRetry;
     private readonly DispatcherTimer _endNoticeTimer = new() { Interval = TimeSpan.FromSeconds(2) };
@@ -88,7 +89,7 @@ public sealed class ImageWindow : ChildWindow
         var pageBody = new StackPanel();
         _pageProgress.IsIndeterminate = SystemParameters.ClientAreaAnimation;
         _pageProgress.SetResourceReference(Control.ForegroundProperty, "Accent"); pageBody.Children.Add(_pageProgress);
-        var pageRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var pageRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         pageRow.Children.Add(_pageText);
         _pageRetry = ActionButton("重试", "重试加载下一页图片", () => _ = LoadMoreImagesAsync(false));
         _pageRetry.Tag = "续页重试"; _pageRetry.Width = 76; _pageRetry.Margin = new(8, 0, 0, 0);
