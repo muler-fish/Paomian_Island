@@ -5,7 +5,7 @@ public sealed partial class MainViewModel
     internal AppShortcuts Shortcuts { get; }
     public string JumpPlaceholder => Shortcuts.Hint("串号或链接", ShortcutId.Jump);
     public string RefreshListHint => Shortcuts.Hint("刷新列表", ShortcutId.RefreshList);
-    public string RefreshThreadHint => Shortcuts.Hint("刷新正文", ShortcutId.RefreshThread);
+    public string RefreshThreadHint => Shortcuts.Hint(Shortcuts.Hint("刷新正文", ShortcutId.RefreshThread), ShortcutId.RefreshList);
     public string SubscriptionShortcutHint => Shortcuts.Hint(SubscriptionLabel, ShortcutId.Subscription);
     public string BackShortcut => Shortcuts.Label(ShortcutId.Back);
     public string ForwardShortcut => Shortcuts.Label(ShortcutId.Forward);

@@ -55,7 +55,7 @@ internal static class ImageViewerChecks
         {
             calls[url] = calls.GetValueOrDefault(url) + 1; var n = calls[url];
             if (url == posts[0].ImageUrl() && n == 1) return first.Task; // 故意忽略取消，模拟已经完成的慢请求。
-            if (url == posts[2].ImageUrl() && n == 1) return Task.FromException<byte[]>(new IOException("fixture failure"));
+            if (url == posts[2].ImageUrl() && n == 1) return Task.FromException<byte[]>(new HttpRequestException("fixture failure", null, HttpStatusCode.BadGateway));
             if (url == posts[3].ImageUrl() && n == 1) return Task.FromResult(new byte[] { 1, 2, 3 });
             if (url == posts[4].ImageUrl()) { token.Register(() => closeCanceled = true); return closing.Task; }
             return Task.FromResult(bytes);
@@ -99,7 +99,7 @@ internal static class ImageViewerChecks
         PressKey(viewer, Key.R); PressKey(viewer, Key.R); PressKey(viewer, Key.R);
         Require(image.RenderTransform.Value.M11 > 0 && image.RenderTransform.Value.M12 == 0, "四次旋转未恢复");
         Require(!Buttons(viewer).Any(b => Equals(b.Tag, "更多")), "仍保留更多按钮");
-        PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "图片加载失败"));
+        PressKey(viewer, Key.Right); await Wait(() => Text(viewer, "图片加载失败（HTTP 502）"));
         Require(!Buttons(viewer).Single(b => Equals(b.Tag, "保存原图")).IsEnabled, "失败时还能保存旧图");
         capture(viewer, Path.Combine(output, "image-failure.png"));
         Click(viewer, "重试"); await Wait(() => Image(viewer).Source is not null);
@@ -192,8 +192,10 @@ internal static class ImageViewerChecks
         thumb.Post = post with { Id = 802, ImagePath = "fixture/next" }; await Pause(); gate.SetResult(bitmap); await Pause();
         Require(thumb.Post.Id == 802 && Children<Image>(thumb).Single().Source == bitmap, "虚拟化换绑错图");
         var failedCalls = 0;
-        var retry = new PostImage((_, _) => ++failedCalls == 1 ? Task.FromException<BitmapSource>(new IOException()) : Task.FromResult(bitmap)) { Post = post };
-        host.Set(retry); await Pause(); Click(host, "重试"); await Pause();
+        var retry = new PostImage((_, _) => ++failedCalls == 1 ? Task.FromException<BitmapSource>(new TimeoutException()) : Task.FromResult(bitmap)) { Post = post };
+        host.Set(retry); await Pause();
+        Require(Buttons(host).Any(b => Equals(b.Content, "重试") && Equals(b.ToolTip, "图片加载超时，点击重试")), "缩略图超时未显示原因和重试入口");
+        Click(host, "重试"); await Pause();
         Require(failedCalls == 2 && Children<Image>(retry).Any(), "缩略图失败不能重试");
         var noImageCalls = 0; var manual = new PostImage((_, _) => { noImageCalls++; return Task.FromResult(bitmap); }) { Post = post, ShowImages = false };
         host.Set(manual); await Pause();

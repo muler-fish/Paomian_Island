@@ -19,6 +19,11 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--image-delivery")
+        {
+            try { ImageDeliveryChecks.RunAsync(args.ElementAtOrDefault(1) ?? "artifacts/image-delivery").GetAwaiter().GetResult(); return 0; }
+            catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+        }
         if (args.FirstOrDefault() is "--keyboard-reading" or "--keyboard-demo")
             return KeyboardReadingChecks.Run(args[0] == "--keyboard-demo", args.ElementAtOrDefault(1) ?? "artifacts/keyboard-reading",
                 LoadResources, Capture);

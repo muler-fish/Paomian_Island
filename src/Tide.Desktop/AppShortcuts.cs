@@ -48,7 +48,8 @@ internal sealed class AppShortcuts
         new(ShortcutId.Jump, "聚焦串号或链接输入框", ShortcutScope.Main, new ShortcutKey(Key.L, ModifierKeys.Control)),
         new(ShortcutId.Back, "阅读历史后退", ShortcutScope.Main, new ShortcutKey(Key.Left, ModifierKeys.Alt)),
         new(ShortcutId.Forward, "阅读历史前进", ShortcutScope.Main, new ShortcutKey(Key.Right, ModifierKeys.Alt)),
-        new(ShortcutId.RefreshList, "刷新串列表", ShortcutScope.Main, new ShortcutKey(Key.F5)),
+        // 保留既有的配置键，原来的刷新键现在跟随活动栏。
+        new(ShortcutId.RefreshList, "刷新当前内容栏", ShortcutScope.Main, new ShortcutKey(Key.F5)),
         new(ShortcutId.RefreshThread, "刷新正文", ShortcutScope.Main, new ShortcutKey(Key.R, ModifierKeys.Control)),
         new(ShortcutId.Subscription, "订阅或取消订阅当前串", ShortcutScope.Main, new ShortcutKey(Key.D, ModifierKeys.Control)),
         new(ShortcutId.PreviousImage, "上一张", ShortcutScope.Image, new ShortcutKey(Key.Left)),

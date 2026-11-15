@@ -318,6 +318,7 @@ internal static class KeyboardReadingChecks
             capture(window, Path.Combine(output, $"{theme}-{size:F0}.png"));
             Press(Key.Escape);
         }
+        await CheckMouseAndRefresh(window, fixture, list, view, readerView, middle, right, overlay);
         File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new
         {
             Passed = true, DenseTargets = count, VisibleInlineLinks = visibleLinks, ListScroll = listScroll, LongScroll = longScroll,
@@ -325,6 +326,73 @@ internal static class KeyboardReadingChecks
             fixture.ListRequests, fixture.ThreadRequests, fixture.ReferenceRequests, ReplyPages = fixture.ReplyPages
         }, new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
         Console.WriteLine("PASS: keyboard browsing, pixel scrolling, live hints, editor and owned-window focus");
+    }
+
+    private static async Task CheckMouseAndRefresh(MainWindow window, KeyboardReadingFixture fixture, ListBox list,
+        ScrollViewer listView, ScrollViewer readerView, FrameworkElement middle, FrameworkElement right, ReadingKeyboardOverlay overlay)
+    {
+        middle.Focus();
+        readerView.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount)
+        {
+            RoutedEvent = Mouse.MouseEnterEvent, Source = readerView
+        });
+        Require(overlay.ActivePane == middle, "鼠标经过右栏时抢走了中栏焦点");
+        var listRequests = fixture.ListRequests;
+        var threadRequests = fixture.ThreadRequests;
+        Press(Key.F5);
+        await Until(() => fixture.ListRequests > listRequests, "中栏 F5 没有刷新列表");
+        await Idle();
+        Require(fixture.ThreadRequests == threadRequests, "中栏 F5 同时刷新了正文");
+
+        readerView.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+        {
+            RoutedEvent = Mouse.PreviewMouseWheelEvent, Source = readerView
+        });
+        Require(right.IsKeyboardFocused && overlay.ActivePane == right, "鼠标滚动右栏时没有切换活动栏");
+        listRequests = fixture.ListRequests;
+        Press(Key.F5);
+        await Until(() => fixture.ThreadRequests > threadRequests, "右栏 F5 没有刷新正文");
+        await Idle();
+        Require(fixture.ListRequests == listRequests, "右栏 F5 刷新了串列表");
+
+        Press(Key.Tab);
+        threadRequests = fixture.ThreadRequests;
+        Press(Key.F5);
+        Find<TextBox>(window, "JumpBox").Focus();
+        Press(Key.F5);
+        await Idle();
+        Require(fixture.ListRequests == listRequests && fixture.ThreadRequests == threadRequests, "左栏或串号框拦截了 F5 刷新");
+        right.Focus();
+        listView.ScrollToTop();
+        await Idle();
+        var card = list.Items.OfType<PostCard>().First(c => c.Post.Id != window.Model.ReadingThreadId);
+        var row = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(card);
+        foreach (var route in new[] { Mouse.PreviewMouseDownEvent, Mouse.MouseDownEvent })
+            row.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+            {
+                RoutedEvent = route, Source = row
+            });
+        await Until(() => window.Model.Original?.Id == card.Post.Id, "行的鼠标点击没有打开串");
+        await Until(() => right.IsKeyboardFocused && overlay.ActivePane == right, "鼠标点击打开串后没有把操作交给右栏");
+
+        listView.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+        {
+            RoutedEvent = Mouse.PreviewMouseWheelEvent, Source = listView
+        });
+        Require(middle.IsKeyboardFocused && overlay.ActivePane == middle, "滚动串列表后没有回到中栏");
+        threadRequests = fixture.ThreadRequests;
+        Press(Key.R, ModifierKeys.Control);
+        await Until(() => fixture.ThreadRequests > threadRequests, "活动栏改变破坏了直接刷新正文的 Ctrl+R");
+        await Idle();
+
+        Require(window.Model.Shortcuts.TrySet(ShortcutId.RefreshList, new(Key.F9)) is null, "无法修改现有刷新配置");
+        listRequests = fixture.ListRequests;
+        Press(Key.F5);
+        await Idle();
+        Require(fixture.ListRequests == listRequests, "自定义刷新键后仍固定占用 F5");
+        Press(Key.F9);
+        await Until(() => fixture.ListRequests > listRequests, "自定义键没有执行当前栏刷新");
+        window.Model.Shortcuts.Restore(ShortcutId.RefreshList);
     }
 
     private static async Task<object> Measure(ScrollViewer view)

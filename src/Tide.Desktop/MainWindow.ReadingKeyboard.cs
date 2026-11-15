@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 
 namespace Tide.Desktop;
 
@@ -26,7 +27,7 @@ public partial class MainWindow
         PreviewKeyDown += ReadingKeyDown;
         PreviewKeyUp += (_, e) => _keyboardScroll.Release(e.Key);
         PreviewMouseDown += ReadingMouseDown;
-        PreviewMouseWheel += (_, _) => CancelReadingKeyboard();
+        PreviewMouseWheel += ReadingMouseWheel;
         Deactivated += (_, _) => { CancelReadingKeyboard(); ReadingKeyboardLayer.ShowFocus(null, null); };
         Activated += (_, _) => UpdateReadingFocus(Keyboard.FocusedElement as DependencyObject);
         GotKeyboardFocus += (_, e) =>
@@ -77,6 +78,14 @@ public partial class MainWindow
 
     private FrameworkElement? KeyboardPane(DependencyObject? source) => KeyboardAncestors(source)
         .OfType<FrameworkElement>().FirstOrDefault(element => element == NavigationPane || element == ListPane || element == ReaderPane);
+
+    private TaskCommand? ActivePaneRefreshCommand()
+    {
+        var pane = KeyboardPane(Keyboard.FocusedElement as DependencyObject);
+        if (pane == ListPane) return Model.RefreshListCommand;
+        if (pane == ReaderPane) return Model.RefreshThreadCommand;
+        return null;
+    }
 
     private static bool HasNativeInput(DependencyObject? source) => KeyboardAncestors(source)
         .Any(element => element is TextBoxBase and not PostBody or PasswordBox or ComboBox or ScrollBar);
@@ -140,6 +149,11 @@ public partial class MainWindow
         CancelReadingKeyboard();
         var panes = KeyboardPanes();
         var target = panes[(Array.IndexOf(panes, pane) + step + panes.Length) % panes.Length];
+        FocusReadingPane(target);
+    }
+
+    private void FocusReadingPane(FrameworkElement target)
+    {
         if (target != NavigationPane) { target.Focus(); return; }
         var rows = NavigationRows();
         var remembered = _navigationFocus is { } last && rows.Contains(last) ? last
@@ -152,10 +166,30 @@ public partial class MainWindow
     private void ReadingMouseDown(object sender, MouseButtonEventArgs e)
     {
         CancelReadingKeyboard();
-        if (e.ChangedButton != MouseButton.Left || e.OriginalSource is not DependencyObject source || KeyboardPane(source) is not { } pane || pane == NavigationPane) return;
-        if (KeyboardAncestors(source).Any(element => element is ButtonBase or TextBoxBase or TextElement or ComboBox or ScrollBar or Thumb ||
-            pane == ListPane && element is ListBoxItem)) return;
-        pane.Focus();
+        if (e.ChangedButton is MouseButton.XButton1 or MouseButton.XButton2 || e.OriginalSource is not DependencyObject source) return;
+        if (ActivateMousePane(source) != ListPane || e.ChangedButton != MouseButton.Left) return;
+        // 等 ListBoxItem 完成原生鼠标选中。缩略图和列表内其他控件仍处理自己的点击。
+        var row = KeyboardAncestors(source).TakeWhile(element => element is not (ButtonBase or TextBoxBase or ComboBox or ScrollBar or Thumb))
+            .OfType<ListBoxItem>().FirstOrDefault();
+        if (row is null || ThreadList.ItemContainerGenerator.ItemFromContainer(row) is not PostCard card) return;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            if (IsActive && ListPane.IsKeyboardFocusWithin && row.IsSelected && ReferenceEquals(ThreadList.SelectedItem, card))
+                ReaderPane.Focus();
+        });
+    }
+
+    private void ReadingMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        CancelReadingKeyboard();
+        if (e.Delta != 0) ActivateMousePane(e.OriginalSource as DependencyObject);
+    }
+
+    private FrameworkElement? ActivateMousePane(DependencyObject? source)
+    {
+        var pane = KeyboardPane(source);
+        if (IsActive && pane is { IsKeyboardFocusWithin: false }) FocusReadingPane(pane);
+        return pane;
     }
 
     private void UpdateReadingFocus(DependencyObject? source)

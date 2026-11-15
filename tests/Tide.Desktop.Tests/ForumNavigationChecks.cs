@@ -79,7 +79,8 @@ internal static class ForumNavigationChecks
 
             Require(refresh.Content is SymbolIcon { Symbol: SymbolRegular.ArrowClockwise24 }, "刷新按钮不再是原来的纯图标。");
             Require(AutomationProperties.GetName(refresh) == "刷新串列表", "图标刷新缺少可访问名称。");
-            Require(testWindow.InputBindings.OfType<KeyBinding>().Any(k => k.Key == Key.F5 && ReferenceEquals(k.Command, testVm.RefreshListCommand)), "F5 没有复用刷新命令。");
+            Require(ReferenceEquals(refresh.Command, testVm.RefreshListCommand) && testVm.Shortcuts.Label(ShortcutId.RefreshList) == "F5",
+                "刷新按钮或当前栏的默认快捷键配置有误。");
             results["refreshIconAndShortcut"] = true;
 
             var timelineStar = Star(groups, "t1");

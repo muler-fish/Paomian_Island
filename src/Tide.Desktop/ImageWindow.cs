@@ -29,7 +29,7 @@ public sealed class ImageWindow : ChildWindow
     private bool _atEnd;
     private bool _paging, _advanceAfterPage, _pageFailed, _pagePaused;
     private long _lastAutoPost;
-    private readonly Func<string, CancellationToken, Task<byte[]>> _download;
+    private readonly Func<string, CancellationToken, Task<ImageFile>> _load;
     private Image _image = new() { Stretch = Stretch.Fill };
     private GifPlayback? _playback;
     private readonly FeedbackOverlay _imageFeedback = new();
@@ -52,13 +52,15 @@ public sealed class ImageWindow : ChildWindow
     private double _scale = 1, _x, _y;
 
     public ImageWindow(Post post) : this([post], post.Id) { }
-    public ImageWindow(IEnumerable<Post> posts, long selectedId) : this(posts, selectedId, ImageService.BytesAsync) { }
-    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<byte[]>> download, ImagePageCursor? pages = null, Action<BitmapSource>? copyImage = null, Action<byte[], long>? copyGif = null) : base("图片", dialogChrome: false)
+    public ImageWindow(IEnumerable<Post> posts, long selectedId) : this(posts, selectedId, ImageService.LoadOriginalAsync) { }
+    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<byte[]>> download, ImagePageCursor? pages = null, Action<BitmapSource>? copyImage = null, Action<byte[], long>? copyGif = null)
+        : this(posts, selectedId, async (url, ct) => await ImageService.DecodeAsync(await download(url, ct), 0, ct), pages, copyImage, copyGif) { }
+    internal ImageWindow(IEnumerable<Post> posts, long selectedId, Func<string, CancellationToken, Task<ImageFile>> load, ImagePageCursor? pages = null, Action<BitmapSource>? copyImage = null, Action<byte[], long>? copyGif = null) : base("图片", dialogChrome: false)
     {
         _posts = posts.DistinctBy(p => p.Id).ToList(); _pages = pages;
         if (_posts.Count == 0) throw new ArgumentException("图库不能为空。", nameof(posts));
         _index = Math.Max(0, Array.FindIndex(_posts.ToArray(), p => p.Id == selectedId));
-        _download = download;
+        _load = load;
         _copyImage = copyImage ?? Clipboard.SetImage;
         _copyGif = copyGif ?? ((bytes, id) => GifClipboard.Copy(bytes, id));
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Tide;component/ImageViewerResources.xaml") });
@@ -213,12 +215,13 @@ public sealed class ImageWindow : ChildWindow
         try
         {
             var url = post.ImageUrl() ?? throw new InvalidDataException("这条发言没有可查看的图片。");
-            var bytes = _cache.TryGetValue(url, out var cached) ? cached : await _download(url, token);
-            if (generation != _generation || token.IsCancellationRequested || _closed) return;
-            Remember(url, bytes); _bytes = bytes; _save.IsEnabled = true;
             // 图片解码不占用界面线程；切图和关闭均可中断等待，迟到结果不覆盖新图。
-            var decoded = await Task.Run(() => ImageService.DecodeImage(bytes), token);
+            var file = _cache.TryGetValue(url, out var cached) ? await ImageService.DecodeAsync(cached, 0, token) : await _load(url, token);
             if (generation != _generation || token.IsCancellationRequested || _closed) return;
+            var bytes = file.Bytes;
+            _bytes = bytes; _save.IsEnabled = true;
+            if (file.Image is not { } decoded) { ShowImageError(); return; }
+            Remember(url, bytes);
             var bitmap = decoded.Poster;
             _image.Source = bitmap; _image.Width = bitmap.PixelWidth; _image.Height = bitmap.PixelHeight;
             if (decoded.Gif is not null)
@@ -234,17 +237,17 @@ public sealed class ImageWindow : ChildWindow
             foreach (var button in _zoomButtons) button.IsEnabled = true;
             Fit();
         }
-        catch (OperationCanceledException) { }
-        catch (Exception)
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex)
         {
             if (generation != _generation || _closed) return;
-            ShowImageError();
+            ShowImageError(ex);
         }
     }
 
-    private void ShowImageError()
+    private void ShowImageError(Exception? error = null)
     {
-        _feedback.Children.Clear(); _message.Text = _bytes is null ? "图片加载失败" : "无法预览，可保存原图";
+        _feedback.Children.Clear(); _message.Text = _bytes is null ? ImageService.ErrorMessage(error) : "无法预览，可保存原图";
         _feedback.Children.Add(_message); _feedback.Children.Add(_retry); _feedback.Visibility = Visibility.Visible;
         foreach (var button in _zoomButtons) button.IsEnabled = false;
     }

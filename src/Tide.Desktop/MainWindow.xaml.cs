@@ -45,7 +45,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         model.Shortcuts.Bind(this, ShortcutId.Jump, new ActionCommand(_ => { JumpBox.Focus(); JumpBox.SelectAll(); }));
         model.Shortcuts.Bind(this, ShortcutId.Back, model.BackCommand);
         model.Shortcuts.Bind(this, ShortcutId.Forward, model.ForwardCommand);
-        model.Shortcuts.Bind(this, ShortcutId.RefreshList, model.RefreshListCommand);
+        model.Shortcuts.Bind(this, ShortcutId.RefreshList, new ActionCommand(
+            _ => ActivePaneRefreshCommand()?.Execute(null),
+            () => ActivePaneRefreshCommand()?.CanExecute(null) == true));
         model.Shortcuts.Bind(this, ShortcutId.RefreshThread, model.RefreshThreadCommand);
         model.Shortcuts.Bind(this, ShortcutId.Subscription, model.SubscriptionCommand);
         PreviewKeyDown += (_, e) => AppShortcuts.RouteTextShortcut(this, e);
@@ -295,7 +297,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         DependencyObject? parent = source;
         while (parent is not null && !ReferenceEquals(parent, ReaderList)) parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
         var gallery = parent is null ? new[] { post } : Model.ReadingPosts.Select(p => p.Post).Where(p => p.HasImage).ToArray();
-        new ImageWindow(gallery.Length == 0 ? [post] : gallery, post.Id, ImageService.BytesAsync,
+        new ImageWindow(gallery.Length == 0 ? [post] : gallery, post.Id, ImageService.LoadOriginalAsync,
             parent is null ? null : Model.CreateImageCursor()) { Owner = owner }.Show();
     }
 }

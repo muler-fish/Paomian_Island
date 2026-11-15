@@ -110,7 +110,7 @@ internal static class ReaderExperienceChecks
         nav.SelectedItem = "快捷键";
         await Layout();
         Require(AppShortcuts.Commands.Count == 13 && main.InputBindings.Count == 6, "缺少现有快捷键");
-        Require(shortcuts.TrySet(ShortcutId.Jump, new(Key.F5))?.Contains("刷新串列表") == true, "主窗口冲突未拒绝");
+        Require(shortcuts.TrySet(ShortcutId.Jump, new(Key.F5))?.Contains("刷新当前内容栏") == true, "主窗口冲突未拒绝");
         Require(shortcuts.TrySet(ShortcutId.RotateImage, new(Key.F5)) is null, "不同窗口作用域被误判冲突");
         Require(shortcuts.TrySet(ShortcutId.Back, new(Key.C, ModifierKeys.Control)) is not null &&
             shortcuts.TrySet(ShortcutId.Back, new(Key.F4, ModifierKeys.Alt)) is not null &&
