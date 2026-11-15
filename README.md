@@ -6,9 +6,9 @@
 
 **X 岛匿名版的非官方 Windows 客户端**
 
-安静、顺手地刷岛：三栏阅读、连续翻页、订阅、发串，一个窗口里完成。
+支持三栏阅读、键盘浏览、连续翻页，以及订阅、发串和回应。
 
-[下载最新版](https://github.com/muler-fish/Paomian_Island/releases/latest) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
+[下载 1.0.0（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.0/Paomian-Island-1.0.0-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.0) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
 </div>
 
@@ -16,7 +16,7 @@
 
 ## 快速开始
 
-1. 打开 [Releases](https://github.com/muler-fish/Paomian_Island/releases/latest)，下载 `Paomian-Island-版本号-win-x64.zip`。
+1. 在 [1.0.0 发布页](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.0) 下载 `Paomian-Island-1.0.0-win-x64.zip`。
 2. 解压到任意文件夹，双击 `Paomian Island.exe`。
 
 - 系统要求：Windows 10 / 11 x64。
@@ -32,12 +32,14 @@
 - 串列表滚到底会自动加载下一页，串内往上往下都能续页，也支持跳到指定页和只看 PO。
 - 会保存阅读进度，再打开同一个串时回到上次看到的位置。
 - 引用可以在小窗里预览，站内链接也能直接预览，还支持防剧透黑条。
+- 支持复制选中的正文，保留帖子指定的文字、链接和引用颜色。
 - 有浅色和深色主题，正文字号、行间距、字间距都能调，调的时候实时预览。
 
 **看图**
 - 独立的看图窗口：缩放、拖动、旋转、保存原图。
 - 支持 GIF 动图播放；复制和保存的都是完整原文件。
 - 看到最后一张时，会自动尝试加载下一页的图片。
+- 图片下载中断时会重试一次。缩略图加载失败时可直接查看原图，原图加载失败时可继续查看已缓存的缩略图。
 
 **发言**
 - 发串、回应，可以附图，有草稿箱、发送前预览、颜文字、防剧透和骰子。
@@ -52,7 +54,7 @@
 - 缓存可以设容量上限和存放位置；访问 X 岛和检查更新可以分别选择走系统代理或直连。
 - 检查更新的来源是 GitHub Releases，下载后会核对 SHA-256 校验值。
 
-## 快捷键
+## 默认快捷键
 
 | 按键 | 作用 |
 | --- | --- |
