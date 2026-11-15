@@ -22,6 +22,7 @@ public static class IncrementalScroll
     public static void SetPreviousCommand(DependencyObject target, ICommand? value) => target.SetValue(PreviousCommandProperty, value);
     public static void Reset(ListBox list, bool waitForInput) => (list.GetValue(StateProperty) as ScrollState)?.Reset(waitForInput);
     public static void PrependCompleted(ListBox list) => Reset(list, true);
+    internal static void RequestScroll(ListBox list, int direction) => (list.GetValue(StateProperty) as ScrollState)?.Intent(direction);
 
     private static void CommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs args)
     {
@@ -87,7 +88,7 @@ public static class IncrementalScroll
         }
 
         public void Reset(bool waitForInput) { _timer.Stop(); _direction = 0; _waitingForInput = waitForInput; }
-        private void Intent(int direction) { _waitingForInput = false; _direction = direction; Schedule(); }
+        internal void Intent(int direction) { _waitingForInput = false; _direction = direction; Schedule(); }
         private void Wheel(object sender, MouseWheelEventArgs args)
         {
             if (Keyboard.Modifiers == ModifierKeys.None && args.Delta != 0) Intent(args.Delta > 0 ? -1 : 1);

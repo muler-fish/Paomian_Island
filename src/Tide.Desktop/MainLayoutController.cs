@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Input;
 using System.Windows.Threading;
 using Tide.Core;
 
@@ -38,7 +37,6 @@ internal sealed class MainLayoutController : IDisposable
         window.Closing += Closing;
         _grid.SizeChanged += GridChanged;
         _navigationSplitter.DragCompleted += SplitterChanged; _listSplitter.DragCompleted += SplitterChanged;
-        _navigationSplitter.KeyUp += SplitterKeyUp; _listSplitter.KeyUp += SplitterKeyUp;
         ApplyColumns();
     }
 
@@ -90,15 +88,11 @@ internal sealed class MainLayoutController : IDisposable
         finally { _applying = false; }
     }
     private void SplitterChanged(object sender, DragCompletedEventArgs e) => RememberColumns();
-    private void SplitterKeyUp(object sender, KeyEventArgs e)
-    {
-        if (e.Key is Key.Left or Key.Right) _window.Dispatcher.BeginInvoke((Action)(() => { if (!_disposed) RememberColumns(); }));
-    }
     private void RememberColumns()
     {
         if (!_ready || _applying) return;
         _defaultColumns = false;
-        // 键盘调整后的 Width 已变化，但 ActualWidth 可能尚未经过本轮排版。
+        // Width 已变化，先等分栏排版再保存实际尺寸。
         _grid.UpdateLayout();
         _state.NavigationWidth = _grid.ColumnDefinitions[0].ActualWidth;
         _state.ListWidth = _grid.ColumnDefinitions[2].ActualWidth;
@@ -118,6 +112,5 @@ internal sealed class MainLayoutController : IDisposable
         _window.SizeChanged -= WindowChanged; _window.StateChanged -= StateChanged; _window.Closing -= Closing;
         _grid.SizeChanged -= GridChanged;
         _navigationSplitter.DragCompleted -= SplitterChanged; _listSplitter.DragCompleted -= SplitterChanged;
-        _navigationSplitter.KeyUp -= SplitterKeyUp; _listSplitter.KeyUp -= SplitterKeyUp;
     }
 }

@@ -49,6 +49,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         model.Shortcuts.Bind(this, ShortcutId.RefreshThread, model.RefreshThreadCommand);
         model.Shortcuts.Bind(this, ShortcutId.Subscription, model.SubscriptionCommand);
         PreviewKeyDown += (_, e) => AppShortcuts.RouteTextShortcut(this, e);
+        InitializeReadingKeyboard();
         // 鼠标侧键与浏览器一致：XButton1 后退，XButton2 前进。
         PreviewMouseDown += (_, e) =>
         {
@@ -69,6 +70,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private void ResetReader()
     {
+        CancelReadingKeyboard();
         InertialScroll.Stop(ReaderList);
         _readerAnchor = null;
         IncrementalScroll.Reset(ReaderList, Model.ReaderStartsAfterFirstPage || Model.ReaderRestorePosition is not null);
@@ -88,6 +90,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private void ResetList()
     {
+        CancelReadingKeyboard();
         InertialScroll.Stop(ThreadList);
         if (Model.VisiblePostCount > 0) ThreadList.ScrollIntoView(Model.VisiblePosts.GetItemAt(0));
     }
@@ -102,6 +105,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void ReadingStateChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.ReadingThreadId)) SyncThreadSelection();
+        if (e.PropertyName == nameof(MainViewModel.IsDark)) ReadingKeyboardLayer.InvalidateVisual();
     }
     private void ThreadItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

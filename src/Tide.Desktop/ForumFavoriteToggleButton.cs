@@ -17,7 +17,9 @@ public sealed class ForumFavoriteToggleButton : ToggleButton
         set => SetValue(ToggleCommandProperty, value);
     }
 
-    protected override void OnToggle()
+    protected override void OnToggle() => ToggleFavorite();
+
+    internal void ToggleFavorite()
     {
         // Toggle 自动化会直接调用此处而不触发 Click。勾选状态由数据绑定回写，避免只改外观。
         // 不复用 ButtonBase.Command，否则普通点击还会再执行一次，导致收藏后立刻取消。

@@ -32,6 +32,7 @@ internal sealed class ReadingProgressTracker : IDisposable
 
     public void Pause() { Flush(); _paused = true; ClearRestore(); }
     public void Resume() { _paused = false; Schedule(); }
+    internal void BeginUserScroll() => ClearRestore();
 
     public void Reset(ReadingPosition? position)
     {

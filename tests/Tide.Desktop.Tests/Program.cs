@@ -19,6 +19,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() is "--keyboard-reading" or "--keyboard-demo")
+            return KeyboardReadingChecks.Run(args[0] == "--keyboard-demo", args.ElementAtOrDefault(1) ?? "artifacts/keyboard-reading",
+                LoadResources, Capture);
         if (args.FirstOrDefault() == "--cache-responsiveness")
         {
             try { CacheResponsivenessChecks.Run(args.ElementAtOrDefault(1) ?? "artifacts/cache-responsiveness"); return 0; }

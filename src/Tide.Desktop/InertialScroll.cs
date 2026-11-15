@@ -74,7 +74,8 @@ public static class InertialScroll
             {
                 _window.Deactivated += Deactivated;
                 _window.PreviewMouseDown += MouseDown;
-                _window.PreviewKeyDown += KeyDown;
+                // 主窗的栏位键可能先处理事件，已有的滚轮惯性仍需停止。
+                _window.AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(KeyDown), handledEventsToo: true);
             }
             SystemParameters.StaticPropertyChanged += SystemChanged;
         }
@@ -92,7 +93,7 @@ public static class InertialScroll
             {
                 _window.Deactivated -= Deactivated;
                 _window.PreviewMouseDown -= MouseDown;
-                _window.PreviewKeyDown -= KeyDown;
+                _window.RemoveHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(KeyDown));
             }
             SystemParameters.StaticPropertyChanged -= SystemChanged;
             _items = null; _window = null; _viewer = null;
