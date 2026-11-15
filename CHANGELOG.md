@@ -2,7 +2,7 @@
 
 每个版本的下载见 [Releases](https://github.com/muler-fish/Paomian_Island/releases)。
 
-## 0.4.0 · 2026-11-15
+## 1.0.0 · 2026-11-15
 
 阅读与键盘
 
