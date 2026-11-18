@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Input;
 
 namespace Tide.Desktop.Tests;
 
@@ -60,12 +61,17 @@ internal sealed class FocusDesktopInput : IDisposable
     }
 
     // 仅在已确认注册成功的老板键专项中使用。组合键事件作为一个批次送入。
-    internal static void BossChord(nint expected, ushort key, bool repeat = false)
+    internal static void BossChord(nint expected, ShortcutKey shortcut, bool repeat = false)
     {
         Guard(expected);
-        var inputs = new List<NativeInput> { KeyInput(0x11), KeyInput(0x12), KeyInput(0x10), KeyInput(key) };
-        if (repeat) inputs.Add(KeyInput(key));
-        inputs.AddRange([KeyInput(key, true), KeyInput(0x10, true), KeyInput(0x12, true), KeyInput(0x11, true)]);
+        var keys = new List<ushort>();
+        if (shortcut.Modifiers.HasFlag(ModifierKeys.Control)) keys.Add(0x11);
+        if (shortcut.Modifiers.HasFlag(ModifierKeys.Alt)) keys.Add(0x12);
+        if (shortcut.Modifiers.HasFlag(ModifierKeys.Shift)) keys.Add(0x10);
+        keys.Add((ushort)KeyInterop.VirtualKeyFromKey(shortcut.Key));
+        var inputs = keys.Select(k => KeyInput(k)).ToList();
+        if (repeat) inputs.Add(KeyInput(keys[^1]));
+        inputs.AddRange(keys.AsEnumerable().Reverse().Select(k => KeyInput(k, true)));
         Send(inputs.ToArray());
     }
 

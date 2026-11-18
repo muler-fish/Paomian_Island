@@ -293,8 +293,8 @@ public sealed partial class MainViewModel
     {
         if (_subscriptionWriting || _original is not { } post || _disposed || _subscriptionId.Length == 0) return;
         var epoch = _subscriptionEpoch;
-        // 同一订阅号可在其他客户端修改。右键操作前重新读取云端，避免对已有成员只发一次添加。
-        if (resubscribe || !CurrentSubscriptionKnown)
+        // 左右键都沿用当前串的状态。只有部分快照中找不到该串或上次写入待核对时才扫描列表。
+        if (!CurrentSubscriptionKnown)
         {
             await LoadSubscriptionsAsync(true);
             // 左键沿用「核对订阅状态」。右键核对后继续，但只处理点击时的串和订阅号。

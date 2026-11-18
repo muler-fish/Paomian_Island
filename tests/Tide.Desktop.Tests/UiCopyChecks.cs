@@ -66,8 +66,11 @@ internal static class UiCopyChecks
                 if (page == "外观") { All<Expander>(settings).Single(e => Equals(e.Header, "标识颜色")).IsExpanded = true; await Pause(); }
                 CheckText(settings, $"设置·{page}");
                 if (page == "快捷键")
+                {
                     Require(Named<CheckBox>(settings, "开启老板键").IsVisible &&
                         Named<Button>(settings, "老板键快捷键：恢复默认").IsVisible, "快捷键页缺少老板键开关或恢复入口");
+                    Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text == "Ctrl+Alt+H"), "快捷键页未显示默认老板键 Ctrl+Alt+H");
+                }
                 Require(scroll.ExtentWidth <= scroll.ViewportWidth + 1, $"设置·{page} 横向溢出（{theme}/{scale}）");
                 var rows = CheckRows(settings, $"设置·{page}");
                 pages.Add(new { Page = page, Rows = rows, Height = Math.Round(scroll.ExtentHeight) });

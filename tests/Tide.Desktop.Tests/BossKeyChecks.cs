@@ -17,6 +17,8 @@ namespace Tide.Desktop.Tests;
 
 internal static class BossKeyChecks
 {
+    private static readonly ShortcutKey Standard = new(Key.H, ModifierKeys.Control | ModifierKeys.Alt);
+
     internal static async Task RunAsync(MainWindow main, string output, nint browser, nint explorer, Action<Window, string> capture)
     {
         CheckExternal(browser, "msedge");
@@ -26,9 +28,8 @@ internal static class BossKeyChecks
         using var log = new StreamWriter(Path.Combine(output, "boss-key-results.txt")) { AutoFlush = true };
         var vm = main.Model;
         var shortcuts = vm.Shortcuts;
-        const ModifierKeys modifiers = ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift;
-        var standard = new ShortcutKey(Key.H, modifiers);
-        var custom = new ShortcutKey(Key.J, modifiers);
+        var standard = Standard;
+        var custom = new ShortcutKey(Key.J, ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift);
         Require(!shortcuts.BossKeyEnabled && shortcuts.Get(ShortcutId.BossKey).Single() == standard, "初始配置不是关闭且使用建议组合键");
         Require(Available(standard), "默认组合键当前已被其他程序占用");
         vm.State.ListImages = ImageModes.Hidden; vm.State.ReaderImages = ImageModes.Click;
@@ -50,7 +51,7 @@ internal static class BossKeyChecks
             navigation.SelectedItem = "快捷键";
             await Idle();
             var toggle = Find<CheckBox>(settings, "开启老板键");
-            Require(RegisterHotKey(probe.Handle, 10, 7, 0x48), "无法准备启用冲突");
+            Require(RegisterTestKey(probe.Handle, 10, standard), "无法准备启用冲突");
             try
             {
                 toggle.IsChecked = true;
@@ -65,10 +66,10 @@ internal static class BossKeyChecks
                 App.ApplyTheme(theme); await Idle(); capture(settings, Path.Combine(output, "shortcut-" + theme + ".png"));
             }
             Require(shortcuts.TrySet(ShortcutId.BossKey, new(Key.A)) is not null &&
-                shortcuts.TrySet(ShortcutId.BossKey, new(Key.F12, modifiers)) is not null &&
+                shortcuts.TrySet(ShortcutId.BossKey, new(Key.F12, standard.Modifiers)) is not null &&
                 shortcuts.TrySet(ShortcutId.BossKey, new(Key.L, ModifierKeys.Control)) is not null, "未拒绝普通输入、保留键或主窗冲突");
             Require(shortcuts.TrySet(ShortcutId.RotateImage, standard) is not null, "看图命令可占用已启用的全局组合键");
-            Require(RegisterHotKey(probe.Handle, 10, 7, 0x4a), "无法准备快捷键冲突");
+            Require(RegisterTestKey(probe.Handle, 10, custom), "无法准备快捷键冲突");
             try
             {
                 Require(shortcuts.TrySet(ShortcutId.BossKey, custom)?.Contains("占用") == true &&
@@ -85,7 +86,7 @@ internal static class BossKeyChecks
                 try
                 {
                     await FocusDesktopInput.ActivateAsync(Handle(dialog));
-                    FocusDesktopInput.BossChord(Handle(dialog), 0x4a);
+                    FocusDesktopInput.BossChord(Handle(dialog), custom);
                     await Until(() => !dialog.IsVisible, "录入组合键");
                 }
                 finally { if (dialog.IsVisible) dialog.Close(); }
@@ -196,7 +197,7 @@ internal static class BossKeyChecks
         restarted.Show(); await Idle();
         Require(restarted.Model.Shortcuts.BossKeyEnabled && !Available(custom), "重启未恢复自定义全局注册");
         restarted.Close(); Require(Available(custom), "普通关闭未释放热键");
-        Require(RegisterHotKey(probe.Handle, 10, 7, 0x4a), "无法准备启动冲突");
+        Require(RegisterTestKey(probe.Handle, 10, custom), "无法准备启动冲突");
         try
         {
             var conflict = new MainWindow(new(new XIslandApi(new HttpClient(new KeyboardReadingFixture())), vm.Store));
@@ -210,14 +211,14 @@ internal static class BossKeyChecks
 
         bool Available(ShortcutKey key)
         {
-            if (!RegisterHotKey(probe.Handle, 11, (uint)key.Modifiers, (uint)KeyInterop.VirtualKeyFromKey(key.Key))) return false;
+            if (!RegisterTestKey(probe.Handle, 11, key)) return false;
             UnregisterHotKey(probe.Handle, 11); return true;
         }
         async Task ToggleFrom(nint foreground, ShortcutKey key, bool hide, bool repeat = false)
         {
             Require(!Available(key) && shortcuts.Get(ShortcutId.BossKey).Single() == key, "测试组合键未注册");
             await FocusDesktopInput.ActivateAsync(foreground);
-            FocusDesktopInput.BossChord(foreground, (ushort)KeyInterop.VirtualKeyFromKey(key.Key), repeat);
+            FocusDesktopInput.BossChord(foreground, key, repeat);
             await Until(() => main.BossKey.IsHidden == hide && Visible(main) != hide, hide ? "全局隐藏" : "全局恢复");
             await Task.Delay(80);
             Require(main.BossKey.IsHidden == hide, "单次按键发生重复切换");
@@ -228,7 +229,7 @@ internal static class BossKeyChecks
     {
         CheckExternal(browser, "msedge");
         using var input = new FocusDesktopInput();
-        Require(RegisterHotKey(0, 13, 7, 0x48), "启动交付程序前默认组合键已被其他程序占用");
+        Require(RegisterTestKey(0, 13, Standard), "启动交付程序前默认组合键已被其他程序占用");
         UnregisterHotKey(0, 13);
         var store = new LocalStore(Path.Combine(Path.GetFullPath(output), "profile-" + Guid.NewGuid().ToString("N")));
         store.Save(new UserState { BossKeyEnabled = true, AutoCheckUpdates = false });
@@ -254,22 +255,22 @@ internal static class BossKeyChecks
                 await Task.Delay(100, timeout.Token);
                 process.Refresh(); hwnd = process.MainWindowHandle;
             }
-            if (RegisterHotKey(0, 13, 7, 0x48))
+            if (RegisterTestKey(0, 13, Standard))
             {
                 UnregisterHotKey(0, 13);
                 throw new InvalidOperationException("交付程序未从设置注册热键");
             }
             await FocusDesktopInput.ActivateAsync(browser);
-            FocusDesktopInput.BossChord(browser, 0x48);
+            FocusDesktopInput.BossChord(browser, Standard);
             await Until(() => !IsWindowVisible(hwnd), "交付 EXE 全局隐藏");
             await BossKeyShellChecks.UseIconAsync(null, process.Id);
             await Until(() => IsWindowVisible(hwnd), "交付 EXE 托盘双击恢复");
             await FocusDesktopInput.ActivateAsync(hwnd);
-            FocusDesktopInput.BossChord(hwnd, 0x48);
+            FocusDesktopInput.BossChord(hwnd, Standard);
             await Until(() => !IsWindowVisible(hwnd), "交付 EXE 再次隐藏");
             await BossKeyShellChecks.UseIconAsync("退出泡面岛", process.Id);
             await process.WaitForExitAsync(timeout.Token);
-            Require(process.ExitCode == 0 && RegisterHotKey(0, 13, 7, 0x48), "交付程序退出异常或未注销热键");
+            Require(process.ExitCode == 0 && RegisterTestKey(0, 13, Standard), "交付程序退出异常或未注销热键");
             UnregisterHotKey(0, 13);
             var result = "交付 EXE 从隔离资料启动，Edge 前台触发、托盘双击恢复、托盘退出、进程退出码 0 和热键释放通过。";
             File.WriteAllText(Path.Combine(output, "result.txt"), result);
@@ -328,6 +329,8 @@ internal static class BossKeyChecks
         using var process = Process.GetProcessById((int)pid);
         Require(process.ProcessName.Equals(expected, StringComparison.OrdinalIgnoreCase), "外部窗口不属于指定应用");
     }
+    private static bool RegisterTestKey(nint hwnd, int id, ShortcutKey key) =>
+        RegisterHotKey(hwnd, id, (uint)key.Modifiers, (uint)KeyInterop.VirtualKeyFromKey(key.Key));
     [DllImport("user32.dll")] private static extern bool RegisterHotKey(nint hwnd, int id, uint modifiers, uint key);
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(nint hwnd, int id);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(nint hwnd);

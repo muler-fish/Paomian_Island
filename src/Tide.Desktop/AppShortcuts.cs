@@ -59,7 +59,7 @@ internal sealed class AppShortcuts
         new(ShortcutId.FitImage, "适应窗口", ShortcutScope.Image, new ShortcutKey(Key.D0), new ShortcutKey(Key.NumPad0)),
         new(ShortcutId.ActualImage, "原始大小", ShortcutScope.Image, new ShortcutKey(Key.D1), new ShortcutKey(Key.NumPad1)),
         new(ShortcutId.RotateImage, "向左旋转", ShortcutScope.Image, new ShortcutKey(Key.R)),
-        new(ShortcutId.BossKey, "老板键快捷键", ShortcutScope.Global, new ShortcutKey(Key.H, ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
+        new(ShortcutId.BossKey, "老板键快捷键", ShortcutScope.Global, new ShortcutKey(Key.H, ModifierKeys.Control | ModifierKeys.Alt))
     ];
     internal static AppShortcuts Defaults { get; } = new(new UserState());
     private readonly UserState _state;

@@ -119,7 +119,7 @@ internal static class SettingsShortcuts
                 if (gesture is not null) { Record(new(gesture.Key, gesture.Modifiers)); return; }
             }
             catch (Exception ex) when (ex is NotSupportedException or ArgumentException or FormatException) { }
-            Feedback.Text = "请输入组合键，例如 Ctrl+Alt+Shift+H。";
+            Feedback.Text = $"请输入组合键，例如 {AppShortcuts.Defaults.Label(ShortcutId.BossKey)}。";
         }
 
         protected override void OnPreviewKeyDown(KeyEventArgs e)

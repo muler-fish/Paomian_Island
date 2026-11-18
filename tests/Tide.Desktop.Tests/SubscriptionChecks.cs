@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -35,7 +36,7 @@ internal static class SubscriptionChecks
             capture(window, Path.Combine(output, "subscriptions-page2.png"));
             await vm.ToggleSubscriptionAsync(); Require(!vm.IsSubscribed && !handler.Cloud["Test-A"].Contains(211), "取消订阅没有修改云列表。");
             await vm.ToggleSubscriptionAsync(); Require(vm.IsSubscribed && handler.Cloud["Test-A"].Contains(211), "添加订阅没有修改云列表。");
-            await CheckRightClick(window, handler);
+            await CheckRightClick(window, handler, output);
 
             // 服务端已写入但回包丢失：下次点击只读取，不会反向取消或自动重发。
             await vm.OpenThreadAsync(999); handler.LoseWriteResponse = true;
@@ -72,7 +73,7 @@ internal static class SubscriptionChecks
             {
                 EncryptedId = true, FullPaging = true, CloudAddDelete = true, UnknownReconcilesWithoutWrite = true,
                 FailedPageRejectsSnapshot = true, AccountSwitchIgnoresStale = true, ReloadReadsCloud = true,
-                LeftClickToggles = true, RightClickChecksCloud = true, RenewDeletesThenAdds = true,
+                LeftClickToggles = true, KnownStatusSkipsFeed = true, UnknownStatusChecksFeed = true, RenewDeletesThenAdds = true,
                 FailedDeleteStopsRenewal = true, FailedAddReconcilesRemoval = true, LostReplyReconcilesWithoutRetry = true,
                 RapidClicksShareCommand = true, StaleReaderFeedbackSuppressed = true
             }, new JsonSerializerOptions { WriteIndented = true }));
@@ -81,7 +82,7 @@ internal static class SubscriptionChecks
         finally { window.Close(); App.ApplyTheme("light"); }
     }
     private static Task Pause() => Task.Delay(120);
-    private static async Task CheckRightClick(MainWindow window, CloudHandler cloud)
+    private static async Task CheckRightClick(MainWindow window, CloudHandler cloud, string output)
     {
         var vm = window.Model;
         var button = (Button)window.FindName("ThreadSubscriptionButton");
@@ -89,8 +90,55 @@ internal static class SubscriptionChecks
         vm.FeedbackRaised += feedback.Add;
         try
         {
-            await vm.OpenThreadAsync(410);
             var peer = (IInvokeProvider)new ButtonAutomationPeer(button);
+            var number = vm.GetSubscriptionId();
+            const string large = "Test-large";
+            var members = Enumerable.Range(10_000, 1_000).Select(i => (long)i).ToList();
+            cloud.Cloud[large] = members.ToList();
+            vm.Store.SaveSubscriptions(large, vm.State.ActiveCookieId, new(members.Select(id => new Post { Id = id }).ToList(), true, DateTimeOffset.UtcNow, []));
+            vm.SetSubscriptionId(large);
+            await vm.OpenThreadAsync(members[^1]);
+            Require(vm.CurrentSubscriptionKnown && vm.IsSubscribed, "未从完整缓存恢复串的订阅状态");
+            var before = cloud.FeedReads;
+            peer.Invoke(); await Until(() => !vm.IsSubscribed && !vm.SubscriptionBusy);
+            peer.Invoke(); await Until(() => vm.IsSubscribed && !vm.SubscriptionBusy);
+            var leftReads = cloud.FeedReads - before;
+            before = cloud.FeedReads;
+            var elapsed = Stopwatch.StartNew();
+            await RunRight("重新订阅成功", "delFeed/10999", "addFeed/10999");
+            var renewMs = elapsed.ElapsedMilliseconds;
+            var renewReads = cloud.FeedReads - before;
+            await vm.OpenThreadAsync(410);
+            before = cloud.FeedReads;
+            await RunRight("订阅成功", "addFeed/410");
+            var addReads = cloud.FeedReads - before;
+            File.WriteAllText(Path.Combine(output, "subscription-requests.json"), JsonSerializer.Serialize(new
+            {
+                Members = members.Count, LeftRemoveAndAddFeedPages = leftReads, RightRenewFeedPages = renewReads,
+                RightAddFeedPages = addReads, RightRenewMilliseconds = renewMs
+            }, new JsonSerializerOptions { WriteIndented = true }));
+            Require(leftReads == 0 && renewReads == 0 && addReads == 0,
+                $"已有 {members.Count} 条订阅时，左键取消再添加读了 {leftReads} 页，右键重新订阅读了 {renewReads} 页，右键添加读了 {addReads} 页。");
+
+            // 部分快照中已出现的串可直接重订。没出现的串需先核对，核对失败不得写入。
+            const string partial = "Test-partial";
+            cloud.Cloud[partial] = [410, .. members.Take(10), 411];
+            vm.Store.SaveSubscriptions(partial, vm.State.ActiveCookieId, new([new Post { Id = 410 }], false, DateTimeOffset.UtcNow, []));
+            vm.SetSubscriptionId(partial);
+            before = cloud.FeedReads;
+            await RunRight("重新订阅成功", "delFeed/410", "addFeed/410");
+            Require(cloud.FeedReads == before, "部分快照中已确认的成员仍触发整表读取");
+            await vm.OpenThreadAsync(411);
+            Require(!vm.CurrentSubscriptionKnown, "把部分快照中缺少的串错误判为未订阅");
+            cloud.FailPageTwo = true;
+            await RunRight("订阅暂时无法访问");
+            cloud.FailPageTwo = false;
+            before = cloud.FeedReads;
+            await RunRight("重新订阅成功", "delFeed/411", "addFeed/411");
+            Require(cloud.FeedReads - before == 3, "当前串未知时应完整核对一次");
+
+            vm.SetSubscriptionId(number);
+            await vm.OpenThreadAsync(410);
             peer.Invoke(); await Until(() => vm.IsSubscribed && !vm.SubscriptionBusy);
             peer.Invoke(); await Until(() => !vm.IsSubscribed && !vm.SubscriptionBusy);
             Require(cloud.Writes.TakeLast(2).SequenceEqual(["addFeed/410", "delFeed/410"]), "左键增删顺序错误");
@@ -100,7 +148,11 @@ internal static class SubscriptionChecks
             await RunRight("重新订阅成功", "delFeed/410", "addFeed/410");
             Require(vm.IsSubscribed && vm.Posts.First().Post.Id == 410 && ReferenceEquals(reader, vm.ReadingPosts.First()) &&
                 vm.Store.ReadSubscriptions(vm.GetSubscriptionId(), "")!.Posts.First().Id == 410, "重新订阅未同步列表、快照或重置了阅读区");
+            // 同号在其他设备取消后，本次取消可能被服务端拒绝。核对实际结果后可再次右键。
             cloud.Cloud["Test-A"].Remove(410);
+            cloud.Reject = "delFeed";
+            await RunRight("当前串未订阅", "delFeed/410");
+            Require(vm.CurrentSubscriptionKnown && !vm.IsSubscribed, "未校正其他客户端已取消的订阅");
             await RunRight("订阅成功", "addFeed/410");
 
             cloud.Reject = "delFeed";
@@ -177,7 +229,7 @@ internal static class SubscriptionChecks
         public Dictionary<string, List<long>> Cloud { get; }
         public CloudHandler(Dictionary<string, List<long>>? cloud = null) => Cloud = cloud ?? [];
         public bool LoseWriteResponse, FailPageTwo, HoldNextRead, FailReadAfterRejection;
-        public int Mutations;
+        public int Mutations, FeedReads;
         public List<string> Writes { get; } = [];
         public string? Reject;
         private string? _hold;
@@ -197,6 +249,7 @@ internal static class SubscriptionChecks
             var id = query["uuid"]; Cloud.TryAdd(id, []);
             if (uri.AbsolutePath.EndsWith("feed"))
             {
+                FeedReads++;
                 var page = int.Parse(query["page"]);
                 var snapshot = Cloud[id].Skip((page - 1) * 10).Take(10).Select(Post).ToArray();
                 if (HoldNextRead) { HoldNextRead = false; ReadStarted.SetResult(true); await ReleaseRead.Task; }
