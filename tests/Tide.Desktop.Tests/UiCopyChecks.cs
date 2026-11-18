@@ -65,6 +65,9 @@ internal static class UiCopyChecks
                 nav.SelectedItem = page; await Pause();
                 if (page == "外观") { All<Expander>(settings).Single(e => Equals(e.Header, "标识颜色")).IsExpanded = true; await Pause(); }
                 CheckText(settings, $"设置·{page}");
+                if (page == "快捷键")
+                    Require(Named<CheckBox>(settings, "开启老板键").IsVisible &&
+                        Named<Button>(settings, "老板键快捷键：恢复默认").IsVisible, "快捷键页缺少老板键开关或恢复入口");
                 Require(scroll.ExtentWidth <= scroll.ViewportWidth + 1, $"设置·{page} 横向溢出（{theme}/{scale}）");
                 var rows = CheckRows(settings, $"设置·{page}");
                 pages.Add(new { Page = page, Rows = rows, Height = Math.Round(scroll.ExtentHeight) });
@@ -86,7 +89,7 @@ internal static class UiCopyChecks
             Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.StartsWith("清理缓存只删除")) && All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.Contains("迁移")), "缓存页缺少清理范围或迁移说明");
             // 窄窗口：说明文字换行，不横向溢出。
             SetDpi(settings, scale, 660, 470); await Pause();
-            foreach (var page in new[] { "外观", "缓存", "数据与记录", "关于" })
+            foreach (var page in new[] { "外观", "快捷键", "缓存", "数据与记录", "关于" })
             {
                 nav.SelectedItem = page; await Pause();
                 Require(scroll.ExtentWidth <= scroll.ViewportWidth + 1, $"窄窗口 设置·{page} 横向溢出（{theme}/{scale}）");

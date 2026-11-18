@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <AssemblyName>Tide</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/paomian.ico</ApplicationIcon>
   </PropertyGroup>
@@ -17,6 +17,7 @@
   <ItemGroup><EmbeddedResource Include="Assets/emoticons.json" LogicalName="Tide.Emoticons.json" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoji-sequences.json" LogicalName="Tide.EmojiSequences.json" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/paomian.png" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/paomian.ico" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.ttf" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.CompositeFont" /></ItemGroup>
   <!-- Keep assembly/resource identifiers stable; only the distributed app host is renamed. -->

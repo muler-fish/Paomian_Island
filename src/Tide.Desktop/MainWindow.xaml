@@ -269,7 +269,8 @@
               </StackPanel>
               <StackPanel x:Name="ReaderHeaderActions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                   <ToggleButton x:Name="OnlyPoButton" Content="PO" IsChecked="{Binding OnlyPo, Mode=TwoWay}" Style="{StaticResource ReaderToggle}" VerticalAlignment="Center" Margin="0,0,6,0" AutomationProperties.Name="只看 PO" ToolTip="只看 PO"/>
-                  <Button x:Name="ThreadSubscriptionButton" Command="{Binding SubscriptionCommand}" ToolTip="{Binding SubscriptionShortcutHint}" AutomationProperties.Name="{Binding SubscriptionLabel}" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6">
+                  <Button x:Name="ThreadSubscriptionButton" Command="{Binding SubscriptionCommand}" ToolTip="{Binding SubscriptionShortcutHint}" AutomationProperties.Name="{Binding SubscriptionLabel}" Style="{StaticResource Quiet}" Width="32" Height="32" Padding="6"
+                          PreviewMouseRightButtonDown="Subscription_RightDown" PreviewMouseRightButtonUp="Subscription_RightUp" ContextMenuService.IsEnabled="False">
                     <Grid>
                     <ui:SymbolIcon Symbol="Star24" Filled="{Binding IsSubscribed}" FontSize="16">
                       <ui:SymbolIcon.Style><Style TargetType="ui:SymbolIcon"><Setter Property="Foreground" Value="{DynamicResource Text}"/><Style.Triggers><DataTrigger Binding="{Binding IsSubscribed}" Value="True"><Setter Property="Foreground" Value="{DynamicResource FavoriteStar}"/></DataTrigger></Style.Triggers></Style></ui:SymbolIcon.Style>

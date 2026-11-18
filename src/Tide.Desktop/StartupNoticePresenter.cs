@@ -34,7 +34,8 @@ internal sealed class StartupNoticePresenter : IDisposable
             var notice = await _client.GetAsync(ct);
             if (notice is null || _model.State.SuppressedNoticeKeys.Contains(notice.Key)) return;
             // 不在用户编辑、最小化或切换到其他应用时抢占焦点。
-            while (_owner.IsVisible && (!_owner.IsEnabled || !_owner.IsActive || _owner.WindowState == WindowState.Minimized))
+            while (_owner.IsVisible && (_owner is MainWindow { BossKey.IsHidden: true } ||
+                !_owner.IsEnabled || !_owner.IsActive || _owner.WindowState == WindowState.Minimized))
                 await Task.Delay(150, ct);
             if (ct.IsCancellationRequested || !_owner.IsVisible) return;
             var dialog = new SiteNoticeWindow(notice) { Owner = _owner };

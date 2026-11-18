@@ -19,6 +19,11 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length == 4 && args[0] == "--exe-boss-key")
+        {
+            try { DispatcherChecks.Run(() => BossKeyChecks.CheckExecutableAsync(args[1], args[2], nint.Parse(args[3]))); return 0; }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        }
         if (args.FirstOrDefault() == "--image-delivery")
         {
             try { ImageDeliveryChecks.RunAsync(args.ElementAtOrDefault(1) ?? "artifacts/image-delivery").GetAwaiter().GetResult(); return 0; }
@@ -121,6 +126,8 @@ internal static class Program
         if (args.FirstOrDefault() == "--reading-history") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reading-history");
         if (args.FirstOrDefault() == "--ui-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/ui-copy");
         var windowFocusOnly = args.FirstOrDefault() == "--window-focus";
+        var bossKeyOnly = args.FirstOrDefault() == "--boss-key";
+        if (bossKeyOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/boss-key");
         var readerExperienceOnly = args.FirstOrDefault() is "--reader-experience" or "--reader-colors";
         if (readerExperienceOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/reader-experience");
         if (windowFocusOnly) output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/window-focus");
@@ -128,9 +135,10 @@ internal static class Program
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
         App.ApplyTheme("light");
-        var api = readerExperienceOnly ? ReaderExperienceChecks.CreateApi() : windowFocusOnly ? WindowFocusChecks.CreateApi() : refinedOnly ? RefinedReaderChecks.CreateApi() : UiRefinementChecks.CreateApi();
+        var api = bossKeyOnly ? new XIslandApi(new System.Net.Http.HttpClient(new KeyboardReadingFixture())) :
+            readerExperienceOnly ? ReaderExperienceChecks.CreateApi() : windowFocusOnly ? WindowFocusChecks.CreateApi() : refinedOnly ? RefinedReaderChecks.CreateApi() : UiRefinementChecks.CreateApi();
         var vm = new MainViewModel(api, new LocalStore(Path.Combine(output, "profile")));
-        var window = new MainWindow(vm) { ShowInTaskbar = windowFocusOnly || args.Contains("--hold") || readerExperienceOnly && args.Contains("--real-input") };
+        var window = new MainWindow(vm) { ShowInTaskbar = bossKeyOnly || windowFocusOnly || args.Contains("--hold") || readerExperienceOnly && args.Contains("--real-input") };
         var started = false;
         window.ContentRendered += async (_, _) =>
         {
@@ -138,6 +146,13 @@ internal static class Program
             started = true;
             try
             {
+                if (bossKeyOnly)
+                {
+                    var index = Array.IndexOf(args, "--desktop-from");
+                    if (index < 0 || args.Length < index + 3) throw new ArgumentException("老板键实机专项需要 --desktop-from 及浏览器、资源管理器的窗口句柄。");
+                    await BossKeyChecks.RunAsync(window, output, nint.Parse(args[index + 1]), nint.Parse(args[index + 2]), Capture);
+                    app.Shutdown(0); return;
+                }
                 if (readerExperienceOnly)
                 {
                     await ReaderExperienceChecks.RunAsync(window, output, Capture, args[0] == "--reader-colors", args.Contains("--real-input"));

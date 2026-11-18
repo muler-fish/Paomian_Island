@@ -59,6 +59,16 @@ internal sealed class FocusDesktopInput : IDisposable
         Send([KeyInput(modifier), KeyInput(key), KeyInput(key, true), KeyInput(modifier, true)]);
     }
 
+    // 仅在已确认注册成功的老板键专项中使用。组合键事件作为一个批次送入。
+    internal static void BossChord(nint expected, ushort key, bool repeat = false)
+    {
+        Guard(expected);
+        var inputs = new List<NativeInput> { KeyInput(0x11), KeyInput(0x12), KeyInput(0x10), KeyInput(key) };
+        if (repeat) inputs.Add(KeyInput(key));
+        inputs.AddRange([KeyInput(key, true), KeyInput(0x10, true), KeyInput(0x12, true), KeyInput(0x11, true)]);
+        Send(inputs.ToArray());
+    }
+
     internal static void ClickAt(FrameworkElement element, Point location, nint expected) =>
         ClickPoint(CheckedPoint(element, location, expected));
 
@@ -120,6 +130,12 @@ internal sealed class FocusDesktopInput : IDisposable
         await Task.Delay(300);
     }
 
+    internal static void OpenTaskSwitcher(nint expected)
+    {
+        Guard(expected);
+        Send([KeyInput(0x11), KeyInput(0x12), KeyInput(0x09), KeyInput(0x09, true), KeyInput(0x12, true), KeyInput(0x11, true)]);
+    }
+
     internal static void ClickTaskbar(nint expected, nint target)
     {
         GetWindowThreadProcessId(target, out var pid);
@@ -147,6 +163,16 @@ internal sealed class FocusDesktopInput : IDisposable
         Require(SetCursorPos(point.X, point.Y), "无法定位鼠标");
         Send([new() { Data = new() { Mouse = new() { Flags = 0x02 } } },
               new() { Data = new() { Mouse = new() { Flags = 0x04 } } }]);
+    }
+
+    internal static void ClickShell(Point location, nint shellWindow, bool right = false, bool twice = false)
+    {
+        var point = new NativePoint { X = (int)location.X, Y = (int)location.Y };
+        Require(shellWindow != 0 && GetAncestor(WindowFromPoint(point), 2) == shellWindow, "托盘或菜单目标已被遮挡");
+        Require(SetCursorPos(point.X, point.Y), "无法定位系统托盘鼠标");
+        var down = MouseInputFor(right ? 0x08u : 0x02u);
+        var up = MouseInputFor(right ? 0x10u : 0x04u);
+        Send(twice ? [down, up, down, up] : [down, up]);
     }
 
     private static void Guard(nint expected) => Require(expected != 0 && GetForegroundWindow() == expected, "测试窗口已离开前台，停止发送输入");

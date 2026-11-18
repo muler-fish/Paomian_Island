@@ -30,6 +30,7 @@ public sealed partial class MainViewModel
     private CancellationTokenSource? _subscriptionCts;
     private int _subscriptionEpoch;
     private Task? _subscriptionLoad;
+    private Task _snapshotSave = Task.CompletedTask;
     private string? _subscriptionError;
     private const int SubscriptionPageSize = 10;
     private static readonly TimeSpan SubscriptionFreshness = TimeSpan.FromMinutes(5);
@@ -61,7 +62,8 @@ public sealed partial class MainViewModel
 
     private void InitializeSubscriptions()
     {
-        SubscriptionCommand = new(_ => ToggleSubscriptionAsync(), Report, () => CanInteractThread && !_subscriptionWriting && _subscriptionId.Length > 0);
+        SubscriptionCommand = new(parameter => ChangeSubscriptionAsync(resubscribe: parameter is true), Report,
+            () => CanInteractThread && !_subscriptionWriting && _subscriptionId.Length > 0);
         SubscriptionsCommand = new(_ => { _ = ShowSubscriptionsAsync(); });
         try
         {
@@ -171,12 +173,18 @@ public sealed partial class MainViewModel
         NotifySubscriptions();
     }
 
-    private async Task PersistSubscriptionSnapshotAsync()
+    private Task PersistSubscriptionSnapshotAsync()
     {
         var number = _subscriptionId; var cookie = State.ActiveCookieId; var epoch = _subscriptionEpoch;
         var snapshot = new SubscriptionSnapshot(_subscriptions.ToList(), _subscriptionKnown, _subscriptionUpdatedAt, _uncertainSubscriptions.ToList());
-        try { await Task.Run(() => Store.SaveSubscriptions(number, cookie, snapshot)); }
-        catch (Exception) { if (epoch == _subscriptionEpoch && !_disposed) Error = "订阅已读取，但无法保存临时缓存。"; }
+        // 保证同号的旧扫描、写前检查点和最终结果按产生顺序落盘。
+        return _snapshotSave = SaveAfterAsync(_snapshotSave);
+        async Task SaveAfterAsync(Task previous)
+        {
+            await previous;
+            try { await Task.Run(() => Store.SaveSubscriptions(number, cookie, snapshot)); }
+            catch (Exception) { if (epoch == _subscriptionEpoch && !_disposed) Error = "订阅已读取，但无法保存临时缓存。"; }
+        }
     }
 
     private void NotifySubscriptions()
@@ -191,14 +199,14 @@ public sealed partial class MainViewModel
         if (_subscriptionLoad is { IsCompleted: false }) return _subscriptionLoad;
         // 短期内重复导航只看快照。手动刷新绕过时效，失败后的导航设冷却防止连点重试。
         if (!refresh && (_subscriptionKnown && DateTimeOffset.UtcNow - _subscriptionUpdatedAt < SubscriptionFreshness || DateTimeOffset.UtcNow - _subscriptionAttempt < TimeSpan.FromSeconds(15))) return Task.CompletedTask;
-        return _subscriptionLoad = ReadSubscriptionsAsync();
+        _subscriptionCts?.Dispose(); _subscriptionCts = new();
+        return _subscriptionLoad = ReadSubscriptionsAsync(_subscriptionCts.Token);
     }
 
-    private async Task ReadSubscriptionsAsync()
+    private async Task<bool> ReadSubscriptionsAsync(CancellationToken ct, bool reportError = true)
     {
-        if (_subscriptionId.Length == 0) { Error = "请先设置订阅号。"; return; }
-        _subscriptionCts?.Dispose(); _subscriptionCts = new();
-        var ct = _subscriptionCts.Token; var epoch = _subscriptionEpoch; var id = _subscriptionId;
+        if (_subscriptionId.Length == 0) { Error = "请先设置订阅号。"; return false; }
+        var epoch = _subscriptionEpoch; var id = _subscriptionId;
         var hadCompleteSnapshot = _subscriptionKnown;
         _subscriptionAttempt = DateTimeOffset.UtcNow; _subscriptionLoaded = 0; _subscriptionBusy = true; NotifySubscriptions();
         try
@@ -220,13 +228,14 @@ public sealed partial class MainViewModel
                 // 首屏及后续检查点落盘，首次导入未完成就退出也能恢复部分列表。
                 if (!hadCompleteSnapshot && (partial.Count <= 10 || partial.Count % 100 == 0)) await PersistSubscriptionSnapshotAsync();
             });
-            if (epoch != _subscriptionEpoch || _disposed || ct.IsCancellationRequested) return;
+            if (epoch != _subscriptionEpoch || _disposed || ct.IsCancellationRequested) return false;
             _subscriptions = posts; _subscriptionKnown = true; _subscriptionCached = false;
             _subscriptionUpdatedAt = DateTimeOffset.UtcNow; _uncertainSubscriptions.Clear();
             if (IsSubscriptions) RenderSubscriptions();
             if (Error == _subscriptionError) Error = "";
             _subscriptionError = null;
             await PersistSubscriptionSnapshotAsync();
+            return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
@@ -234,11 +243,13 @@ public sealed partial class MainViewModel
             if (epoch == _subscriptionEpoch && !_disposed)
             {
                 // 失败保留最后可用列表。局部结果仍标记为局部，不能证明某串不在订阅中。
-                _subscriptionCached = true; Report(ex, FeedbackArea.List); _subscriptionError = Error;
+                _subscriptionCached = true;
+                if (reportError) { Report(ex, FeedbackArea.List); _subscriptionError = Error; }
                 if (_subscriptionUpdatedAt != default) await PersistSubscriptionSnapshotAsync();
             }
         }
-        finally { if (epoch == _subscriptionEpoch && !_disposed) { _subscriptionBusy = false; NotifySubscriptions(); } }
+        finally { if (epoch == _subscriptionEpoch && !_disposed) { _subscriptionBusy = _subscriptionWriting; NotifySubscriptions(); } }
+        return false;
     }
 
     public Task ShowSubscriptionsAsync()
@@ -276,36 +287,90 @@ public sealed partial class MainViewModel
         Changed(nameof(ListPageLabel)); NotifyIncrementalLoading(); RefreshCommands();
     }
 
-    public async Task ToggleSubscriptionAsync()
+    public Task ToggleSubscriptionAsync() => ChangeSubscriptionAsync(resubscribe: false);
+
+    private async Task ChangeSubscriptionAsync(bool resubscribe)
     {
-        if (_subscriptionWriting || _original is null || _disposed) return;
-        if (!CurrentSubscriptionKnown) { await LoadSubscriptionsAsync(true); return; }
+        if (_subscriptionWriting || _original is not { } post || _disposed || _subscriptionId.Length == 0) return;
+        var epoch = _subscriptionEpoch;
+        // 同一订阅号可在其他客户端修改。右键操作前重新读取云端，避免对已有成员只发一次添加。
+        if (resubscribe || !CurrentSubscriptionKnown)
+        {
+            await LoadSubscriptionsAsync(true);
+            // 左键沿用「核对订阅状态」。右键核对后继续，但只处理点击时的串和订阅号。
+            if (!resubscribe || _disposed || epoch != _subscriptionEpoch || _original?.Id != post.Id || !CanInteractThread) return;
+            if (!_subscriptionKnown || _subscriptionCached || !CurrentSubscriptionKnown)
+            {
+                SetError(_subscriptionError ?? "未能核对当前串的订阅状态，请刷新后重试。", FeedbackArea.Reader);
+                return;
+            }
+        }
         // 写入与正在进行的扫描不能竞争；取消扫描后用确认响应更新快照。
-        _subscriptionEpoch++; _subscriptionCts?.Cancel(); _subscriptionLoad = null;
-        var post = _original; var add = !IsSubscribed; var epoch = _subscriptionEpoch; var id = _subscriptionId;
+        epoch = ++_subscriptionEpoch; _subscriptionCts?.Cancel(); _subscriptionLoad = null;
+        var id = _subscriptionId; var subscribed = IsSubscribed; var renew = resubscribe && subscribed;
         _subscriptionCts?.Dispose(); _subscriptionCts = new(); var ct = _subscriptionCts.Token;
+        bool Current() => epoch == _subscriptionEpoch && !ct.IsCancellationRequested && !_disposed;
+        var removed = false;
         _subscriptionWriting = true; _subscriptionBusy = true; NotifySubscriptions(); Error = "";
         try
         {
-            await Api.SetSubscriptionAsync(id, post.Id, add, ct);
-            if (epoch != _subscriptionEpoch || ct.IsCancellationRequested || _disposed) return;
-            _subscriptions.RemoveAll(p => p.Id == post.Id);
-            if (add) _subscriptions.Insert(0, post);
-            _uncertainSubscriptions.Remove(post.Id); _subscriptionCached = false;
-            if (_subscriptionUpdatedAt == default) _subscriptionUpdatedAt = DateTimeOffset.UtcNow;
-            if (IsSubscriptions) RenderSubscriptions();
-            Notify(add ? "已订阅" : "已取消订阅", FeedbackArea.Reader);
+            // 切号或退出可能发生在服务端写入和回包之间。旧身份下次看到检查点会先核对。
+            _uncertainSubscriptions.Add(post.Id);
+            await PersistSubscriptionSnapshotAsync();
+            if (!Current()) return;
+            if (subscribed)
+            {
+                await Api.SetSubscriptionAsync(id, post.Id, false, ct);
+                if (!Current()) return;
+                removed = true;
+                RecordSubscription(post, false);
+                if (renew)
+                {
+                    NotifySubscriptions();
+                    await PersistSubscriptionSnapshotAsync();
+                    if (!Current()) return;
+                }
+            }
+            if (!subscribed || renew)
+            {
+                await Api.SetSubscriptionAsync(id, post.Id, true, ct);
+                if (!Current()) return;
+                RecordSubscription(post, true);
+            }
+            _uncertainSubscriptions.Remove(post.Id);
+            if (_original?.Id == post.Id)
+                Notify(resubscribe ? (renew ? "重新订阅成功" : "订阅成功") : (subscribed ? "已取消订阅" : "已订阅"), FeedbackArea.Reader);
             await PersistSubscriptionSnapshotAsync();
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (epoch == _subscriptionEpoch && !_disposed)
+            if (Current())
             {
-                _uncertainSubscriptions.Add(post.Id); Report(ex, FeedbackArea.Reader); _subscriptionError = Error;
-                await PersistSubscriptionSnapshotAsync();
+                if (resubscribe)
+                {
+                    // 丢包的增删请求可能已经生效。只核对一次列表，绝不重发写请求。
+                    var verified = await ReadSubscriptionsAsync(ct, reportError: false);
+                    if (!Current()) return;
+                    var issue = renew ? (removed ? "重新订阅未完成，添加订阅未获确认。" : "取消订阅未获确认，已停止重新订阅。")
+                        : "订阅未获确认。";
+                    var status = !verified ? "请刷新订阅列表核对状态。" : _subscriptions.Any(p => p.Id == post.Id)
+                        ? "当前串已订阅。" : "当前串未订阅。";
+                    if (_original?.Id == post.Id) SetError(issue + status, FeedbackArea.Reader);
+                }
+                else if (_original?.Id == post.Id) Report(ex, FeedbackArea.Reader);
+                _subscriptionError = Error;
             }
         }
         finally { if (epoch == _subscriptionEpoch && !_disposed) { _subscriptionWriting = false; _subscriptionBusy = false; NotifySubscriptions(); } }
+    }
+
+    private void RecordSubscription(Post post, bool add)
+    {
+        _subscriptions.RemoveAll(p => p.Id == post.Id);
+        if (add) _subscriptions.Insert(0, post);
+        _subscriptionCached = false;
+        if (_subscriptionUpdatedAt == default) _subscriptionUpdatedAt = DateTimeOffset.UtcNow;
+        if (IsSubscriptions) RenderSubscriptions();
     }
 }

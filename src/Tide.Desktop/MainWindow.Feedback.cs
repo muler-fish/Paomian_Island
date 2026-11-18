@@ -29,7 +29,7 @@ public partial class MainWindow
 
     private void ShowFeedback(string message, FeedbackArea area, bool isError = false, FrameworkElement? anchor = null, Point? origin = null)
     {
-        if (_closed || !IsLoaded) return;
+        if (_closed || !IsLoaded || BossKey.IsHidden) return;
         FrameworkElement region = area switch
         {
             FeedbackArea.Navigation => NavigationPane,

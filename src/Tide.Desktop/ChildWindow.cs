@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Documents;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Wpf.Ui.Controls;
 using TextBlock = System.Windows.Controls.TextBlock;
 
@@ -16,6 +17,57 @@ namespace Tide.Desktop;
 public abstract class ChildWindow : FluentWindow
 {
     private readonly ContentPresenter _client = new();
+    private bool _closed;
+
+    // 后台请求在恢复后才显示新窗；模态窗也在那时才让 WPF 枚举并禁用可见的 Owner。
+    private Task<bool>? PendingRestore()
+    {
+        for (var owner = Owner; owner is not null; owner = owner.Owner)
+            if (owner is MainWindow main) return main.BossKey.PendingRestore;
+        return null;
+    }
+
+    public new void Show()
+    {
+        if (PendingRestore() is { } pending) ShowAfterRestore(pending);
+        else base.Show();
+    }
+
+    private async void ShowAfterRestore(Task<bool> pending)
+    {
+        if (await CanPresentAfterAsync(pending)) Show();
+    }
+
+    private async Task<bool> CanPresentAfterAsync(Task<bool> pending)
+    {
+        if (!await pending) return false;
+        // 延后的请求可能来自主窗，但原有编辑器仍是模态窗。等待直接 Owner 可以交互。
+        while (!_closed && Owner is { IsVisible: true } owner)
+        {
+            if (IsWindowEnabled(new WindowInteropHelper(owner).Handle)) return true;
+            await Task.Delay(150);
+        }
+        return false;
+    }
+
+    public new bool? ShowDialog()
+    {
+        while (PendingRestore() is { } pending)
+        {
+            var ready = CanPresentAfterAsync(pending);
+            var frame = new DispatcherFrame();
+            ready.GetAwaiter().OnCompleted(() => frame.Continue = false);
+            Dispatcher.PushFrame(frame);
+            if (!ready.IsCompletedSuccessfully || !ready.Result) return null;
+        }
+        return base.ShowDialog();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _closed = true;
+        base.OnClosed(e);
+    }
 
     protected ChildWindow(string title, bool dialogChrome = true)
     {

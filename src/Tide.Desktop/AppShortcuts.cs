@@ -6,8 +6,8 @@ using Tide.Core;
 
 namespace Tide.Desktop;
 
-internal enum ShortcutScope { Main, Image }
-internal enum ShortcutId { Jump, Back, Forward, RefreshList, RefreshThread, Subscription, PreviousImage, NextImage, ZoomIn, ZoomOut, FitImage, ActualImage, RotateImage }
+internal enum ShortcutScope { Main, Image, Global }
+internal enum ShortcutId { Jump, Back, Forward, RefreshList, RefreshThread, Subscription, PreviousImage, NextImage, ZoomIn, ZoomOut, FitImage, ActualImage, RotateImage, BossKey }
 
 internal readonly record struct ShortcutKey(Key Key, ModifierKeys Modifiers = ModifierKeys.None)
 {
@@ -58,12 +58,16 @@ internal sealed class AppShortcuts
         new(ShortcutId.ZoomOut, "缩小", ShortcutScope.Image, new ShortcutKey(Key.OemMinus), new ShortcutKey(Key.Subtract)),
         new(ShortcutId.FitImage, "适应窗口", ShortcutScope.Image, new ShortcutKey(Key.D0), new ShortcutKey(Key.NumPad0)),
         new(ShortcutId.ActualImage, "原始大小", ShortcutScope.Image, new ShortcutKey(Key.D1), new ShortcutKey(Key.NumPad1)),
-        new(ShortcutId.RotateImage, "向左旋转", ShortcutScope.Image, new ShortcutKey(Key.R))
+        new(ShortcutId.RotateImage, "向左旋转", ShortcutScope.Image, new ShortcutKey(Key.R)),
+        new(ShortcutId.BossKey, "老板键快捷键", ShortcutScope.Global, new ShortcutKey(Key.H, ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift))
     ];
     internal static AppShortcuts Defaults { get; } = new(new UserState());
     private readonly UserState _state;
     private readonly Dictionary<ShortcutId, ShortcutKey?> _overrides = new();
     internal event Action? Changed;
+    internal Func<ShortcutKey?, string?>? RegisterBossKey { private get; set; }
+    internal bool BossKeyEnabled => _state.BossKeyEnabled;
+    internal string? BossKeyStartupError { get; private set; }
 
     internal AppShortcuts(UserState state)
     {
@@ -71,14 +75,14 @@ internal sealed class AppShortcuts
         foreach (var command in Commands)
         {
             if (!state.ShortcutBindings.TryGetValue(command.Id.ToString(), out var value) || value is null) continue;
-            if (value.Length == 0) _overrides[command.Id] = null;
+            if (value.Length == 0 && command.Id != ShortcutId.BossKey) _overrides[command.Id] = null;
             else if (ShortcutKey.TryRead(value, out var key) && Validate(command.Scope, key) is null)
                 _overrides[command.Id] = key;
         }
         // 修正手工编辑或旧配置带来的冲突；默认键表本身各作用域内唯一。
         ShortcutDefinition? conflict;
         while ((conflict = Commands.LastOrDefault(command => _overrides.ContainsKey(command.Id) &&
-            Conflicts(command, Get(command)) is not null)) is not null) _overrides.Remove(conflict.Id);
+            Conflicts(command, Get(command), sameScopeOnly: true) is not null)) is not null) _overrides.Remove(conflict.Id);
         Store();
     }
 
@@ -90,14 +94,35 @@ internal sealed class AppShortcuts
     internal string Label(ShortcutId id) => string.Join(" / ", Get(id));
     internal string Hint(string label, ShortcutId id) => Label(id) is { Length: > 0 } key ? $"{label} · {key}" : label;
 
+    internal string? StartBossKey() => BossKeyStartupError = BossKeyEnabled ? ApplyBossKey(Get(ShortcutId.BossKey).Single()) : null;
+
+    internal string? SetBossKeyEnabled(bool enabled)
+    {
+        var error = enabled ? ApplyBossKey(Get(ShortcutId.BossKey).Single()) : RegisterBossKey?.Invoke(null);
+        if (error is not null) return error;
+        _state.BossKeyEnabled = enabled;
+        BossKeyStartupError = null;
+        Save();
+        return null;
+    }
+
+    private string? ApplyBossKey(ShortcutKey key) =>
+        Conflicts(Definition(ShortcutId.BossKey), [key]) ?? RegisterGlobal(key);
+
+    private string? RegisterGlobal(ShortcutKey key) => RegisterBossKey is { } register
+        ? register(key) : "窗口尚未就绪，暂时无法注册老板键。";
+
     internal string? TrySet(ShortcutId id, ShortcutKey? key)
     {
         var command = Definition(id);
+        if (id == ShortcutId.BossKey && key is null) return "要停用老板键，请关闭「开启老板键」。";
         if (key is { } value)
         {
             var error = Validate(command.Scope, value) ?? Conflicts(command, [value]);
             if (error is not null) return error;
+            if (id == ShortcutId.BossKey && BossKeyEnabled && RegisterGlobal(value) is { } registration) return registration;
         }
+        if (id == ShortcutId.BossKey) BossKeyStartupError = null;
         if (key.HasValue && command.Defaults.SequenceEqual([key.Value])) _overrides.Remove(id);
         else _overrides[id] = key;
         Save();
@@ -107,21 +132,26 @@ internal sealed class AppShortcuts
     internal string? Restore(ShortcutId id)
     {
         var command = Definition(id);
+        if (id == ShortcutId.BossKey) return TrySet(id, command.Defaults.Single());
         if (Conflicts(command, command.Defaults) is { } error) return error;
         _overrides.Remove(id);
         Save();
         return null;
     }
 
-    internal void RestoreAll()
+    internal string? RestoreAll()
     {
+        if (BossKeyEnabled && RegisterGlobal(Definition(ShortcutId.BossKey).Defaults.Single()) is { } error) return error;
         _overrides.Clear();
+        BossKeyStartupError = null;
         Save();
+        return null;
     }
 
-    private string? Conflicts(ShortcutDefinition command, IReadOnlyList<ShortcutKey> keys)
+    private string? Conflicts(ShortcutDefinition command, IReadOnlyList<ShortcutKey> keys, bool sameScopeOnly = false)
     {
-        foreach (var other in Commands.Where(c => c.Scope == command.Scope && c.Id != command.Id))
+        foreach (var other in Commands.Where(c => c.Id != command.Id && (c.Scope == command.Scope ||
+            !sameScopeOnly && (command.Scope == ShortcutScope.Global || c.Scope == ShortcutScope.Global && BossKeyEnabled))))
             foreach (var key in Get(other))
                 if (keys.Contains(key)) return $"{key} 已用于「{other.Label}」。";
         return null;
@@ -146,6 +176,13 @@ internal sealed class AppShortcuts
         if (mods == ModifierKeys.Control && key is Key.A or Key.C or Key.V or Key.X or Key.Z or Key.Y or Key.B or Key.I or Key.U or Key.Insert ||
             mods == ModifierKeys.Shift && key is Key.Insert or Key.Delete)
             return "这个组合键用于文字编辑。";
+        if (scope == ShortcutScope.Global)
+        {
+            if (key == Key.F12 || KeyInterop.VirtualKeyFromKey(key) == 0)
+                return "这个键无法用作 Windows 全局快捷键。";
+            if ((mods & (ModifierKeys.Control | ModifierKeys.Alt)) == 0)
+                return "老板键至少需要 Ctrl 或 Alt 加一个其他键。";
+        }
         if (scope == ShortcutScope.Main && key is not (>= Key.F1 and <= Key.F24) &&
             (mods & (ModifierKeys.Control | ModifierKeys.Alt)) == 0)
             return "主窗口快捷键需要 Ctrl、Alt 或功能键。";

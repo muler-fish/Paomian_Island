@@ -130,6 +130,7 @@ public sealed class UserState
     public IdentityColors IdentityColors { get; set; } = new();
     // 缺少条目表示用默认键，空字符串表示已清除。
     public Dictionary<string, string> ShortcutBindings { get; set; } = new();
+    public bool BossKeyEnabled { get; set; }
     public bool InertialScrolling { get; set; } = true;
     // 新资料和缺少此字段的旧资料默认关闭，显式保存的开关状态继续沿用。
     public bool HideSpoilers { get; set; }

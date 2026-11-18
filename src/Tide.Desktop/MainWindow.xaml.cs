@@ -14,6 +14,7 @@ namespace Tide.Desktop;
 public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
     public MainViewModel Model { get; }
+    internal BossKeyController BossKey { get; }
     private ReadingAnchor? _readerAnchor;
     private readonly ReadingProgressTracker _readingProgress;
     private readonly MainLayoutController _layout;
@@ -24,6 +25,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         // DataContext 是 MainWindow.xaml 里普通 Binding 的默认数据来源。
         InitializeComponent(); Model = model; DataContext = model; _openBrowser = openBrowser;
+        BossKey = new(this);
         ReaderSelection.Attach(ReaderHeading, () => ReaderHeading.SelectionLength > 0);
         _readingProgress = new(ReaderList, model);
         model.ReaderLeaving += _readingProgress.Flush;
@@ -61,6 +63,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         Closed += (_, _) =>
         {
             _closed = true;
+            BossKey.Dispose();
             // 正文和图片控件使用静态事件，关闭窗口时必须退订，避免旧窗口被事件引用保留。
             model.ReaderReset -= ResetReader; model.ListReset -= ResetList; PostBody.ReferenceClicked -= Reference; PostBody.UrlClicked -= ContentLinkClicked; PostImage.ImageClicked -= OpenImage;
             model.PropertyChanged -= ReadingStateChanged; ((INotifyCollectionChanged)ThreadList.Items).CollectionChanged -= ThreadItemsChanged;
@@ -163,6 +166,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         new SubscriptionWindow(Model) { Owner = this }.ShowDialog();
         await Model.LoadSubscriptionsAsync();
     }
+    private void Subscription_RightDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (e.ClickCount == 1 && Model.SubscriptionCommand.CanExecute(true)) Model.SubscriptionCommand.Execute(true);
+    }
+    private void Subscription_RightUp(object sender, MouseButtonEventArgs e) => e.Handled = true;
     private void Notice_Click(object sender, RoutedEventArgs e)
     {
         var forum = Model.ActiveForum;
@@ -254,7 +263,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     internal Task OpenContentLinkAsync(string url, Window? sourceWindow = null)
     {
-        if (_closed) return Task.CompletedTask;
+        if (_closed || BossKey.IsHidden) return Task.CompletedTask;
         try
         {
             var link = IslandLink.Parse(url) ?? throw new ArgumentException("只支持 HTTP/HTTPS 网页链接。");
@@ -270,7 +279,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private async void Reference(System.Windows.Documents.Hyperlink source, long id)
     {
-        if (_closed || ContentOwner(source) is not { IsVisible: true } owner) return;
+        if (_closed || BossKey.IsHidden || ContentOwner(source) is not { IsVisible: true } owner) return;
         // 先展示占位窗口再异步读取，用户不必等待网络即可关闭弹窗。
         var dialog = new TextWindow($"引用 · No.{id}", "正在读取引用…", referencePreview: true, Model.ReadingFontSize) { Owner = owner };
         dialog.Show();
@@ -292,7 +301,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
     private void OpenImage(PostImage source, Post post)
     {
-        if (_closed || ContentOwner(source) is not { IsVisible: true } owner) return;
+        if (_closed || BossKey.IsHidden || ContentOwner(source) is not { IsVisible: true } owner) return;
         // 仅从串阅读区进入时串联同串图片；串列表与引用弹窗保持单图，避免混入其他串。
         DependencyObject? parent = source;
         while (parent is not null && !ReferenceEquals(parent, ReaderList)) parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
