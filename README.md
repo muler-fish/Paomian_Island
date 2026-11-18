@@ -8,7 +8,7 @@
 
 支持三栏阅读、键盘浏览、连续翻页，以及订阅、发串和回应。
 
-[下载 1.0.0（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.0/Paomian-Island-1.0.0-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.0) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
+[下载 1.0.2（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.2/Paomian-Island-1.0.2-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.2) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
 </div>
 
@@ -16,7 +16,7 @@
 
 ## 快速开始
 
-1. 在 [1.0.0 发布页](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.0) 下载 `Paomian-Island-1.0.0-win-x64.zip`。
+1. 在 [1.0.2 发布页](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.2) 下载 `Paomian-Island-1.0.2-win-x64.zip`。
 2. 解压到任意文件夹，双击 `Paomian Island.exe`。
 
 - 系统要求：Windows 10 / 11 x64。
