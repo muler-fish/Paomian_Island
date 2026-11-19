@@ -124,7 +124,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public bool IsDark => State.Theme == "dark";
     public bool IsLibrary => _library.Length > 0;
     public bool ShowNewThreadAction => !IsLibrary && ActiveForum is not null;
-    public bool HasDrafts => State.Drafts.Any(d => !string.IsNullOrWhiteSpace(d.Content));
+    public bool HasDrafts => State.Drafts.Any(d => !string.IsNullOrWhiteSpace(d.Content) || !string.IsNullOrEmpty(d.ImageFile));
     // 通过事件通知窗口重置滚动位置，视图模型本身不持有 ListBox 等控件。
     public event Action? ReaderReset;
     public event Action? ReaderPrepending;

@@ -4,13 +4,12 @@ using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using Microsoft.Win32;
 using Paomian.Core;
 
 namespace Paomian.Desktop;
 
 /// <summary>新串、回复与值班室举报共用的编辑器，负责独立草稿、发送预览和人工确认后的提交。</summary>
-public sealed class ComposerWindow : DialogWindow
+public sealed partial class ComposerWindow : DialogWindow
 {
     private readonly MainViewModel _vm;
     private readonly long _threadId;
@@ -25,11 +24,9 @@ public sealed class ComposerWindow : DialogWindow
     private readonly Wpf.Ui.Controls.TextBox _name = new() { MaxLength = 100 };
     private readonly EmojiEditor _content = new() { MinHeight = 180, MaxHeight = 320, VerticalContentAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxLength = 10000, FontSize = 16 };
     private readonly CheckBox _water = new() { Content = "为附图添加水印" };
-    private readonly TextBlock _imageName = new() { Text = "未选择图片", VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 270, Margin = new(10, 0, 0, 0) };
     private readonly TextBlock _count = new() { HorizontalAlignment = HorizontalAlignment.Right, Margin = new(0, 6, 0, 0), FontSize = 11 };
     // 用户停止输入 600 毫秒后再保存，避免每次按键都把整个状态文件写入磁盘。
     private readonly DispatcherTimer _autosave = new() { Interval = TimeSpan.FromMilliseconds(600) };
-    private string _imageFile = "";
     private bool _sending, _initialized;
     private int _insertStart, _insertLength;
     internal EmoticonMenu Emoticons { get; }
@@ -82,7 +79,7 @@ public sealed class ComposerWindow : DialogWindow
         // 编辑辅助工具：统一图标＋文字、32 高度与低视觉权重；添加图片仍在右侧。
         var toolRow = new DockPanel { Margin = new(-10, 6, -10, 8) };
         var attach = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.ImageAdd24, "添加图片", PickImage); attach.Margin = new(0);
-        attach.ToolTip = "JPG / PNG / GIF，最多 5 MB"; DockPanel.SetDock(attach, Dock.Right); toolRow.Children.Add(attach);
+        attach.ToolTip = ComposerImageInput.Limits; DockPanel.SetDock(attach, Dock.Right); toolRow.Children.Add(attach);
         var tools = new WrapPanel(); toolRow.Children.Add(tools);
         var emoticons = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.Emoji24, "颜文字", OpenEmoticons); tools.Children.Add(emoticons);
         Emoticons = new EmoticonMenu(this, emoticons, () => _vm.State, _vm.Save, text => {
@@ -93,20 +90,12 @@ public sealed class ComposerWindow : DialogWindow
         var dice = EmoticonMenu.Tool(Wpf.Ui.Controls.SymbolRegular.CubeQuick24, "骰子", () => Insert("[1,100]")); dice.ToolTip = "插入 [1,100]";
         tools.Children.Add(spoiler); tools.Children.Add(dice);
         Body.Children.Add(toolRow);
-        var imageBar = new WrapPanel { Margin = new(0, 4, 0, 0) }; imageBar.Children.Add(_imageName); imageBar.Children.Add(Button("移除", () => { _imageFile = ""; _imageName.Text = "未选择图片"; SaveDraft(); })); Body.Children.Add(imageBar); Body.Children.Add(_water);
-        void ImageState() { var attached = _imageFile.Length > 0; imageBar.Visibility = _water.Visibility = attached ? Visibility.Visible : Visibility.Collapsed; }
-        // Attachment controls follow the existing filename state, without changing the saved watermark choice.
-        var imageDescriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(TextBlock.TextProperty, typeof(TextBlock));
-        EventHandler imageChanged = (_, _) => ImageState();
-        imageDescriptor.AddValueChanged(_imageName, imageChanged);
-        Closed += (_, _) => imageDescriptor.RemoveValueChanged(_imageName, imageChanged);
-        ImageState();
+        SetupImages(existing?.ImageFile, attach);
         Body.Children.Add(Feedback);
         AddAction("保存并关闭", Close); AddAction("预览并发送", Preview, true);
         if (existing is not null)
         {
-            _title.Text = existing.Title; _name.Text = existing.Name ?? ""; _content.Text = existing.Content; _imageFile = existing.ImageFile; _water.IsChecked = existing.Watermark;
-            _imageName.Text = string.IsNullOrEmpty(_imageFile) ? "未选择图片" : Path.GetFileName(_imageFile);
+            _title.Text = existing.Title; _name.Text = existing.Name ?? ""; _content.Text = existing.Content; _water.IsChecked = existing.Watermark;
         }
         if (quote.Length > 0 && _reportPostId == 0) _content.Text = quote + _content.Text;
         // 先恢复草稿，再监听输入变化，避免初始化控件时保存一份尚未恢复完整的内容。
@@ -168,7 +157,7 @@ public sealed class ComposerWindow : DialogWindow
     {
         // 已确认送达后不能在 Closing 或定时器里重新写回草稿。
         if (!_initialized || Delivered) return;
-        var draft = new Draft(_key, _reportPostId > 0 ? DutyRoomId : (_forum.SelectedItem as Forum)?.Id ?? 4, _threadId, _title.Text, _content.Text, _imageFile, _water.IsChecked == true, _name.Text, _reportPostId);
+        var draft = new Draft(_key, _reportPostId > 0 ? DutyRoomId : (_forum.SelectedItem as Forum)?.Id ?? 4, _threadId, _title.Text, _content.Text, _image?.Reference ?? "", _water.IsChecked == true, _name.Text, _reportPostId);
         _vm.State.Drafts.RemoveAll(d => d.Key == _key);
         if (!string.IsNullOrWhiteSpace(draft.Content) || draft.Title.Length > 0 || draft.Name.Length > 0 || draft.ImageFile.Length > 0) _vm.State.Drafts.Add(draft);
         _vm.Save();
@@ -179,24 +168,10 @@ public sealed class ComposerWindow : DialogWindow
         if (_sending) { Feedback.Text = "正在发送，请等待返回结果后再关闭。"; e.Cancel = true; return; }
         SaveDraft();
     }
-    private void PickImage()
-    {
-        var dialog = new OpenFileDialog { Filter = "支持的图片|*.jpg;*.jpeg;*.png;*.gif", Multiselect = false };
-        if (dialog.ShowDialog(this) != true) return;
-        try
-        {
-            var file = new FileInfo(dialog.FileName);
-            if (file.Length > 5 * 1024 * 1024) throw new ArgumentException("图片不能超过 5 MB。");
-            // 选择时先检查文件头；发送前 API 层还会重新读取，防止文件在编辑期间被替换。
-            using var stream = file.OpenRead(); var bytes = new byte[8]; var n = stream.Read(bytes);
-            if (XIslandApi.DetectImage(bytes.AsSpan(0, n)) is null) throw new ArgumentException("图片格式不正确，请使用 JPG、PNG 或 GIF。");
-            _imageFile = file.FullName; _imageName.Text = file.Name; Feedback.Text = ""; SaveDraft();
-        }
-        catch (Exception ex) { Feedback.Text = ex.Message; }
-    }
     private void Preview()
     {
         if (_sending) return;
+        if (_imageBusy || _image is { Thumbnail: null }) { Feedback.Text = _imageBusy ? "请等待图片读取完成。" : "无法读取草稿附图，请移除或重新添加后再发送。"; return; }
         if (string.IsNullOrWhiteSpace(_content.Text)) { Feedback.Text = _reportPostId > 0 ? "请填写举报理由。" : "请填写正文。"; _content.Focus(); return; }
         if (_cookie.SelectedItem is not CookieIdentity cookie) { Feedback.Text = "请先导入并选择一份饼干。"; return; }
         if (_threadId == 0 && _reportPostId == 0 && _forum.SelectedItem is not Forum) { Feedback.Text = "请选择发串版块。"; return; }
@@ -204,14 +179,15 @@ public sealed class ComposerWindow : DialogWindow
         // 确认按钮闭包捕获这份不可变请求和选中饼干，不再读取之后可能变化的界面字段。
         // 目标楼号和值班室固定于打开举报页时；理由单独编辑，预览和提交使用同一份正文。
         var post = new PostRequest(_reportPostId > 0 ? DutyRoomId : (_forum.SelectedItem as Forum)?.Id ?? 4, _threadId, _title.Text,
-            _reportPostId > 0 ? ReportPrefix + _content.Text.Trim() : _content.Text, _imageFile, _water.IsChecked == true, _name.Text);
+            _reportPostId > 0 ? ReportPrefix + _content.Text.Trim() : _content.Text, _image is null ? "" : _vm.Store.ResolveDraftImage(_image.Reference),
+            _image is not null && _water.IsChecked == true, _name.Text) { PreviewImageHash = _image?.Hash };
         var destination = _reportPostId > 0 ? $"值班室 · 举报 No.{_reportPostId}" : _threadId > 0 ? $"回复 No.{_threadId}" : _vm.ForumName(post.ForumId);
         // 用户输入先 HTML 编码，再交给统一正文控件预览，避免把输入内容误当作预览模板标签。
         var html = $"<b>{WebUtility.HtmlEncode(destination)} · 饼干：{WebUtility.HtmlEncode(cookie.Name)}</b><br><br>" +
             (post.Title.Length > 0 ? $"<b>标题：{WebUtility.HtmlEncode(post.Title)}</b><br>" : "") +
             (post.Name.Length > 0 ? $"<b>名称：{WebUtility.HtmlEncode(post.Name)}</b><br>" : "") + "<br>" + WebUtility.HtmlEncode(post.Content).Replace("\n", "<br>");
-        if (_imageFile.Length > 0) html += "<br><br>附图：" + WebUtility.HtmlEncode(Path.GetFileName(_imageFile));
         var preview = new TextWindow("发送预览", html) { Owner = this };
+        if (_image?.Thumbnail is { } thumb) preview.AddImagePreview(thumb, _image.Name + (post.Watermark ? " · 发送后由 X 岛添加水印" : ""));
         preview.AddAction("确认发送", async () =>
         {
             if (_sending) return;
@@ -228,7 +204,7 @@ public sealed class ComposerWindow : DialogWindow
                 _vm.Save(); _vm.Status = result.Message;
                 _sending = false; Close();
             }
-            catch (Exception ex) { Feedback.Text = ex is System.Net.Http.HttpRequestException ? "建立发言会话失败，尚未提交。请检查网络后重试。" : ex.Message; }
+            catch (Exception ex) { Feedback.Text = ex is System.Net.Http.HttpRequestException ? "建立发言会话失败，尚未提交。请检查网络后重试。" : ex is IOException or UnauthorizedAccessException ? ComposerImageInput.Error(ex) : ex.Message; }
             finally { _sending = false; Body.IsEnabled = true; Actions.IsEnabled = true; }
         }, true);
         preview.ShowDialog();

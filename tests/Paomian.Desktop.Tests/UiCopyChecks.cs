@@ -20,7 +20,7 @@ internal static class UiCopyChecks
     private static readonly string[] Banned =
     [
         "state.json", "licenses", "微软雅黑", "备用字体", "TUN", "GitHub 正式版", "接口", "含串列表预览", "黑条保留", "仅展示效果",
-        "中栏", "淘汰", "隐藏输入", "原标识", "板块", "“", "”", "‘", "’", "切换应用的浅色", "保证足够的对比度", "使用的饼干", "发到哪个",
+        "中栏", "淘汰", "隐藏输入", "原标识", "板块", "“", "”", "‘", "’", "切换应用的浅色", "保证足够的对比度", "使用的饼干", "发到哪个", "未选择图片",
     ];
 
     public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
@@ -194,7 +194,7 @@ internal static class UiCopyChecks
         await Task.Delay(100);
     }
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
-    private static void SetDpi(Window window, double scale, double width, double height)
+    internal static void SetDpi(Window window, double scale, double width, double height)
     {
         var rect = new NativeRect { Right = (int)(width * scale), Bottom = (int)(height * scale) };
         var memory = Marshal.AllocHGlobal(Marshal.SizeOf<NativeRect>());

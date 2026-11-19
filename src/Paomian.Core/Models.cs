@@ -75,7 +75,10 @@ public sealed record SubscriptionIdentity(string Id, string Name, string Encrypt
 /// <summary>可丢弃的订阅快照；Complete 只在读到末页后成立，未知写入需重新核对。</summary>
 public sealed record SubscriptionSnapshot(List<Post> Posts, bool Complete, DateTimeOffset UpdatedAt, List<long> Uncertain);
 /// <summary>发送预览时确定的参数快照；ThreadId 大于 0 表示回复，否则使用 ForumId 发串。</summary>
-public sealed record PostRequest(int ForumId, long ThreadId, string Title, string Content, string ImageFile = "", bool Watermark = false, string Name = "");
+public sealed record PostRequest(int ForumId, long ThreadId, string Title, string Content, string ImageFile = "", bool Watermark = false, string Name = "")
+{
+    public string? PreviewImageHash { get; init; }
+}
 /// <summary>服务端明确确认成功后的结果；响应没有串链接时 ThreadId 可能为空。</summary>
 public sealed record PostResult(string Message, long? ThreadId);
 

@@ -72,6 +72,7 @@ public sealed partial class LocalStore
             var identity = state.IdentityColors ?? new();
             state.IdentityColors = new() { Cookie = HexColor(identity.Cookie), Admin = HexColor(identity.Admin), Sage = HexColor(identity.Sage), Po = HexColor(identity.Po) };
             state.ShortcutBindings ??= new();
+            lock (_gate) RememberDraftImages(state);
             return state;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
@@ -103,8 +104,10 @@ public sealed partial class LocalStore
         {
             var path = Path.Combine(_root, "state.json");
             var temp = path + ".tmp";
+            RememberDraftImages(state);
             File.WriteAllText(temp, JsonSerializer.Serialize(state, Options));
             File.Move(temp, path, true);
+            ReleaseUnusedDraftImages(state);
         }
     }
 

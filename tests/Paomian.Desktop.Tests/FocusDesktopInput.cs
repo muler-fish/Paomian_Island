@@ -60,6 +60,13 @@ internal sealed class FocusDesktopInput : IDisposable
         Send([KeyInput(modifier), KeyInput(key), KeyInput(key, true), KeyInput(modifier, true)]);
     }
 
+    internal static void TypeUnicode(nint expected, string text)
+    {
+        Guard(expected);
+        NativeInput Character(char ch, bool up) => new() { Type = 1, Data = new() { Keyboard = new() { Scan = ch, Flags = up ? 6u : 4u } } };
+        Send(text.SelectMany(ch => new[] { Character(ch, false), Character(ch, true) }).ToArray());
+    }
+
     // 仅在已确认注册成功的老板键专项中使用。组合键事件作为一个批次送入。
     internal static void BossChord(nint expected, ShortcutKey shortcut, bool repeat = false)
     {
@@ -77,6 +84,61 @@ internal sealed class FocusDesktopInput : IDisposable
 
     internal static void ClickAt(FrameworkElement element, Point location, nint expected) =>
         ClickPoint(CheckedPoint(element, location, expected));
+
+    internal static void Hover(FrameworkElement element, nint expected)
+    {
+        var p = CheckedPoint(element, new Point(element.ActualWidth / 2, element.ActualHeight / 2), expected);
+        Require(SetCursorPos(p.X, p.Y), "无法移动到测试控件");
+    }
+
+    private static void VerifyEndpoint(NativePoint point, nint expected, string label)
+    {
+        var hit = GetAncestor(WindowFromPoint(point), 2);
+        if (hit == expected) return;
+        var cls = new System.Text.StringBuilder(100); GetClassName(hit, cls, cls.Capacity);
+        GetWindowRect(expected, out var box);
+        throw new InvalidOperationException($"{label}被遮挡 ({point.X},{point.Y})，命中 {cls}，期望窗口范围 {box.Left},{box.Top},{box.Right},{box.Bottom}");
+    }
+
+    internal static void ClickExplorerFile(nint shell, Point item)
+    {
+        var point = new NativePoint { X = (int)item.X, Y = (int)item.Y };
+        VerifyEndpoint(point, shell, "测试文件图标");
+        ClickPoint(point);
+    }
+
+    internal static async Task DragFileFromExplorer(nint explorer, Point item, FrameworkElement target, nint owner)
+    {
+        Guard(explorer);
+        var start = new NativePoint { X = (int)item.X, Y = (int)item.Y };
+        var end = target.PointToScreen(new Point(target.ActualWidth / 2, target.ActualHeight / 2));
+        var to = new NativePoint { X = (int)end.X, Y = (int)end.Y };
+        VerifyEndpoint(start, explorer, "测试文件图标");
+        VerifyEndpoint(to, owner, "正文框");
+        Require(SetCursorPos(start.X, start.Y), "无法定位测试文件"); await Task.Delay(100); Guard(explorer); Send([MouseInputFor(0x02)]);
+        try
+        {
+            await Task.Delay(90);
+            var left = GetSystemMetrics(76); var top = GetSystemMetrics(77);
+            var width = GetSystemMetrics(78); var height = GetSystemMetrics(79);
+            for (int i = 1; i <= 24; i++)
+            {
+                await Task.Delay(45);
+                var front = GetForegroundWindow();
+                if (front != explorer && front != owner)
+                {
+                    var name = new System.Text.StringBuilder(100);
+                    GetClassName(front, name, name.Capacity); GetWindowThreadProcessId(front, out var pid);
+                    throw new InvalidOperationException($"拖放期间前台改变（第 {i} 步，类 {name}，PID {pid}）。");
+                }
+                var x = start.X + (to.X - start.X) * i / 24; var y = start.Y + (to.Y - start.Y) * i / 24;
+                Send([new NativeInput { Data = new() { Mouse = new() { X = (int)(((x - left + .5) * 65536) / width), Y = (int)(((y - top + .5) * 65536) / height), Flags = 0xC001 } } }]);
+            }
+            await Task.Delay(200); Require(GetAncestor(WindowFromPoint(to), 2) == owner, "放下图片前发言窗口被遮挡");
+        }
+        catch { if (GetForegroundWindow() == explorer) Key(explorer, 0x1B); throw; }
+        finally { Send([MouseInputFor(0x04)]); }
+    }
 
     internal static void RightClick(FrameworkElement element, Point location, nint expected)
     {
@@ -186,6 +248,8 @@ internal sealed class FocusDesktopInput : IDisposable
     private static void Send(NativeInput[] input) => Require(SendInput((uint)input.Length, input, Marshal.SizeOf<NativeInput>()) == input.Length, "Windows 未接收完整的测试输入");
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 
+    [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(nint window, out NativeRect rect);
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] private struct NativeInput { public uint Type; public InputData Data; }
     [StructLayout(LayoutKind.Explicit)] private struct InputData
@@ -206,6 +270,8 @@ internal sealed class FocusDesktopInput : IDisposable
     [DllImport("user32.dll")] private static extern uint SendInput(uint count, NativeInput[] inputs, int size);
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out NativePoint point);
     [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(nint window, System.Text.StringBuilder name, int capacity);
+    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")] private static extern nint WindowFromPoint(NativePoint point);
     [DllImport("user32.dll")] private static extern nint GetAncestor(nint window, uint flags);
 }

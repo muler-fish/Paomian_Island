@@ -345,6 +345,41 @@ AsyncTest("invalid form data never reaches network", async () =>
     await ThrowsAsync<ArgumentException>(() => api.SendPostAsync(new(0, 0, "", "hello"), "synthetic-cookie")); Assert(calls == 0);
     await ThrowsAsync<ArgumentException>(() => api.SendPostAsync(new(4, 0, "", "hello", Name: new string('a', 101)), "synthetic-cookie")); Assert(calls == 0);
 });
+AsyncTest("attachment snapshot is checked before network", async () =>
+{
+    var file = Path.GetTempFileName(); var calls = 0;
+    using var api = new XIslandApi(new HttpClient(new FakeHandler((_, _) => { calls++; return Task.FromResult(Response("")); })));
+    try
+    {
+        var bytes = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10, 1 };
+        var post = new PostRequest(4, 0, "", "附图", file) { PreviewImageHash = PostImageFile.Hash(bytes) };
+        bytes[^1] = 2; File.WriteAllBytes(file, bytes);
+        await ThrowsAsync<ArgumentException>(() => api.SendPostAsync(post, "synthetic-cookie"));
+        using (var output = File.OpenWrite(file)) output.SetLength(PostImageFile.MaxBytes + 1);
+        await ThrowsAsync<InvalidDataException>(() => api.SendPostAsync(post, "synthetic-cookie"));
+        Assert(calls == 0);
+    }
+    finally { File.Delete(file); }
+});
+Test("draft-owned images survive reopen and failed save; only last reference releases them", () =>
+{
+    var root = Path.Combine(Path.GetTempPath(), "PaomianTests-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var store = new LocalStore(root); var state = new UserState();
+        var external = Path.Combine(root, "external.png"); File.WriteAllText(external, "keep");
+        var own = store.WriteClipboardImage([137, 80, 78, 71, 13, 10, 26, 10]);
+        var path = store.ResolveDraftImage(own);
+        Assert(!store.DiscardClipboardImage(external) && !store.DiscardClipboardImage("draft-images/../external.png"));
+        var d = new Draft("one", 4, 0, "", "", own, false);
+        state.Drafts.AddRange([d, d with { Key = "two" }, d with { Key = "three", ImageFile = external }]); store.Save(state);
+        store = new LocalStore(root); state = store.Load(); state.Drafts.RemoveAt(0); store.Save(state); Assert(File.Exists(path));
+        state.Drafts.Clear(); var obstruction = Directory.CreateDirectory(Path.Combine(root, "state.json.tmp"));
+        try { store.Save(state); throw new Exception("expected save error"); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        Assert(File.Exists(path)); obstruction.Delete(); store.Save(state); Assert(!File.Exists(path) && File.Exists(external));
+    }
+    finally { Cleanup(root); }
+});
 // 本机存储：使用独立临时目录，验证状态保存、缓存身份隔离以及损坏文件备份。
 Test("atomic local state and identity-scoped cache", () =>
 {

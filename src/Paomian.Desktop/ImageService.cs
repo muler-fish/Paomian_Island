@@ -154,17 +154,23 @@ public static class ImageService
     internal static LoadedImage DecodeImage(byte[] bytes, int width = 0)
     {
         var gif = XIslandApi.DetectImage(bytes) == "image/gif";
-        // GIF 合成需完整画布；限制像素数量，避免压缩文件很小而解码占用失控。
-        if (gif && (bytes.Length < 10 || (long)BitConverter.ToUInt16(bytes, 6) * BitConverter.ToUInt16(bytes, 8) > 16_777_216))
-            throw new InvalidDataException("GIF 画布过大，无法播放。");
+        if (gif) CheckGifCanvas(bytes);
         return new(Decode(bytes, width), gif ? bytes : null);
     }
-    public static BitmapSource Decode(byte[] bytes, int width = 0)
+    internal const int MaxFullRasterPixels = 16_777_216;
+    internal static void CheckGifCanvas(ReadOnlySpan<byte> bytes)
+    {
+        // GIF 合成需完整画布。第一帧的局部矩形可能小于 GIF 的逻辑画布。
+        if (bytes.Length < 10 || (long)BitConverter.ToUInt16(bytes[6..8]) * BitConverter.ToUInt16(bytes[8..10]) > MaxFullRasterPixels)
+            throw new InvalidDataException("GIF 画布过大，无法播放。");
+    }
+    public static BitmapSource Decode(byte[] bytes, int width = 0, int height = 0)
     {
         // OnLoad 确保离开此方法后可关闭流；Freeze 后图像不可变，可被多个控件安全复用。
         using var stream = new MemoryStream(bytes);
         var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
         if (width > 0) image.DecodePixelWidth = width;
+        if (height > 0) image.DecodePixelHeight = height;
         image.StreamSource = stream; image.EndInit(); image.Freeze(); return image;
     }
 }

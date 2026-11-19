@@ -164,10 +164,10 @@ public sealed partial class XIslandApi : IDisposable
         // 在任何网络请求前读取并检查附件，避免预检成功后才发现本地文件不可用。
         if (!string.IsNullOrEmpty(post.ImageFile))
         {
-            var info = new FileInfo(post.ImageFile);
-            if (!info.Exists || info.Length > 5 * 1024 * 1024) throw new ArgumentException("图片不存在或超过 5 MB。");
-            image = await File.ReadAllBytesAsync(info.FullName, ct);
+            image = await PostImageFile.ReadAsync(post.ImageFile, ct);
             mime = DetectImage(image) ?? throw new ArgumentException("附图必须是真实的 JPG、PNG 或 GIF 文件。");
+            if (post.PreviewImageHash is { } hash && hash != PostImageFile.Hash(image))
+                throw new ArgumentException("原图已更改，请移除附图并重新添加后再发送。");
         }
         // cookie 参数和不可变 PostRequest 来自发送预览的快照；界面切换身份不会改变此次发言。
         // 预检只发 GET，收集主站会话 Cookie，以及页面存在时的 __hash__ 防伪字段。

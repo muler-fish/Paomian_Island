@@ -17,11 +17,13 @@ public class DialogWindow : ChildWindow
     protected WrapPanel Actions { get; } = new() { HorizontalAlignment = HorizontalAlignment.Right, Margin = UiMetrics.DialogActionsMargin };
     protected TextBlock Feedback { get; } = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 8) };
     private readonly Border _bodyHost = new();
+    private readonly Grid _clientGrid = new();
+    protected void AddClientOverlay(UIElement overlay) { Grid.SetRowSpan(overlay, 3); _clientGrid.Children.Add(overlay); }
     protected void SetBodyContent(UIElement content) => _bodyHost.Child = content;
     public DialogWindow(string title, string subtitle = "", double subtitleFontSize = 12) : base(title)
     {
         Width = UiMetrics.DialogWidth; Height = 660; MinWidth = 420; MinHeight = 240;
-        var grid = new Grid(); grid.RowDefinitions.Add(new() { Height = GridLength.Auto }); grid.RowDefinitions.Add(new()); grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        var grid = _clientGrid; grid.RowDefinitions.Add(new() { Height = GridLength.Auto }); grid.RowDefinitions.Add(new()); grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
         // 没有副标题时不预留说明行，让表单紧接标题。
         var heading = new StackPanel { Margin = new(24, 0, 24, 0) };
         if (subtitle.Length > 0) { var text = Hint(subtitle); text.FontSize = subtitleFontSize; text.LineHeight = subtitleFontSize * 1.5; heading.Children.Add(text); }
@@ -83,6 +85,12 @@ public sealed class TextWindow : DialogWindow
         Body.Children.Add(_body); SetHtml(html); AddAction("关闭", Close);
     }
     public void SetHtml(string html) { _body.Html = html; QueueReferenceFit(); }
+    internal void AddImagePreview(System.Windows.Media.Imaging.BitmapSource image, string caption)
+    {
+        var picture = new Image { Source = image, Width = 144, Height = 100, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left };
+        System.Windows.Automation.AutomationProperties.SetName(picture, "发送预览附图");
+        Body.Children.Add(picture); Body.Children.Add(Hint(caption));
+    }
     public void SetPost(Post post)
     {
         Body.Children.Clear(); Body.Children.Add(_body);
@@ -132,6 +140,7 @@ public sealed class DraftWindow : DialogWindow
             {
                 var panel = new StackPanel { Margin = new(0, 12, 0, 16) };
                 panel.Children.Add(new TextBlock { Text = draft.ReportPostId > 0 ? $"举报 No.{draft.ReportPostId}" : draft.ThreadId > 0 ? $"回复 No.{draft.ThreadId}" : "新串 · " + vm.ForumName(draft.ForumId), FontWeight = FontWeights.SemiBold });
+                if (!string.IsNullOrEmpty(draft.ImageFile)) panel.Children.Add(Hint("含附图"));
                 var preview = ContentText.Plain(draft.Content, vm.State.HideSpoilers); panel.Children.Add(Hint(preview.Length > 100 ? preview[..100] + "…" : preview));
                 var bar = new WrapPanel(); bar.Children.Add(Button("继续编辑", () => { open(this, draft); Refresh(); }));
                 bar.Children.Add(Button("删除草稿", () =>

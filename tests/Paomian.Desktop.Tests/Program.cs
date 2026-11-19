@@ -123,6 +123,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--emoticon-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-layout");
         if (args.FirstOrDefault() == "--emoticon-perf") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-perf");
         if (args.FirstOrDefault() == "--composer-input") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-input");
+        if (args.FirstOrDefault() == "--composer-images") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-images");
         if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
@@ -173,6 +174,11 @@ internal static class Program
                 if (args.FirstOrDefault() == "--ui-copy")
                 {
                     await UiCopyChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--composer-images")
+                {
+                    await ComposerImageChecks.RunAsync(window, output, Capture, args.Contains("--real-input"), args.Contains("--explorer"));
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--reading-history")
