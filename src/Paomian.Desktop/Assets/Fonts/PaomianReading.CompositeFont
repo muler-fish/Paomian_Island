@@ -1,0 +1,16 @@
+<FontFamily xmlns="http://schemas.microsoft.com/winfx/2006/xaml/composite-font"
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <FontFamily.FamilyNames>
+    <System:String xmlns:System="clr-namespace:System;assembly=mscorlib" x:Key="en-US">Paomian Reading</System:String>
+  </FontFamily.FamilyNames>
+  <FontFamily.FamilyMaps>
+    <!-- WPF 按基字符选择组合字形；这些标点需与它们附着的组合符号一起交给 Segoe UI。 -->
+    <FontFamilyMap Unicode="0020,002F,003D,00B7,0300-036F,0489,200B,2019" Target="Segoe UI" />
+    <FontFamilyMap Unicode="0E00-0EFF" Target="Leelawadee UI, Tahoma, Global User Interface" />
+    <FontFamilyMap Unicode="0F00-0FFF" Target="Microsoft Himalaya, Global User Interface" />
+    <!-- 普通文字优先使用系统微软雅黑；保留备用字体和组合符号规则，补足颜文字缺字。 -->
+    <FontFamilyMap Unicode="1760-177F" Target="Microsoft YaHei, ./#Noto Sans Tagbanwa" />
+    <FontFamilyMap Unicode="1BC0-1BFF" Target="Microsoft YaHei, ./#Noto Sans Batak" />
+    <FontFamilyMap Unicode="0000-10FFFF" Target="Microsoft YaHei, Segoe UI, Global User Interface" />
+  </FontFamily.FamilyMaps>
+</FontFamily>

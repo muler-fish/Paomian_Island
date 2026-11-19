@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="src/Tide.Core/Tide.Core.csproj" />
-  <Project Path="src/Tide.Desktop/Tide.Desktop.csproj" />
-  <Project Path="tests/Tide.Tests/Tide.Tests.csproj" />
-  <Project Path="tests/Tide.Desktop.Tests/Tide.Desktop.Tests.csproj" />
-</Solution>

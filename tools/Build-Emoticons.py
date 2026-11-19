@@ -57,6 +57,6 @@ while i < len(lines):
     i = j
 
 ordered = list(entries.values())
-target = ROOT / "src/Tide.Desktop/Assets/emoticons.json"
+target = ROOT / "src/Paomian.Desktop/Assets/emoticons.json"
 target.write_text(json.dumps(ordered, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(json.dumps({"Total": len(ordered), "Multiline": sum("\n" in e["Text"] for e in ordered), "Sources": {s: sum(e["Source"] == s for e in ordered) for s in ("X岛网页", "X岛-EX", "蓝岛资料")}}, ensure_ascii=True))

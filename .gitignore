@@ -21,6 +21,7 @@ artifacts/
 *.suo
 /profile/
 /profiles/
+/PaomianIsland/
 /TideIsland/
 /state.json
 /cookies.json

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/Paomian.Core/Paomian.Core.csproj" />
+  <Project Path="src/Paomian.Desktop/Paomian.Desktop.csproj" />
+  <Project Path="tests/Paomian.Tests/Paomian.Tests.csproj" />
+  <Project Path="tests/Paomian.Desktop.Tests/Paomian.Desktop.Tests.csproj" />
+</Solution>

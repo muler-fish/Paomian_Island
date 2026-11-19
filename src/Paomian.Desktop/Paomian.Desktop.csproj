@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Version>1.0.3</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/paomian.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Paomian.Core/Paomian.Core.csproj" /></ItemGroup>
+  <ItemGroup><PackageReference Include="WPF-UI" Version="4.3.0" /></ItemGroup>
+  <ItemGroup><PackageReference Include="ZXing.Net" Version="0.16.11" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Emoji.Wpf" Version="0.3.4" /></ItemGroup>
+  <ItemGroup><PackageReference Include="XamlAnimatedGif" Version="2.3.2" /></ItemGroup>
+  <ItemGroup><InternalsVisibleTo Include="Paomian.Desktop.Tests" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Assets/emoticons.json" LogicalName="Paomian.Emoticons.json" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Assets/emoji-sequences.json" LogicalName="Paomian.EmojiSequences.json" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/paomian.png" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/paomian.ico" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/Fonts/*.ttf" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets/Fonts/*.CompositeFont" /></ItemGroup>
+  <!-- The public executable keeps its existing filename for shortcuts and in-place updates. -->
+  <Target Name="RenamePublishedAppHost" AfterTargets="Publish" Condition="Exists('$(PublishDir)$(AssemblyName).exe')">
+    <Move SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PublishDir)$(AppEnglishName).exe" />
+  </Target>
+</Project>
+
+

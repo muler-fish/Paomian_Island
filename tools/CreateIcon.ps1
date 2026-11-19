@@ -2,7 +2,7 @@
 param([Parameter(Mandatory)][string]$AssetDirectory)
 $ErrorActionPreference = 'Stop'
 $source = [IO.Path]::GetFullPath($AssetDirectory)
-$target = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\Tide.Desktop\Assets'))
+$target = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\Paomian.Desktop\Assets'))
 $files = [ordered]@{
     'paomian-a-v2.ico' = 'paomian.ico'
     'paomian-a-v2-256.png' = 'paomian.png'

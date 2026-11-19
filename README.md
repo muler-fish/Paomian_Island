@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/Tide.Desktop/Assets/paomian.png" width="96" alt="泡面岛 Logo">
+<img src="src/Paomian.Desktop/Assets/paomian.png" width="96" alt="泡面岛 Logo">
 
 # 泡面岛 · Paomian Island
 
@@ -20,7 +20,7 @@
 2. 解压到任意文件夹，双击 `Paomian Island.exe`。
 
 - 系统要求：Windows 10 / 11 x64。
-- 不需要安装 .NET，也没有安装程序，解压就能用。不想用了，删掉文件夹即可。
+- 不需要安装 .NET，也没有安装程序，解压就能用。删除程序文件夹即可移除程序；默认资料目录不会随之删除。
 - 只是看串的话不需要饼干；要发言，先在左下角的「饼干管理」里导入饼干。
 
 > 有新版本时，程序会在设置入口提示，可以直接在程序里更新，设置和数据都会保留。
@@ -79,32 +79,33 @@
 
 ## 数据与隐私
 
-- 所有数据只存在你的电脑上，默认放在 `%LOCALAPPDATA%\TideIsland`。
-- 饼干和订阅号用 Windows DPAPI 加密，只有当前 Windows 用户能读取。
-- 程序只连接 X 岛的服务器（包括图片和公告）和 GitHub（检查更新用），没有统计或遥测。
-- 想把资料放在别的地方，比如多开、做成便携版：
+- 从 **1.0.3** 起，全新使用时，默认资料目录是 `%LOCALAPPDATA%\PaomianIsland`。当前公开下载的 **1.0.2** 使用 `%LOCALAPPDATA%\TideIsland`；升级后若只有这份旧资料，程序继续在原处使用它，不复制、不搬动，也不删除旧目录。
+- 如果两个目录同时存在，程序会停止，请用 `--data-dir` 明确选择。例如在解压目录的 PowerShell 中运行 `& ".\Paomian Island.exe" --data-dir "$env:LOCALAPPDATA\TideIsland"` 可打开旧资料。程序不合并或覆盖任何一方，也不会因默认目录无法访问而改用空资料。
+- 设置、历史、草稿、饼干及订阅号保存在本机。饼干和订阅号由当前 Windows 用户的 DPAPI 加密；复制文件夹并不能使它们在另一台电脑或另一个 Windows 账号下可用。缓存可单独更换位置，清理缓存不会删除个人记录。
+- 浏览、订阅和发言按需向 X 岛发送请求；GitHub 仅用于更新。没有统计或遥测。
+- 解压版默认**不会**把资料放在 EXE 旁边。要使用便携资料，在解压目录打开 PowerShell：
 
   ```powershell
-  & ".\Paomian Island.exe" --data-dir "D:\泡面岛资料"
+  & ".\Paomian Island.exe" --data-dir "$PWD\profile"
   ```
 
-  同一个资料目录同时只能运行一个泡面岛。
+  也可以传入其他绝对路径。显式指定后，只使用该目录，不参与默认目录选择。同一资料目录同时只能有一个实例，不同的显式资料目录可分别运行。使用便携资料时，请勿随程序目录一起删除 `profile`。
 
 ## 参与开发
 
-需要 Windows 和 [.NET 10 SDK](https://dotnet.microsoft.com/download)：
+需要 Windows 和 [.NET 10 SDK](https://dotnet.microsoft.com/download)；发布脚本使用 PowerShell 7（`pwsh`）。在 PowerShell 中运行：
 
 ```powershell
 git clone https://github.com/muler-fish/Paomian_Island.git
 cd Paomian_Island
-dotnet build Tide.slnx -c Release
-dotnet run --project src/Tide.Desktop -- --data-dir "artifacts/dev-profile"
+dotnet build Paomian.slnx -c Release
+dotnet run --project src/Paomian.Desktop -c Release --no-build -- --data-dir "$PWD/artifacts/dev-profile"
 ```
 
 | 目录 | 内容 |
 | --- | --- |
-| `src/Tide.Core` | X 岛接口、数据模型、缓存、本地存储、更新 |
-| `src/Tide.Desktop` | WPF 界面（WPF UI）、视图模型、主题与交互 |
+| `src/Paomian.Core` | X 岛接口、数据模型、缓存、本地存储、更新 |
+| `src/Paomian.Desktop` | WPF 界面（WPF UI）、视图模型、主题与交互 |
 | `tests` | 核心测试和按功能划分的桌面专项检查 |
 | `tools` | 构建、打包、图标和颜文字资源脚本 |
 

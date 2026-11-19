@@ -8,21 +8,22 @@ try {
     $restoreArgs = @()
     if ($NoRestore) { $restoreArgs += '--no-restore' }
     # 先编译并运行模拟接口测试，失败时立即停止，避免继续发布未通过检查的程序。
-    dotnet build Tide.slnx -c Release --nologo @restoreArgs
+    dotnet build Paomian.slnx -c Release --nologo @restoreArgs
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
-    dotnet 'tests\Tide.Tests\bin\Release\net10.0\Tide.Tests.dll'
+    dotnet 'tests\Paomian.Tests\bin\Release\net10.0\Paomian.Tests.dll'
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
     # 默认按版本输出，试用界面不会覆盖已经交付的 standalone；需要指定路径时显式传入参数。
-    [xml]$project = Get-Content -Raw 'src\Tide.Desktop\Tide.Desktop.csproj'
+    [xml]$project = Get-Content -Raw 'src\Paomian.Desktop\Paomian.Desktop.csproj'
     $version = [string]$project.Project.PropertyGroup.Version
     $folder = if ($SelfContained) { $version } else { "$version-lite" }
     $target = if ($OutputDirectory) { $OutputDirectory } else { Join-Path 'release' $folder }
+    if (Test-Path -LiteralPath $target) { throw "Release directory already exists: $target" }
     $contained = if ($SelfContained) { 'true' } else { 'false' }
     # 单文件包含原生库并启用压缩；部分原生文件会在启动时由 .NET 提取到缓存目录。
-    dotnet publish src/Tide.Desktop/Tide.Desktop.csproj -c Release -r win-x64 --self-contained $contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o $target --nologo @restoreArgs
+    dotnet publish src/Paomian.Desktop/Paomian.Desktop.csproj -c Release -r win-x64 --self-contained $contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o $target --nologo @restoreArgs
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
     # WPF UI 及其内置图标等资源的许可随二进制一起交付；包位置由 NuGet 还原结果确定。
-    $assets = Get-Content -Raw 'src\Tide.Desktop\obj\project.assets.json' | ConvertFrom-Json
+    $assets = Get-Content -Raw 'src\Paomian.Desktop\obj\project.assets.json' | ConvertFrom-Json
     $uiVersion = ($project.Project.ItemGroup.PackageReference | Where-Object Include -eq 'WPF-UI').Version
     $package = $assets.packageFolders.PSObject.Properties.Name |
         ForEach-Object { Join-Path $_ "wpf-ui\$uiVersion" } |

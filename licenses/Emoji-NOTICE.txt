@@ -13,11 +13,11 @@ and Unicode-LICENSE.txt. Portions of this software are copyright
 1996-2002, 2006 The FreeType Project (www.freetype.org). All rights reserved.
 
 The runtime reads Segoe UI Emoji installed with Windows. No Microsoft or
-Apple emoji font is redistributed by Tide. Emoji.Wpf also includes its
+Apple emoji font is redistributed by Paomian Island. Emoji.Wpf also includes its
 own flag fallback drawings. Unicode emoji sequence data is used to
 recognize sequences; see Unicode-LICENSE.txt.
 
-Tide's emoji-sequences.json is derived from Unicode 17.0 emoji-test.txt,
+Paomian Island's emoji-sequences.json is derived from Unicode 17.0 emoji-test.txt,
 Copyright 2025 Unicode, Inc. Sources:
 https://github.com/unicode-org/unicodetools/blob/main/unicodetools/data/emoji/17.0/emoji-test.txt
 https://www.unicode.org/reports/tr51/
