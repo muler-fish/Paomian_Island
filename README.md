@@ -116,7 +116,7 @@ dotnet run --project src/Paomian.Desktop -c Release --no-build -- --data-dir "$P
 
 ## 致谢与许可
 
-- 交互参考了记忆中老 A 岛的一款 Windows 客户端，接口参考了[雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。
+- 界面和交互参考了记忆中老 A 岛的一款 Windows 客户端(很可惜找不到了)，接口参考了[雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。
 - 用到了 [WPF UI](https://github.com/lepoco/wpfui)、ZXing.Net、Emoji.Wpf、XamlAnimatedGif 等开源组件，它们各自的许可放在 [licenses](licenses) 目录。
 - 泡面岛以 [GPL-3.0](LICENSE) 许可证开源。
 
