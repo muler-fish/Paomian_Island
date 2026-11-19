@@ -8,7 +8,7 @@
 
 支持三栏阅读、键盘浏览、连续翻页，以及订阅、发串和回应。
 
-[下载 1.0.2（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.2/Paomian-Island-1.0.2-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.2) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
+[下载 1.0.3（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.3/Paomian-Island-1.0.3-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.3) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
 </div>
 
@@ -16,24 +16,23 @@
 
 ## 快速开始
 
-1. 在 [1.0.2 发布页](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.2) 下载 `Paomian-Island-1.0.2-win-x64.zip`。
+1. 在 [1.0.3 发布页](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.3) 下载 `Paomian-Island-1.0.3-win-x64.zip`。
 2. 解压到任意文件夹，双击 `Paomian Island.exe`。
 
 - 系统要求：Windows 10 / 11 x64。
 - 不需要安装 .NET，也没有安装程序，解压就能用。删除程序文件夹即可移除程序；默认资料目录不会随之删除。
-- 只是看串的话不需要饼干；要发言，先在左下角的「饼干管理」里导入饼干。
+- 游客最多可以浏览前 100 页。要发言，请先在左下角的「饼干管理」里导入饼干。
 
 > 有新版本时，程序会在设置入口提示，可以直接在程序里更新，设置和数据都会保留。
 
 ## 它能做什么
 
 **阅读**
-- 三栏布局，包含版块导航、串列表和正文，栏宽和窗口位置都会记住。
+- 三栏布局，包含版块导航、串列表和正文，栏宽和窗口位置都会自动保存。
 - 串列表滚到底会自动加载下一页，串内往上往下都能续页，也支持跳到指定页和只看 PO。
 - 会保存阅读进度，再打开同一个串时回到上次看到的位置。
-- 引用可以在小窗里预览，站内链接也能直接预览，还支持防剧透黑条。
-- 支持复制选中的正文，保留帖子指定的文字、链接和引用颜色。
 - 有浅色和深色主题，正文字号、行间距、字间距都能调，调的时候实时预览。
+- 键盘操作，一副键盘即可使用大部分功能。
 
 **看图**
 - 独立的看图窗口：缩放、拖动、旋转、保存原图。
@@ -50,7 +49,7 @@
 
 **整理**
 - 支持多个订阅号，每个可以写备注、随时切换。
-- 左键点击阅读区的订阅按钮可订阅或取消。右键按当前状态直接订阅，或先取消再重新订阅。状态未知或写入结果未获确认时才核对云端列表。
+- 左键点击阅读区的订阅按钮可订阅或取消。右键点击会重新订阅该串以将其移至订阅区顶部。
 - 版块收藏、浏览历史、屏蔽串和屏蔽版块。
 - 缓存可以设容量上限和存放位置；访问 X 岛和检查更新可以分别选择走系统代理或直连。
 - 检查更新的来源是 GitHub Releases，下载后会核对 SHA-256 校验值。
@@ -79,7 +78,7 @@
 
 ## 数据与隐私
 
-- 从 **1.0.3** 起，全新使用时，默认资料目录是 `%LOCALAPPDATA%\PaomianIsland`。当前公开下载的 **1.0.2** 使用 `%LOCALAPPDATA%\TideIsland`；升级后若只有这份旧资料，程序继续在原处使用它，不复制、不搬动，也不删除旧目录。
+- 全新使用 **1.0.3** 时，默认资料目录是 `%LOCALAPPDATA%\PaomianIsland`。从 **1.0.2** 升级时，如果只有原来的 `%LOCALAPPDATA%\TideIsland`，程序会继续在原处读写资料。
 - 如果两个目录同时存在，程序会停止，请用 `--data-dir` 明确选择。例如在解压目录的 PowerShell 中运行 `& ".\Paomian Island.exe" --data-dir "$env:LOCALAPPDATA\TideIsland"` 可打开旧资料。程序不合并或覆盖任何一方，也不会因默认目录无法访问而改用空资料。
 - 设置、历史、草稿、饼干及订阅号保存在本机。饼干和订阅号由当前 Windows 用户的 DPAPI 加密；复制文件夹并不能使它们在另一台电脑或另一个 Windows 账号下可用。缓存可单独更换位置，清理缓存不会删除个人记录。
 - 浏览、订阅和发言按需向 X 岛发送请求；GitHub 仅用于更新。没有统计或遥测。
@@ -115,7 +114,7 @@ dotnet run --project src/Paomian.Desktop -c Release --no-build -- --data-dir "$P
 
 ## 致谢与许可
 
-- 交互参考了记忆中老 A 岛的一款 Windows (不知道是不是第三方的)客户端，接口参考了[雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。
+- 交互参考了记忆中老 A 岛的一款 Windows 客户端，接口参考了[雾岛](https://github.com/123Duo3/XDNMB)和[霞岛](https://github.com/orzogc/xdnmb)。
 - 用到了 [WPF UI](https://github.com/lepoco/wpfui)、ZXing.Net、Emoji.Wpf、XamlAnimatedGif 等开源组件，它们各自的许可放在 [licenses](licenses) 目录。
 - 泡面岛以 [GPL-3.0](LICENSE) 许可证开源。
 

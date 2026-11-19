@@ -2,7 +2,7 @@
 
 每个版本的下载见 [Releases](https://github.com/muler-fish/Paomian_Island/releases)。
 
-## 1.0.3 · 未发布
+## 1.0.3 · 2026-11-19
 
 - 全新使用时采用新的默认资料目录；升级继续读取原目录中的设置、饼干、订阅、草稿和缓存。若存在两份默认资料，启动时会提示明确选择，不自动合并。
 - 解决方案、工程和开发命令统一使用 `Paomian`，新安装包交付 `Paomian Island.exe`；已有 `Tide.exe` 安装、快捷方式和旧更新包仍保留兼容。
