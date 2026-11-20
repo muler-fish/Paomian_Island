@@ -85,9 +85,9 @@ internal sealed class FocusDesktopInput : IDisposable
     internal static void ClickAt(FrameworkElement element, Point location, nint expected) =>
         ClickPoint(CheckedPoint(element, location, expected));
 
-    internal static void Hover(FrameworkElement element, nint expected)
+    internal static void Hover(FrameworkElement element, nint expected, Point? location = null)
     {
-        var p = CheckedPoint(element, new Point(element.ActualWidth / 2, element.ActualHeight / 2), expected);
+        var p = CheckedPoint(element, location ?? new Point(element.ActualWidth / 2, element.ActualHeight / 2), expected);
         Require(SetCursorPos(p.X, p.Y), "无法移动到测试控件");
     }
 

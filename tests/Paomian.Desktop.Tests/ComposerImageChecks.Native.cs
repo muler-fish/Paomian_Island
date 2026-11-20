@@ -19,16 +19,21 @@ internal static partial class ComposerImageChecks
         var card = All<ComposerImageCard>(composer).Single(); var editor = All<EmojiEditor>(composer).Single(); editor.Text = "实机附图";
         await OleDragAsync(composer, editor, path, cancel: true); Require(!card.IsVisible && !All<ImageDropSurface>(composer).Single().IsVisible, "取消系统拖放未还原");
         await OleDragAsync(composer, editor, path, cancel: false); await Until(() => card.Photo.Source is not null, "系统拖入失败");
-        await FocusDesktopInput.ActivateAsync(handle); editor.Focus(); card.BringIntoView(); await Task.Delay(200); FocusDesktopInput.Hover(card, handle);
+        App.ApplyTheme("dark");
+        await FocusDesktopInput.ActivateAsync(handle); editor.Focus(); card.BringIntoView(); await Task.Delay(200); FocusDesktopInput.Hover(card.Tile, handle);
         await Until(() => card.Shade.Opacity > .98 && card.Remove.IsHitTestVisible, "真实悬停未显示遮罩");
-        FocusDesktopInput.Hover(card.Remove, handle); await Task.Delay(120); Require(card.Remove.Opacity > .98, "移到 × 时遮罩消失");
+        var outside = new Point(card.Tile.ActualWidth + 4, -4);
+        FocusDesktopInput.Hover(card.Tile, handle, outside); await Until(() => card.Remove.IsMouseOver, "框外半圆未命中");
+        await Task.Delay(140); Require(card.Remove.Opacity > .98 && card.Shade.Opacity > .98, "从缩略图移到框外的 × 时遮罩消失");
         capture(composer, System.IO.Path.Combine(output, "card-hover.png"));
         FocusDesktopInput.Hover(editor, handle); await Until(() => card.Shade.Opacity < .02 && card.Remove.Opacity < .02, "移出后遮罩未关闭");
-        FocusDesktopInput.Hover(card, handle); await Until(() => card.Remove.Opacity > .98, "无法再次悬停"); FocusDesktopInput.Click(card.Remove, handle);
+        FocusDesktopInput.Hover(card.Tile, handle); await Until(() => card.Remove.Opacity > .98, "无法再次悬停"); FocusDesktopInput.ClickAt(card.Tile, outside, handle);
         await Until(() => !card.IsVisible, "鼠标删除失败");
         editor.Focus(); var data = new DataObject(); data.SetImage(bitmap); await copy(data);
         FocusDesktopInput.Chord(handle, 0x11, 0x56); await Until(() => card.Photo.Source is not null, "真实 Ctrl+V 没有添加位图");
-        card.Remove.Focus(); FocusDesktopInput.Key(handle, 0x20); await Until(() => !card.IsVisible, "空格没有删除附图");
+        FindButton(composer, "骰子").Focus(); FocusDesktopInput.Key(handle, 0x09);
+        await Until(() => card.Remove.IsKeyboardFocused && card.Remove.Opacity > .98, "Tab 未显示或聚焦移除按钮");
+        FocusDesktopInput.Key(handle, 0x20); await Until(() => !card.IsVisible, "空格没有删除附图");
         await InModal<ImageDropWindow>(composer, "添加图片", async picker =>
         {
             var popup = new WindowInteropHelper(picker).Handle;

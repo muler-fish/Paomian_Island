@@ -10,8 +10,8 @@ public partial class ComposerImageCard : UserControl
     public ComposerImageCard()
     {
         InitializeComponent();
-        Tile.MouseEnter += (_, _) => Reveal(); Tile.MouseLeave += (_, _) => Reveal();
-        Tile.IsKeyboardFocusWithinChanged += (_, _) => Reveal();
+        MouseEnter += (_, _) => Reveal(); MouseLeave += (_, _) => Reveal();
+        IsKeyboardFocusWithinChanged += (_, _) => Reveal();
         Remove.Click += (_, e) => { e.Handled = true; RemoveRequested?.Invoke(); };
     }
 
@@ -24,7 +24,7 @@ public partial class ComposerImageCard : UserControl
 
     private void Reveal()
     {
-        var show = Tile.IsMouseOver || Tile.IsKeyboardFocusWithin;
+        var show = IsMouseOver || IsKeyboardFocusWithin;
         // 保留 Tab 焦点。鼠标或键盘进入后再开放点击，避免点中隐藏的按钮。
         Remove.IsHitTestVisible = show;
         foreach (var element in new UIElement[] { Shade, Remove })

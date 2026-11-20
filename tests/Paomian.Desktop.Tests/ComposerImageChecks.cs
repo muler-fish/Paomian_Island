@@ -72,6 +72,7 @@ internal static partial class ComposerImageChecks
             editor.Focus(); await Copy(Files(path)); ApplicationCommands.Paste.Execute(null, editor);
             Require(Text(composer).Contains("先移除") && vm.State.Drafts.Single().ImageFile == path, "重复添加没有提示");
             await ThemesAsync(composer, card, output, capture);
+            Pass("浅深主题与 100/125/150% 缩放：16 DIP 角标居中对准顶点，框外可命中，保留 32 DIP 点击区");
             var water = All<CheckBox>(composer).Single(c => Equals(c.Content, "为附图添加水印")); water.IsChecked = true;
             All<ComboBox>(composer).Single(c => AutomationProperties.GetName(c) == "发言使用的饼干").SelectedIndex = 1;
             Require(vm.State.Drafts.Single().ImageFile == path, "切饼干丢失附件");
@@ -208,7 +209,18 @@ internal static partial class ComposerImageChecks
             foreach (var scale in new[] { 1d, 1.25, 1.5 })
             {
                 App.ApplyTheme(theme); UiCopyChecks.SetDpi(w, scale, 480, 690); await Task.Delay(80); card.BringIntoView(); await Task.Delay(60);
-                Require(card.Tile.ActualWidth == 104 && card.Tile.ActualHeight == 76 && card.Photo.Stretch == Stretch.Uniform && card.Remove.ActualWidth >= 32, "DPI 布局变形");
+                Require(card.Tile.ActualWidth == 104 && card.Tile.ActualHeight == 76 && card.Photo.Stretch == Stretch.Uniform, "DPI 布局变形");
+                var remove = card.Remove; remove.Focus(); await Until(() => remove.Opacity > .98, "聚焦时角标未显示");
+                var disk = (Border)remove.Template.FindName("Disk", remove);
+                var corner = new Point(card.Tile.ActualWidth, 0);
+                var center = disk.TranslatePoint(new(disk.ActualWidth / 2, disk.ActualHeight / 2), card.Tile);
+                Require(disk.RenderSize == new Size(16, 16) && (center - corner).Length < .51, $"{theme}/{scale}: 圆钮未对准顶点 {center}");
+                Require(remove.RenderSize == new Size(32, 32), "角标缩小了点击区");
+                foreach (var offset in new[] { 4, 12 }) // 框外的圆钮、圆钮外的透明点击区。
+                {
+                    var point = card.Tile.TranslatePoint(corner + new Vector(offset, -offset), w);
+                    Require(w.InputHitTest(point) is DependencyObject hit && (hit == remove || remove.IsAncestorOf(hit)), $"{theme}/{scale}: 框外 {offset} DIP 未命中移除按钮");
+                }
                 if (scale == 1.25) capture(w, Path.Combine(output, $"card-{theme}.png"));
             }
         App.ApplyTheme("light"); UiCopyChecks.SetDpi(w, 1, w0, h0); await Task.Delay(80);

@@ -10,7 +10,8 @@ public sealed partial class ComposerWindow
     private bool _imageBusy;
     private readonly CancellationTokenSource _imageLifetime = new();
     private readonly ComposerImageCard _card = new();
-    private readonly Grid _attachmentRow = new() { Margin = new(0, 4, 0, 4) };
+    // 工具栏下已有 8 DIP 留白，留给角标的上半个点击区。
+    private readonly Grid _attachmentRow = new() { Margin = new(0, -8, 0, 4) };
     private readonly TextBlock _filename = new() { TextTrimming = TextTrimming.CharacterEllipsis, Margin = new(0, 0, 0, 5) };
 
     private string? ImageUnavailable() => _sending ? "正在发送。" : _imageBusy ? "正在读取图片。" : _image is not null ? ComposerImageInput.Occupied : null;
@@ -19,7 +20,7 @@ public sealed partial class ComposerWindow
     private void SetupImages(string? saved, Button attach)
     {
         _attachmentRow.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); _attachmentRow.ColumnDefinitions.Add(new());
-        var details = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new(12, 0, 0, 0) };
+        var details = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 16, 0, 0) };
         _filename.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         _water.ToolTip = "缩略图显示原图，发送后由 X 岛添加水印。";
         details.Children.Add(_filename); details.Children.Add(_water); Grid.SetColumn(details, 1);

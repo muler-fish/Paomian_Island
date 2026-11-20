@@ -3,23 +3,29 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Focusable="False" HorizontalAlignment="Left" VerticalAlignment="Center">
-    <Grid x:Name="Tile" Width="104" Height="76" Background="Transparent" ClipToBounds="True">
-        <Border CornerRadius="5" Background="{DynamicResource Canvas}"/>
-        <Image x:Name="Photo" Margin="2" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
-               AutomationProperties.Name="附图缩略图">
-            <Image.Clip><RectangleGeometry Rect="0,0,100,72" RadiusX="4" RadiusY="4"/></Image.Clip>
-        </Image>
-        <ui:SymbolIcon x:Name="Placeholder" Symbol="Image24" FontSize="22" Foreground="{DynamicResource Muted}"/>
-        <Border x:Name="Shade" CornerRadius="5" Background="{DynamicResource Scrim}" Opacity="0" IsHitTestVisible="False"/>
-        <Border CornerRadius="5" BorderThickness="1" BorderBrush="{DynamicResource Line}" IsHitTestVisible="False"/>
+    <Grid>
+        <!-- 给按钮的上半部和右半部留出命中空间，只有图片区域裁剪内容。 -->
+        <Grid x:Name="Tile" Width="104" Height="76" Margin="0,16,16,0" Background="Transparent" ClipToBounds="True">
+            <Border CornerRadius="3" Background="{DynamicResource Canvas}"/>
+            <Image x:Name="Photo" Margin="2" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                   AutomationProperties.Name="附图缩略图">
+                <Image.Clip><RectangleGeometry Rect="0,0,100,72" RadiusX="2" RadiusY="2"/></Image.Clip>
+            </Image>
+            <ui:SymbolIcon x:Name="Placeholder" Symbol="Image24" FontSize="22" Foreground="{DynamicResource Muted}"/>
+            <Border x:Name="Shade" CornerRadius="3" Background="{DynamicResource Scrim}" Opacity="0" IsHitTestVisible="False"/>
+            <Border CornerRadius="3" BorderThickness="1" BorderBrush="{DynamicResource Line}" IsHitTestVisible="False"/>
+        </Grid>
         <Button x:Name="Remove" ToolTip="移除图片" AutomationProperties.Name="移除图片" Padding="0"
-                Width="32" Height="32" Margin="0,3,3,0" HorizontalAlignment="Right" VerticalAlignment="Top"
-                Opacity="0" IsHitTestVisible="False">
+                Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Opacity="0" IsHitTestVisible="False" FocusVisualStyle="{x:Null}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
-                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="16" x:Name="Disk">
-                        <ui:SymbolIcon Symbol="Dismiss24" FontSize="15" Foreground="{DynamicResource Text}"/>
-                    </Border>
+                    <Grid Background="Transparent">
+                        <Border x:Name="Disk" Width="16" Height="16" CornerRadius="8" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource Line}" BorderThickness="1">
+                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="7.5" Foreground="{DynamicResource Text}"/>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Disk" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
                         <Trigger Property="IsPressed" Value="True"><Setter TargetName="Disk" Property="Background" Value="{DynamicResource Pressed}"/></Trigger>
