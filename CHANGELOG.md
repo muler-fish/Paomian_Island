@@ -2,7 +2,7 @@
 
 每个版本的下载见 [Releases](https://github.com/muler-fish/Paomian_Island/releases)。
 
-## 未发布
+## 1.0.7（未发布）
 
 - 发现新版本后，在「设置 → 关于 → 软件更新」的按钮下方可按版本查看这次升级的更新内容。暂时取不到历史说明时，仍可下载更新。
 
