@@ -8,7 +8,7 @@
 
 支持三栏阅读、键盘浏览、连续翻页，以及订阅、发串和回应。
 
-[下载 1.0.3（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.3/Paomian-Island-1.0.3-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.3) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
+[下载 1.0.6（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.6/Paomian-Island-1.0.6-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.6) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
 </div>
 
@@ -39,7 +39,7 @@
 
 **发言**
 - 发串和回应支持草稿、颜文字、防剧透和骰子，发送前可以预览。
-- 从 1.0.4 起，可以把图片直接拖进发言窗口、在正文按 `Ctrl+V` 粘贴截图或复制的图片文件，也可以点「添加图片」选择本地文件。一次可附一张 JPG、PNG 或 GIF，最大 5 MB。选好后就能看到缩略图。要换图，可以点缩略图右上角的 ×，也可以用 `Tab` 选中「移除图片」后按空格。
+- 从 1.0.6 起，可以把图片直接拖进发言窗口、在正文按 `Ctrl+V` 粘贴截图或复制的图片文件，也可以点「添加图片」选择本地文件。一次可附一张 JPG、PNG 或 GIF，最大 5 MB。选好后就能看到缩略图。要换图，可以点缩略图右上角的 ×，也可以用 `Tab` 选中「移除图片」后按空格。
 - 管理多个饼干：给饼干写本机备注、设默认饼干，回应时能看到这个饼干在当前串里用过几次。
 - 饼干导入方式：二维码图片、剪贴板图片、userhash、Cookie 头或 JSON。
 - 「我的发言」保存在本机发送成功的主题和回复。
@@ -80,7 +80,7 @@
 首次使用时，泡面岛默认将资料保存在 `%LOCALAPPDATA%\PaomianIsland`。把这个路径粘贴到文件资源管理器的地址栏，即可打开资料目录。删除程序文件夹时，默认资料目录会保留。
 
 - 设置、浏览历史、草稿、饼干和订阅号都保存在本机。饼干和订阅号由 Windows DPAPI 加密，只能在这台电脑上用保存它们的 Windows 账户解密。
-- 从 1.0.4 起，粘贴的截图随草稿保存在资料目录。移除附图、删除草稿或发送成功后，如果其他草稿也用不到这张截图，程序会将它清理。拖入或选择的文件仍保存在原处。
+- 从 1.0.6 起，粘贴的截图随草稿保存在资料目录。移除附图、删除草稿或发送成功后，如果其他草稿也用不到这张截图，程序会将它清理。拖入或选择的文件仍保存在原处。
 - 缓存的位置和容量可以在「设置」中调整。清理缓存会保留个人资料。
 - 浏览、订阅和发言时按需连接 X 岛，检查和下载更新时连接 GitHub。程序没有统计或遥测。
 
