@@ -8,7 +8,7 @@
 
 支持三栏阅读、键盘浏览、连续翻页，以及订阅、发串和回应。
 
-[下载 1.0.6（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.6/Paomian-Island-1.0.6-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.6) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
+[下载 1.0.7（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.7/Paomian-Island-1.0.7-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.7) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
 </div>
 
@@ -22,7 +22,7 @@
 2. 在左栏选一个版块，点击中栏的串，就能在右栏阅读。游客最多可以浏览前 100 页。
 3. 要发串或回应，先在左下角打开「饼干管理」并导入饼干。
 
-有新版本时，「设置」入口会显示提示，打开后即可下载更新。
+有新版本时，「设置」入口会显示提示。打开「设置 → 关于 → 软件更新」，可以按版本查看这次升级的更新内容，也可以直接下载更新。
 
 ## 它能做什么
 
