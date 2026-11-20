@@ -82,6 +82,7 @@ internal static class UiCopyChecks
             var location = SettingsWindow.LicensesLocation();
             Require(Directory.Exists(location) || location == ReleaseUpdater.Repository + "/blob/main/LICENSE", "开源许可入口的位置不正确");
             Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.Contains("非官方")), "关于页缺少非官方客户端声明");
+            Require(!All<SettingsReleaseNotes>(settings).Single().IsVisible, "未发现新版本时不应显示更新内容");
             nav.SelectedItem = "数据与记录"; await Pause();
             Require(All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.StartsWith("最近浏览 ")) && All<TextBlock>(settings).Any(t => t.IsVisible && t.Text.Contains("加密保存")), "数据与记录的统计用词或隐私说明不正确");
             // 资料目录只读：完整显示路径，不是输入框，也不能取得焦点。

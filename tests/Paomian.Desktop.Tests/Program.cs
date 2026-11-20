@@ -126,6 +126,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--composer-images") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-images");
         if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
+        if (args.FirstOrDefault() == "--release-notes") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/release-notes");
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
         if (args.FirstOrDefault() == "--gif") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-playback");
         if (args.FirstOrDefault() == "--gif-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-copy");
@@ -201,6 +202,11 @@ internal static class Program
                 if (args.FirstOrDefault() == "--image-notice")
                 {
                     await ImageViewerChecks.CheckNoticeAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--release-notes")
+                {
+                    await ReleaseNotesUiChecks.RunAsync(window, output, Capture);
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--settings-layout")

@@ -138,7 +138,8 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public ActionCommand ClearErrorCommand { get; }
     public ActionCommand LibraryCommand { get; }
 
-    public MainViewModel(XIslandApi api, LocalStore store)
+    public MainViewModel(XIslandApi api, LocalStore store) : this(api, store, new ReleaseUpdater(), UpdateController.Version) { }
+    internal MainViewModel(XIslandApi api, LocalStore store, ReleaseUpdater updater, string installedVersion)
     {
         Api = api; Store = store; State = store.Load();
         Shortcuts = new(State);
@@ -150,7 +151,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or ArgumentException)
         { Error = "缓存目录不可用，使用默认目录：" + ex.Message; State.CacheParentPath = ""; Store.ConfigureCache(State); }
         ImageService.DiskCache = Store.Cache;
-        Updates = new(this);
+        Updates = new(this, updater, installedVersion);
         Updates.Changed += () => { Changed(nameof(HasUpdate)); Changed(nameof(SettingsHint)); };
         VisiblePosts = new(Posts); InitializeBlocking();
         App.ApplySpoilerProtection(State.HideSpoilers);

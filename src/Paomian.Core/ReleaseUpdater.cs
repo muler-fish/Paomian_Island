@@ -1,21 +1,25 @@
 using System.IO.Compression;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Paomian.Core;
 
-public sealed record AppRelease(string Version, string Notes, Uri Page, Uri Download, string Sha256, long Size);
+public sealed record AppRelease(string Version, string Notes, Uri Page, Uri Download, string Sha256, long Size)
+{
+    public DateTimeOffset? PublishedAt { get; init; }
+    public ReleaseNote Note => new(System.Version.Parse(Version), Notes, Page, PublishedAt);
+}
 public sealed record StagedUpdate(string Directory, string ExecutableHash);
 
 /// <summary>Stable releases from the project's own repository, downloaded without island credentials.</summary>
-public sealed class ReleaseUpdater : IDisposable
+public sealed partial class ReleaseUpdater : IDisposable
 {
     public const string Repository = "https://github.com/muler-fish/Paomian_Island";
     // GitHub keeps redirecting the pre-rename repository; accept assets reported under either name.
     public const string LegacyRepository = "https://github.com/muler-fish/Tide";
-    public const string Endpoint = "https://api.github.com/repos/muler-fish/Paomian_Island/releases/latest";
+    private const string ReleasesEndpoint = "https://api.github.com/repos/muler-fish/Paomian_Island/releases";
+    public const string Endpoint = ReleasesEndpoint + "/latest";
     private readonly HttpClient _http;
     public ReleaseUpdater(HttpClient? http = null)
     {
@@ -26,22 +30,16 @@ public sealed class ReleaseUpdater : IDisposable
     public async Task<AppRelease?> CheckAsync(string currentVersion, CancellationToken ct = default)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(30));
-        using var request = new HttpRequestMessage(HttpMethod.Get, Endpoint);
-        request.Headers.Accept.ParseAdd("application/vnd.github+json");
-        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-        if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
-        using var output = new MemoryStream();
-        await CopyLimitedAsync(await response.Content.ReadAsStreamAsync(timeout.Token), output, 2_000_000, null, timeout.Token);
-        return ParseRelease(output.ToArray(), currentVersion);
+        var page = await ReadMetadataAsync(Endpoint, timeout.Token, allowMissing: true).ConfigureAwait(false);
+        return page is null ? null : ParseRelease(page.Json, currentVersion);
     }
     public static AppRelease? ParseRelease(byte[] json, string currentVersion)
     {
         using var doc = JsonDocument.Parse(json); var root = doc.RootElement;
-        if (root.GetProperty("draft").GetBoolean() || root.GetProperty("prerelease").GetBoolean()) return null;
+        if (!IsPublished(root)) return null;
         var tag = root.GetProperty("tag_name").GetString() ?? "";
-        if (!Regex.IsMatch(tag, @"^v?\d+\.\d+\.\d+$")) throw new InvalidDataException("更新版本号格式不支持。");
-        if (!IsNewer(tag, currentVersion)) return null;
+        var number = StableVersion(tag) ?? throw new InvalidDataException("更新版本号格式不支持。");
+        if (!IsNewer(number, currentVersion)) return null;
         var version = tag.TrimStart('v');
         var name = AppIdentity.PackageName(version);
         var assets = root.GetProperty("assets");
@@ -64,11 +62,12 @@ public sealed class ReleaseUpdater : IDisposable
         if (!Regex.IsMatch(digest, "^sha256:[a-fA-F0-9]{64}$")) throw new InvalidDataException("更新包缺少 SHA-256 校验信息，请在仓库手动下载。");
         var size = asset.GetProperty("size").GetInt64();
         if (size is <= 0 or > 100_000_000) throw new InvalidDataException("更新包大小异常。");
-        return new(version, root.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "", new Uri($"{Repository}/releases/tag/{tag}"), url, digest[7..], size);
+        var note = ReadNote(root, tag, number);
+        return new(version, note.Body, note.Page, url, digest[7..], size) { PublishedAt = note.PublishedAt };
     }
-    public static bool IsNewer(string release, string current)
+    public static bool IsNewer(string release, string current) => IsNewer(Version.Parse(release.TrimStart('v')), current);
+    private static bool IsNewer(Version parsed, string current)
     {
-        var parsed = Version.Parse(release.TrimStart('v'));
         var clean = current.Split('+')[0].TrimStart('v'); var pieces = clean.Split('-', 2);
         if (!Version.TryParse(pieces[0], out var installed)) throw new InvalidDataException("当前版本号无法识别。");
         return parsed > installed || parsed == installed && pieces.Length == 2;

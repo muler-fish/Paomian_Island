@@ -174,7 +174,7 @@ public sealed class SettingsWindow : DialogWindow
         System.Windows.Media.RenderOptions.SetBitmapScalingMode(logo, System.Windows.Media.BitmapScalingMode.HighQuality); brand.Children.Add(logo);
         var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         names.Children.Add(new TextBlock { Text = AppIdentity.DisplayName, FontSize = 24, FontWeight = FontWeights.SemiBold }); names.Children.Add(SettingsLayout.Text(AppIdentity.EnglishName, true)); brand.Children.Add(names); about.Children.Add(brand);
-        about.Children.Add(SettingsLayout.Text("版本 " + UpdateController.Version + " · X 岛匿名版非官方 Windows 客户端", true));
+        about.Children.Add(SettingsLayout.Text("版本 " + vm.Updates.InstalledVersion + " · X 岛匿名版非官方 Windows 客户端", true));
         var links = new WrapPanel { Margin = new(0, 12, 0, 4) }; about.Children.Add(links);
         links.Children.Add(Action("作者 · muler-fish", () => Open("https://github.com/muler-fish"))); links.Children.Add(Action("项目仓库", () => Open(ReleaseUpdater.Repository))); links.Children.Add(Action("反馈问题", () => Open(ReleaseUpdater.Repository + "/issues")));
         // 许可全文随程序放在 licenses 文件夹；开发运行时没有这个文件夹，改为打开仓库里的许可证。
@@ -185,13 +185,21 @@ public sealed class SettingsWindow : DialogWindow
         var check = Action("检查更新", async () => await vm.Updates.CheckAsync()); updateButtons.Children.Add(check);
         var download = Action("下载更新", async () => await vm.Updates.DownloadAsync()); updateButtons.Children.Add(download);
         var install = Action("重启安装", vm.Updates.RestartToInstall); updateButtons.Children.Add(install);
+        var notes = new SettingsReleaseNotes(url => (Owner as MainWindow ?? Application.Current.MainWindow as MainWindow)?.OpenExternal(url),
+            () => vm.Updates.LoadNotesAsync(retry: true));
+        about.Children.Add(notes);
         void UpdateState()
         {
             updateStatus.Text = vm.Updates.Status; check.IsEnabled = !vm.Updates.Busy && vm.Updates.Staged is null;
             download.Visibility = vm.Updates.Available is not null && vm.Updates.Staged is null ? Visibility.Visible : Visibility.Collapsed; download.IsEnabled = !vm.Updates.Busy;
             install.Visibility = vm.Updates.Staged is null ? Visibility.Collapsed : Visibility.Visible;
         }
-        vm.Updates.Changed += UpdateState; Closed += (_, _) => vm.Updates.Changed -= UpdateState; UpdateState();
+        void ShowNotes() { if (about.IsVisible) notes.Display(vm.Updates.Notes); }
+        void ReadNotes() { if (about.IsVisible) { _ = vm.Updates.LoadNotesAsync(); ShowNotes(); } }
+        about.IsVisibleChanged += (_, _) => ReadNotes();
+        vm.Updates.Changed += UpdateState; vm.Updates.ReleaseChecked += ReadNotes; vm.Updates.NotesChanged += ShowNotes;
+        Closed += (_, _) => { vm.Updates.Changed -= UpdateState; vm.Updates.ReleaseChecked -= ReadNotes; vm.Updates.NotesChanged -= ShowNotes; };
+        UpdateState();
         Toggle(about, "启动时自动检查更新", vm.State.AutoCheckUpdates, value => { vm.State.AutoCheckUpdates = value; vm.Save(); });
         Toggle(about, "自动下载，退出时安装更新", vm.State.InstallUpdatesOnExit, async value => { vm.State.InstallUpdatesOnExit = value; vm.Save(); if (value) await vm.Updates.CheckAsync(automatic: true); });
         navigation.SelectedIndex = 0;

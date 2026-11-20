@@ -6,10 +6,10 @@ using Paomian.Core;
 
 namespace Paomian.Desktop;
 
-internal sealed class UpdateController(MainViewModel vm)
+internal sealed partial class UpdateController(MainViewModel vm, ReleaseUpdater updater, string installedVersion)
 {
     internal static string Version => typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0];
-    private readonly ReleaseUpdater _updater = new();
+    internal string InstalledVersion { get; } = installedVersion;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DateTime _created = DateTime.UtcNow;
     internal event Action? Changed;
@@ -25,7 +25,8 @@ internal sealed class UpdateController(MainViewModel vm)
         Busy = true; SetStatus("正在检查更新…");
         try
         {
-            Available = await _updater.CheckAsync(Version, _lifetime.Token);
+            Available = await updater.CheckAsync(InstalledVersion, _lifetime.Token);
+            OnReleaseChecked(Available);
             SetStatus(Available is null ? $"已是最新版本 · {DateTime.Now:HH:mm} 检查" : $"发现新版本 {Available.Version}");
         }
         catch (Exception ex) { SetStatus("检查失败：" + Friendly(ex)); }
@@ -39,7 +40,7 @@ internal sealed class UpdateController(MainViewModel vm)
         try
         {
             var progress = new Progress<int>(value => SetStatus($"正在下载更新 · {value}%"));
-            Staged = await _updater.DownloadAsync(Available, Root, progress, _lifetime.Token);
+            Staged = await updater.DownloadAsync(Available, Root, progress, _lifetime.Token);
             SetStatus("更新已准备好，可重启安装" + (vm.State.InstallUpdatesOnExit ? "，或在退出时安装" : ""));
         }
         catch (Exception ex) { SetStatus("下载失败：" + Friendly(ex)); }
@@ -69,7 +70,7 @@ internal sealed class UpdateController(MainViewModel vm)
             try { LaunchInstaller(false); }
             catch (Exception ex) { MessageBox.Show("更新尚未安装，原程序保留。\n" + Friendly(ex), "更新"); }
         }
-        _updater.Dispose();
+        updater.Dispose();
         if (Staged is not null && !_installerStarted)
             try { ReleaseUpdater.DeleteStage(Path.GetDirectoryName(Staged.Directory)!, Root); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }

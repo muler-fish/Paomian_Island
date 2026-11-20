@@ -16,6 +16,7 @@ if (args.Contains("--thread-failures"))
     catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
 }
 if (args.Contains("--settings-services")) { await SettingsServicesChecks.RunAsync(); return 0; }
+if (args.Contains("--release-notes")) { await ReleaseNotesChecks.RunAsync(); return 0; }
 if (args.Contains("--branding")) { BrandingChecks.Run(); return 0; }
 if (args.Contains("--executable-rename"))
 {
@@ -33,6 +34,7 @@ Test("profile selection, conflicts and 1.0.2 path locks", ProfileSessionChecks.R
 AsyncTest("content links and forum aliases", LinkRoutingChecks.RunAsync);
 Test("reading history back/forward navigation", ReadingHistoryChecks.Run);
 AsyncTest("thread failure classification", ThreadFailureChecks.RunAsync);
+AsyncTest("release notes across stable versions and pages", ReleaseNotesChecks.RunAsync);
 Test("disk cache accounting and eviction", DiskCacheChecks.Run);
 void Assert(bool test, string why = "Assertion failed") { if (!test) throw new Exception(why); }
 void Throws<T>(Action action) where T : Exception

@@ -114,6 +114,8 @@ dotnet run --project src/Paomian.Desktop -c Release --no-build -- --data-dir "$P
 
 发布包用 `pwsh -File tools/Build.ps1 -SelfContained` 生成，当前的工作项见 [TODO.md](TODO.md)。
 
+发布新版本时，请在 GitHub Release 的描述中填写本版的更新内容：以 `## 更新内容` 为标题，每项改动单列一条。客户端的多版本更新日志读取这里的说明，不读取普通 Git 标签或仓库的 CHANGELOG。
+
 欢迎提交 Issue 和 PR。报告问题时，请写上版本号、Windows 版本、显示缩放比例和复现步骤，**截图前请遮住饼干和订阅号**。改动比较大的话，建议先开个 Issue 讨论一下。
 
 ## 致谢与许可
