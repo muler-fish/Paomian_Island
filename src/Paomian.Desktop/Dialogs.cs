@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -20,7 +21,7 @@ public class DialogWindow : ChildWindow
     private readonly Grid _clientGrid = new();
     protected void AddClientOverlay(UIElement overlay) { Grid.SetRowSpan(overlay, 3); _clientGrid.Children.Add(overlay); }
     protected void SetBodyContent(UIElement content) => _bodyHost.Child = content;
-    public DialogWindow(string title, string subtitle = "", double subtitleFontSize = 12) : base(title)
+    public DialogWindow(string title, string subtitle = "", double subtitleFontSize = 12, bool feedbackInFooter = false) : base(title)
     {
         Width = UiMetrics.DialogWidth; Height = 660; MinWidth = 420; MinHeight = 240;
         var grid = _clientGrid; grid.RowDefinitions.Add(new() { Height = GridLength.Auto }); grid.RowDefinitions.Add(new()); grid.RowDefinitions.Add(new() { Height = GridLength.Auto });
@@ -31,7 +32,7 @@ public class DialogWindow : ChildWindow
         var scroll = new ScrollViewer { Content = Body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         _bodyHost.Child = scroll; Grid.SetRow(_bodyHost, 1); grid.Children.Add(_bodyHost);
         UseReadingScroll(scroll);
-        var footer = new Border { Child = Actions }; Grid.SetRow(footer, 2); grid.Children.Add(footer);
+        var footer = new Border { Child = feedbackInFooter ? FixedFeedbackFooter() : Actions }; Grid.SetRow(footer, 2); grid.Children.Add(footer);
         Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Danger");
         var feedbackStyle = new Style(typeof(TextBlock));
         var emptyFeedback = new Trigger { Property = TextBlock.TextProperty, Value = "" };
@@ -46,6 +47,18 @@ public class DialogWindow : ChildWindow
             var fitted = Math.Max(MinHeight, Body.DesiredSize.Height + heading.ActualHeight + Actions.ActualHeight + Actions.Margin.Top + Actions.Margin.Bottom + UiMetrics.ChildTitleHeight + 4);
             if (fitted < Height) { var difference = Height - fitted; Height = fitted; Top += difference / 2; }
         };
+    }
+    private DockPanel FixedFeedbackFooter()
+    {
+        var row = new DockPanel();
+        DockPanel.SetDock(Actions, Dock.Right); row.Children.Add(Actions);
+        Feedback.Margin = new(0); Feedback.FontWeight = FontWeights.SemiBold;
+        AutomationProperties.SetLiveSetting(Feedback, AutomationLiveSetting.Polite);
+        // 短提示与按钮同排；长错误可以单独滚动，不把编辑区或操作按钮挤出窗口。
+        row.Children.Add(new ScrollViewer { Content = Feedback, Focusable = false, MaxHeight = 72,
+            Margin = new(UiMetrics.DialogInset, Actions.Margin.Top, 0, Actions.Margin.Bottom), VerticalAlignment = VerticalAlignment.Center,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        return row;
     }
     protected static TextBlock Hint(string text) { var b = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new(0, 9, 0, 9), LineHeight = 21 }; b.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); return b; }
     protected void Label(string text) { var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeights.Medium, Margin = new(0, 16, 0, 10) }; label.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); Body.Children.Add(label); }

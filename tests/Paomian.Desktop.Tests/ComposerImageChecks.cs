@@ -56,11 +56,20 @@ internal static partial class ComposerImageChecks
             var editor = All<EmojiEditor>(composer).Single(); editor.Text = "正文"; editor.CaretIndex = editor.Text.Length; editor.Focus();
             var zone = All<ImageDropSurface>(composer).Single(); var card = All<ComposerImageCard>(composer).Single();
             var fileData = Files(path); var textData = new DataObject(DataFormats.UnicodeText, "文本");
+            var oversized = Path.Combine(root, "large.png");
+            var bodyScroll = All<ScrollViewer>(composer).Single(s => s.IsAncestorOf(editor));
+            bodyScroll.ScrollToTop(); composer.UpdateLayout();
+            Require(Drag(editor, Files(oversized), DragDrop.PreviewDropEvent).Effects == DragDropEffects.None, "超限文件被接受");
+            CheckMessageVisible(composer, PostImageFile.TooLarge);
             var invalid = Drag(editor, Files(root), DragDrop.PreviewDragEnterEvent);
             Require(invalid.Effects == DragDropEffects.None && invalid.Handled && Text(zone).Contains("文件夹"), "文件夹应禁止");
             var plain = Drag(editor, textData, DragDrop.PreviewDragOverEvent); Require(!plain.Handled && !zone.IsVisible, "普通拖选文字被拦截");
             var bad = Path.Combine(root, "note.txt"); File.WriteAllText(bad, "test");
             var bogus = Drag(editor, Files(bad), DragDrop.PreviewDropEvent); Require(bogus.Effects == DragDropEffects.None && !card.IsVisible, "非图片被接受");
+            await Copy(Files(oversized)); ApplicationCommands.Paste.Execute(null, editor);
+            CheckMessageVisible(composer, PostImageFile.TooLarge);
+            Require(bodyScroll.VerticalOffset < 1 && !card.IsVisible && editor.Text == "正文" && handler.Requests == 0,
+                "超限拖放或粘贴改变了滚动位置、草稿或网络状态");
             Require(Drag(editor, Files(path, bad), DragDrop.PreviewDragOverEvent).Effects == DragDropEffects.None, "多选未拒绝");
             var over = Drag(editor, fileData, DragDrop.PreviewDragOverEvent);
             Require(over.Handled && over.Effects == DragDropEffects.Copy && zone.IsVisible && !zone.IsHitTestVisible && Text(zone).Contains("松开以添加图片"), "正文上方的覆盖层或 Copy 效果错误");
@@ -72,7 +81,7 @@ internal static partial class ComposerImageChecks
             editor.Focus(); await Copy(Files(path)); ApplicationCommands.Paste.Execute(null, editor);
             Require(Text(composer).Contains("先移除") && vm.State.Drafts.Single().ImageFile == path, "重复添加没有提示");
             await ThemesAsync(composer, card, output, capture);
-            Pass("浅深主题与 100/125/150% 缩放：16 DIP 角标居中对准顶点，框外可命中，保留 32 DIP 点击区");
+            Pass("浅深主题与 100/125/150% 缩放：24 DIP 角标居中对准顶点，框外可命中，保留 32 DIP 点击区");
             var water = All<CheckBox>(composer).Single(c => Equals(c.Content, "为附图添加水印")); water.IsChecked = true;
             All<ComboBox>(composer).Single(c => AutomationProperties.GetName(c) == "发言使用的饼干").SelectedIndex = 1;
             Require(vm.State.Drafts.Single().ImageFile == path, "切饼干丢失附件");
@@ -117,10 +126,24 @@ internal static partial class ComposerImageChecks
             {
                 Require(picker.Owner == composer && Text(picker).Contains("将图片拖到这里"), "选图框归属/内容不正确");
                 capture(picker, Path.Combine(output, "picker.png"));
-                var child = All<ImageDropSurface>(picker).Single(); Drag(child, Files(path), DragDrop.PreviewDropEvent);
+                var child = All<ImageDropSurface>(picker).Single();
+                var denied = Drag(child, Files(oversized), DragDrop.PreviewDropEvent);
+                Require(denied.Effects == DragDropEffects.None && !card.IsVisible, "拒绝超限图片时不应产生附件");
+                picker.UpdateLayout(); capture(picker, Path.Combine(output, "picker-too-large.png"));
+                CheckMessageVisible(picker, PostImageFile.TooLarge);
+                foreach (var scale in new[] { 1d, 1.25, 1.5 })
+                {
+                    UiCopyChecks.SetDpi(picker, scale, 340, 280); await Task.Delay(80);
+                    var scroll = All<ScrollViewer>(picker).Single(s => s.IsAncestorOf(child));
+                    Require(scroll.ScrollableHeight > 0, "小尺寸测试未覆盖内容滚动");
+                    scroll.ScrollToTop(); CheckMessageVisible(picker, PostImageFile.TooLarge);
+                    scroll.ScrollToBottom(); CheckMessageVisible(picker, PostImageFile.TooLarge);
+                }
+                Drag(child, Files(path), DragDrop.PreviewDropEvent);
                 await Until(() => !picker.IsVisible, "拖图到选图框后未返回");
             });
             await Until(() => card.Photo.Source is not null, "选图框拖入未生成缩略图"); var before = handler.Requests;
+            Pass("超限图片：直接拖入、正文粘贴及选图弹窗均可见提示；窄窗无需翻页，同窗重选成功");
             File.WriteAllBytes(path, Encode(Fixture(20, 20))); await PreviewAsync(composer, true, true);
             await Until(() => Text(composer).Contains("原图已更改"), "预览之后换掉原图未拦截"); Require(handler.Requests == before, "原图改变仍发起网络请求");
             Click(card.Remove); File.WriteAllBytes(path, bytes); await PreviewAsync(composer, true, false); await Until(() => composer.Delivered, "无图回应发送失败"); Require(handler.LastImage.Length == 0, "移除后仍上传旧图");
@@ -128,8 +151,8 @@ internal static partial class ComposerImageChecks
             if (real)
             {
                 composer = Open(127); var testEditor = All<EmojiEditor>(composer).Single(); testEditor.Text = "实机附图";
-                await RunRealAsync(composer, path, output, capture, Copy, bitmap);
-                Pass("真实 OLE 文件拖放、鼠标悬停/移出/移除、Ctrl+V 位图和原生选择器确认/取消");
+                await RunRealAsync(composer, path, oversized, output, capture, Copy, bitmap);
+                Pass("真实 OLE 拖放、键鼠移除、Ctrl+V、原生选择器超限提示、直接重选与取消");
                 handler.Fail = true; await PreviewAsync(composer, true, true);
                 await Until(() => Text(composer).Contains("模拟失败"), "系统选图未经过发送"); Require(handler.LastImage.SequenceEqual(bytes), "原生入口没有发送原始文件");
             }
@@ -193,7 +216,8 @@ internal static partial class ComposerImageChecks
         var strip = await new ComposerImageInput(Bitmap: Fixture(1, 4096)).PrepareAsync(store, default);
         Require(strip.Thumbnail is { PixelWidth: 1, PixelHeight: 256 }, "极细长图的短边被缩到零"); store.DiscardClipboardImage(strip.Reference);
         var largeGif = GifChecks.Fixture(loop: false); largeGif[6] = largeGif[7] = largeGif[8] = largeGif[9] = 0xff;
-        foreach (var (name, content) in new[] { ("large-canvas.gif", largeGif), ("bad.png", bytes[..12]), ("large.png", new byte[PostImageFile.MaxBytes + 1]), ("fake.jpg", bytes) })
+        var oversized = new byte[PostImageFile.MaxBytes + 1]; bytes.CopyTo(oversized, 0);
+        foreach (var (name, content) in new[] { ("large-canvas.gif", largeGif), ("bad.png", bytes[..12]), ("large.png", oversized), ("fake.jpg", bytes) })
         {
             var path = Path.Combine(root, name); File.WriteAllBytes(path, content);
             try { await new ComposerImageInput(FileName: path).PrepareAsync(store, default); }
@@ -214,9 +238,10 @@ internal static partial class ComposerImageChecks
                 var disk = (Border)remove.Template.FindName("Disk", remove);
                 var corner = new Point(card.Tile.ActualWidth, 0);
                 var center = disk.TranslatePoint(new(disk.ActualWidth / 2, disk.ActualHeight / 2), card.Tile);
-                Require(disk.RenderSize == new Size(16, 16) && (center - corner).Length < .51, $"{theme}/{scale}: 圆钮未对准顶点 {center}");
+                Require(disk.RenderSize == new Size(24, 24) && disk.CornerRadius == new CornerRadius(12)
+                    && All<Wpf.Ui.Controls.SymbolIcon>(disk).Single().FontSize == 11.25 && (center - corner).Length < .51, $"{theme}/{scale}: 角标大小或中心位置不符 {center}");
                 Require(remove.RenderSize == new Size(32, 32), "角标缩小了点击区");
-                foreach (var offset in new[] { 4, 12 }) // 框外的圆钮、圆钮外的透明点击区。
+                foreach (var offset in new[] { 7, 13 }) // 框外的圆钮、圆钮外的透明点击区。
                 {
                     var point = card.Tile.TranslatePoint(corner + new Vector(offset, -offset), w);
                     Require(w.InputHitTest(point) is DependencyObject hit && (hit == remove || remove.IsAncestorOf(hit)), $"{theme}/{scale}: 框外 {offset} DIP 未命中移除按钮");
@@ -224,6 +249,22 @@ internal static partial class ComposerImageChecks
                 if (scale == 1.25) capture(w, Path.Combine(output, $"card-{theme}.png"));
             }
         App.ApplyTheme("light"); UiCopyChecks.SetDpi(w, 1, w0, h0); await Task.Delay(80);
+    }
+
+    private static void CheckMessageVisible(Window window, string message)
+    {
+        window.UpdateLayout();
+        var text = All<TextBlock>(window).Single(t => t.IsVisible && t.Text == message);
+        void CheckBounds(FrameworkElement host)
+        {
+            var p = text.TranslatePoint(new Point(), host);
+            Require(text.ActualHeight > 0 && p.X >= -1 && p.Y >= -1 && p.X + text.ActualWidth <= host.ActualWidth + 1
+                && p.Y + text.ActualHeight <= host.ActualHeight + 1,
+                $"{window.Title}：未滚动时提示被 {host.GetType().Name} 裁剪（提示 Y={p.Y:F0}..{p.Y + text.ActualHeight:F0}，可视高度 {host.ActualHeight:F0}）");
+        }
+        CheckBounds(window);
+        for (var p = VisualTreeHelper.GetParent(text); p is not null; p = VisualTreeHelper.GetParent(p))
+            if (p is ScrollContentPresenter view) CheckBounds(view);
     }
 
     private static async Task InModal<T>(Window owner, string button, Func<T, Task> inspect) where T : Window

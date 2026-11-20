@@ -35,7 +35,7 @@ public sealed partial class ComposerWindow : DialogWindow
 
     public ComposerWindow(MainViewModel vm, long threadId, string quote = "", Draft? existing = null, long reportPostId = 0)
         : base((existing?.ReportPostId ?? reportPostId) > 0 ? "举报" : threadId > 0 ? "参与回应" : "发串",
-            (existing?.ReportPostId ?? reportPostId) > 0 ? $"No.{existing?.ReportPostId ?? reportPostId} · 值班室" : threadId > 0 ? $"No.{threadId}" : "", 20)
+            (existing?.ReportPostId ?? reportPostId) > 0 ? $"No.{existing?.ReportPostId ?? reportPostId} · 值班室" : threadId > 0 ? $"No.{threadId}" : "", 20, feedbackInFooter: true)
     {
         _reportPostId = existing?.ReportPostId ?? reportPostId;
         Width = UiMetrics.DialogWidth; Height = 820; _vm = vm; _threadId = _reportPostId > 0 ? 0 : threadId;
@@ -91,7 +91,6 @@ public sealed partial class ComposerWindow : DialogWindow
         tools.Children.Add(spoiler); tools.Children.Add(dice);
         Body.Children.Add(toolRow);
         SetupImages(existing?.ImageFile, attach);
-        Body.Children.Add(Feedback);
         AddAction("保存并关闭", Close); AddAction("预览并发送", Preview, true);
         if (existing is not null)
         {

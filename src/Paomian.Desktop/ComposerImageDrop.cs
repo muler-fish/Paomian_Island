@@ -116,7 +116,7 @@ internal sealed class ComposerImageDrop : IDisposable
 internal sealed class ImageDropWindow : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
-    internal ImageDropWindow(Func<string?> unavailable, Func<ComposerImageInput, Action<string>, CancellationToken, Task<bool>> add) : base("添加图片")
+    internal ImageDropWindow(Func<string?> unavailable, Func<ComposerImageInput, Action<string>, CancellationToken, Task<bool>> add) : base("添加图片", feedbackInFooter: true)
     {
         Width = 440; Height = 420; MinWidth = 340; ShowInTaskbar = false;
         async void Accept(string path)
@@ -132,7 +132,7 @@ internal sealed class ImageDropWindow : DialogWindow
         }, true);
         choose.HorizontalAlignment = HorizontalAlignment.Center; choose.Margin = new(0);
         var zone = new ImageDropSurface(choose); Body.Children.Add(zone);
-        var limits = Hint(ComposerImageInput.Limits); limits.TextAlignment = TextAlignment.Center; Body.Children.Add(limits); Body.Children.Add(Feedback);
+        var limits = Hint(ComposerImageInput.Limits); limits.TextAlignment = TextAlignment.Center; Body.Children.Add(limits);
         AddAction("取消", Close);
         _ = new ComposerImageDrop(this, unavailable, zone.Display, Accept, text => Feedback.Text = text);
         Loaded += (_, _) => choose.Focus(); Closed += (_, _) => { _lifetime.Cancel(); _lifetime.Dispose(); };

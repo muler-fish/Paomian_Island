@@ -15,7 +15,7 @@ public sealed partial class ComposerWindow
     private readonly TextBlock _filename = new() { TextTrimming = TextTrimming.CharacterEllipsis, Margin = new(0, 0, 0, 5) };
 
     private string? ImageUnavailable() => _sending ? "正在发送。" : _imageBusy ? "正在读取图片。" : _image is not null ? ComposerImageInput.Occupied : null;
-    private void ImageFeedback(string text) { Feedback.Text = text; if (text.Length != 0) Feedback.BringIntoView(); }
+    private void ImageFeedback(string text) => Feedback.Text = text;
 
     private void SetupImages(string? saved, Button attach)
     {

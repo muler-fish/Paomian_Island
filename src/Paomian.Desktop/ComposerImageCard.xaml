@@ -21,9 +21,9 @@
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <Grid Background="Transparent">
-                        <Border x:Name="Disk" Width="16" Height="16" CornerRadius="8" Background="{DynamicResource Surface}"
+                        <Border x:Name="Disk" Width="24" Height="24" CornerRadius="12" Background="{DynamicResource Surface}"
                                 BorderBrush="{DynamicResource Line}" BorderThickness="1">
-                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="7.5" Foreground="{DynamicResource Text}"/>
+                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="11.25" Foreground="{DynamicResource Text}"/>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>

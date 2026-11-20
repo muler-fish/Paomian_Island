@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Paomian.Core;
 using Paomian.Desktop;
 
 namespace Paomian.Desktop.Tests;
@@ -12,7 +13,7 @@ namespace Paomian.Desktop.Tests;
 // 仅显式 --real-input：窗口、光标和系统剪贴板交互。所有发言仍经模拟传输。
 internal static partial class ComposerImageChecks
 {
-    private static async Task RunRealAsync(ComposerWindow composer, string path, string output, Action<Window, string> capture, Func<DataObject, Task> copy, BitmapSource bitmap)
+    private static async Task RunRealAsync(ComposerWindow composer, string path, string oversized, string output, Action<Window, string> capture, Func<DataObject, Task> copy, BitmapSource bitmap)
     {
         using var desktop = new FocusDesktopInput(); var handle = new WindowInteropHelper(composer).Handle;
         await FocusDesktopInput.ActivateAsync(handle);
@@ -22,7 +23,7 @@ internal static partial class ComposerImageChecks
         App.ApplyTheme("dark");
         await FocusDesktopInput.ActivateAsync(handle); editor.Focus(); card.BringIntoView(); await Task.Delay(200); FocusDesktopInput.Hover(card.Tile, handle);
         await Until(() => card.Shade.Opacity > .98 && card.Remove.IsHitTestVisible, "真实悬停未显示遮罩");
-        var outside = new Point(card.Tile.ActualWidth + 4, -4);
+        var outside = new Point(card.Tile.ActualWidth + 7, -7);
         FocusDesktopInput.Hover(card.Tile, handle, outside); await Until(() => card.Remove.IsMouseOver, "框外半圆未命中");
         await Task.Delay(140); Require(card.Remove.Opacity > .98 && card.Shade.Opacity > .98, "从缩略图移到框外的 × 时遮罩消失");
         capture(composer, System.IO.Path.Combine(output, "card-hover.png"));
@@ -54,6 +55,11 @@ internal static partial class ComposerImageChecks
         Require(composer.IsVisible && !card.IsVisible && editor.Text == "实机附图", "取消选图框影响草稿");
         await InModal<ImageDropWindow>(composer, "添加图片", async picker =>
         {
+            await NativePickerAsync(picker, oversized);
+            await Until(() => Text(picker).Contains(PostImageFile.TooLarge), "原生选图超限没有提示");
+            CheckMessageVisible(picker, PostImageFile.TooLarge);
+            Require(picker.IsVisible && !card.IsVisible && editor.Text == "实机附图", "超限选图改变了草稿或关闭了选图窗口");
+            capture(picker, System.IO.Path.Combine(output, "picker-native-too-large.png"));
             await NativePickerAsync(picker, path); await Until(() => !picker.IsVisible, "原生选文件没有返回发言窗");
         });
         await Until(() => card.Photo.Source is not null, "原生选图没有缩略图");
