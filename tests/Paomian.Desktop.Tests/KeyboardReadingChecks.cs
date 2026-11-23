@@ -36,6 +36,7 @@ internal static partial class KeyboardReadingChecks
         KeyboardReadingFixture.SeedImages(store.Cache);
         var window = new MainWindow(model, _ => throw new InvalidOperationException("离线验收未打开外部网站。"));
         if (mode is "--wheel-comparison" or "--wheel-desktop") window.EnableWheelComparison();
+        if (mode == "--wheel-tuning-ui") window.EnableWheelTuning();
         app.MainWindow = window;
         EventHandler? verify = null;
         verify = async (_, _) =>
@@ -53,6 +54,9 @@ internal static partial class KeyboardReadingChecks
                 {
                     if (mode is "--wheel-comparison" or "--wheel-desktop") await CompareWheel(window, output, mode == "--wheel-desktop");
                     else if (mode == "--wheel-dpi") await CheckWheelDpi(window);
+                    else if (mode == "--wheel-profile") await ProfileWheel(window, output);
+                    else if (mode == "--wheel-tuning-input") await MeasurePanelDesktop(window, output);
+                    else if (mode == "--wheel-tuning-ui") await CheckWheelPanel(window, output, capture);
                     else if (mode == "--scroll-stability") await CheckStability(window);
                     else await CheckAsync(window, fixture, output, capture);
                     app.Shutdown(0);

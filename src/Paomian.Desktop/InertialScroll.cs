@@ -30,6 +30,10 @@ public static class InertialScroll
     {
         if (target.GetValue(StateProperty) is ScrollState state) { state.Stop(); state.Mode = mode; }
     }
+    internal static void SetTuning(DependencyObject target, WheelTuning tuning)
+    {
+        if (target.GetValue(StateProperty) is ScrollState state) state.SetTuning(tuning);
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct InputSource { public uint DeviceType, OriginId; }
@@ -49,6 +53,7 @@ public static class InertialScroll
 
     private sealed class ScrollState
     {
+        private const int FineInputWindowMs = 96;
         private readonly FrameworkElement _surface;
         private readonly ScrollMotion _motion = new();
         private readonly ShortWheelMotion _short = new();
@@ -73,6 +78,13 @@ public static class InertialScroll
             _surface = surface;
             surface.Loaded += (_, _) => Attach();
             surface.Unloaded += (_, _) => Detach();
+        }
+
+        internal void SetTuning(WheelTuning tuning)
+        {
+            if (_short.Tuning == tuning) return;
+            Stop();
+            _short.Tuning = tuning;
         }
 
         public void Enable(bool enabled)
@@ -144,8 +156,8 @@ public static class InertialScroll
                 var fine = args.Delta % Mouse.MouseWheelDeltaForOneLine != 0 || args.StylusDevice is not null ||
                     GetCurrentInputMessageSource(out var source) && source.DeviceType is 4 or 8 or 16;
                 if (fine) _lastFineInput = Stopwatch.GetTimestamp();
-                var fineBurst = _lastFineInput != 0 && Stopwatch.GetElapsedTime(_lastFineInput).TotalMilliseconds < ShortWheelMotion.DurationMs;
-                var notch = lines < 0 ? _viewer.ViewportHeight : Math.Min(_viewer.ViewportHeight, lines * 24d);
+                var fineBurst = _lastFineInput != 0 && Stopwatch.GetElapsedTime(_lastFineInput).TotalMilliseconds < FineInputWindowMs;
+                var notch = _short.Tuning.NotchDistance(lines, _viewer.ViewportHeight);
                 ShortWheel(args, -args.Delta / (double)Mouse.MouseWheelDeltaForOneLine * notch, fineBurst || !SystemParameters.ClientAreaAnimation);
                 return;
             }

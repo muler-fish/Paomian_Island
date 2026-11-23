@@ -34,7 +34,7 @@ internal static class Program
             try { ImageDeliveryChecks.RunAsync(args.ElementAtOrDefault(1) ?? "artifacts/image-delivery").GetAwaiter().GetResult(); return 0; }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
         }
-        if (args.FirstOrDefault() is "--keyboard-reading" or "--keyboard-demo" or "--scroll-stability" or "--wheel-comparison" or "--wheel-desktop" or "--wheel-dpi")
+        if (args.FirstOrDefault() is "--keyboard-reading" or "--keyboard-demo" or "--scroll-stability" or "--wheel-comparison" or "--wheel-desktop" or "--wheel-dpi" or "--wheel-profile" or "--wheel-tuning-ui" or "--wheel-tuning-input")
             return KeyboardReadingChecks.Run(args[0], args.ElementAtOrDefault(1) ?? "artifacts/keyboard-reading",
                 LoadResources, Capture);
         if (args.FirstOrDefault() == "--cache-responsiveness")

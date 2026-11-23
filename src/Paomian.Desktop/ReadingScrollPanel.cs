@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,6 +16,8 @@ public sealed class ReadingScrollPanel : VirtualizingStackPanel, IScrollInfo
     private object? _wheelItem;
     private double _wheelTop;
     internal double RequestedOffset => VerticalOffset + _pending;
+    // 由离线性能专项在采样期间设置，普通阅读不读时钟。
+    internal Action<bool, TimeSpan>? LayoutSample { get; set; }
 
     internal void ForgetWheelRow()
     {
@@ -50,7 +53,25 @@ public sealed class ReadingScrollPanel : VirtualizingStackPanel, IScrollInfo
         SetVerticalOffset(offset);
     }
 
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (LayoutSample is not { } sample) return base.MeasureOverride(availableSize);
+        var start = Stopwatch.GetTimestamp();
+        var size = base.MeasureOverride(availableSize);
+        sample(true, Stopwatch.GetElapsedTime(start));
+        return size;
+    }
+
     protected override Size ArrangeOverride(Size arrangeSize)
+    {
+        if (LayoutSample is not { } sample) return ArrangeReadingRows(arrangeSize);
+        var start = Stopwatch.GetTimestamp();
+        var size = ArrangeReadingRows(arrangeSize);
+        sample(false, Stopwatch.GetElapsedTime(start));
+        return size;
+    }
+
+    private Size ArrangeReadingRows(Size arrangeSize)
     {
         var result = base.ArrangeOverride(arrangeSize);
         if (_anchor is { } row && ReferenceEquals(row.DataContext, _item) && VisualTreeHelper.GetParent(row) == this &&
