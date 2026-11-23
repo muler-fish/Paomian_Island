@@ -198,6 +198,7 @@
           </Grid>
           </StackPanel>
           <ListBox Grid.Row="2" x:Name="ThreadList" ItemsSource="{Binding VisiblePosts}" IsSynchronizedWithCurrentItem="False" SelectionChanged="Thread_SelectionChanged" ScrollViewer.VerticalScrollBarVisibility="Auto" local:IncrementalScroll.Command="{Binding LoadMoreListCommand}" local:InertialScroll.IsEnabled="{Binding InertialScrolling}" AutomationProperties.Name="串列表">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><local:ReadingScrollPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource ReadingListItem}">
               <Setter Property="ContextMenu" Value="{StaticResource ThreadContextMenu}"/>
               <EventSetter Event="PreviewMouseRightButtonDown" Handler="Thread_RightButtonDown"/>
@@ -286,6 +287,7 @@
           </Border>
           <!-- 库的 ListBox 模板未绑定 Padding；用外边距约束正文及滚动区域，避免楼号贴边裁切。 -->
           <ListBox Grid.Row="1" x:Name="ReaderList" ItemsSource="{Binding ReadingPosts}" ScrollViewer.VerticalScrollBarVisibility="Auto" local:IncrementalScroll.Command="{Binding LoadMoreThreadCommand}" local:IncrementalScroll.PreviousCommand="{Binding LoadPreviousThreadCommand}" local:InertialScroll.IsEnabled="{Binding InertialScrolling}" Margin="0" AutomationProperties.Name="串正文与回复">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><local:ReadingScrollPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
               <Setter Property="Focusable" Value="False"/>
               <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate></Setter.Value></Setter>

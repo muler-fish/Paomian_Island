@@ -132,16 +132,16 @@ public partial class MainWindow
         if (e.Key is not (Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End)) return;
         // 右栏中的主体可选文，组合键留给原生操作。普通浏览键先回到栏位焦点，避免列表选择或光标导致跳页。
         e.Handled = true;
-        if (e.IsRepeat) return;
         var list = pane == ListPane ? ThreadList : ReaderList;
+        var direction = e.Key is Key.Up or Key.PageUp or Key.Home ? -1 : 1;
+        IncrementalScroll.RequestScroll(list, direction);
+        if (e.IsRepeat) return;
         var viewer = ReadingAnchor.Children<ScrollViewer>(list).FirstOrDefault();
         if (viewer is not { IsVisible: true }) return;
         pane.Focus();
         InertialScroll.Stop(list);
         if (list == ReaderList) _readingProgress.BeginUserScroll();
-        var direction = e.Key is Key.Up or Key.PageUp or Key.Home ? -1 : 1;
-        IncrementalScroll.RequestScroll(list, direction);
-        _keyboardScroll.Move(list, viewer, e.Key, direction);
+        _keyboardScroll.Move(viewer, e.Key, direction);
     }
 
     private void CycleReadingPane(FrameworkElement pane, int step)
@@ -182,7 +182,12 @@ public partial class MainWindow
     private void ReadingMouseWheel(object sender, MouseWheelEventArgs e)
     {
         CancelReadingKeyboard();
-        if (e.Delta != 0) ActivateMousePane(e.OriginalSource as DependencyObject);
+        if (e.Delta == 0) return;
+        var pane = ActivateMousePane(e.OriginalSource as DependencyObject);
+        if (IsActive && (pane == ListPane || pane == ReaderPane) && !HasNativeInput(Keyboard.FocusedElement as DependencyObject) &&
+            Keyboard.Modifiers == ModifierKeys.None && Mouse.LeftButton == MouseButtonState.Released &&
+            KeyboardAncestors(Keyboard.FocusedElement as DependencyObject).OfType<ListBoxItem>().Any())
+            pane.Focus();
     }
 
     private FrameworkElement? ActivateMousePane(DependencyObject? source)

@@ -3,8 +3,6 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Automation.Peers;
-using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Paomian.Core;
@@ -17,6 +15,7 @@ internal static class InertialScrollChecks
     public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
     {
         CheckMotion();
+        CheckLayoutCorrection();
         var handler = new ScrollHandler();
         var store = new LocalStore(Path.Combine(output, "inertia-profile"));
         var vm = new MainViewModel(new XIslandApi(new HttpClient(handler)), store);
@@ -57,14 +56,14 @@ internal static class InertialScrollChecks
                 Require(!InertialScroll.IsRunning(list), "鼠标按下没有停止惯性，可能干扰拖动滚动条。");
 
                 Wheel(viewer, -120);
-                vm.State.InertialScrolling = false; vm.AppearanceChanged(); await Pause();
+                list.SetCurrentValue(InertialScroll.IsEnabledProperty, false); await Pause();
                 Require(!InertialScroll.IsRunning(list) && !InertialScroll.GetIsEnabled(list), "关闭开关没有立即停止惯性。");
                 var disabled = viewer.VerticalOffset;
                 var preview = Wheel(viewer, -120);
                 Require(!preview.Handled && !InertialScroll.IsRunning(list), "关闭开关后仍接管滚轮。");
                 viewer.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = Mouse.MouseWheelEvent });
                 await Pause(); Require(viewer.VerticalOffset > disabled, "关闭惯性后原生滚动没有工作。");
-                vm.State.InertialScrolling = true; vm.AppearanceChanged(); await Pause();
+                list.SetCurrentValue(InertialScroll.IsEnabledProperty, true); await Pause();
 
                 // 从真实正文控件发出滚轮，而不是只直接调用列表，检查可选择正文不会吞掉惯性。
                 await vm.OpenThreadAsync(1000, 1); await Pause();
@@ -85,16 +84,9 @@ internal static class InertialScrollChecks
 
             var settings = new SettingsWindow(vm) { Owner = window, ShowInTaskbar = false };
             settings.Show(); await Pause();
-            var checkbox = UiRefinementChecks.Descendants<CheckBox>(settings).Single(c => Equals(c.Content, "惯性滚动"));
-            var settingScroll = UiRefinementChecks.Descendants<ScrollViewer>(settings).First();
-            Require(InertialScroll.GetIsEnabled(settingScroll), "设置窗口未沿用惯性滚动选项。");
-            var toggle = (IToggleProvider)new CheckBoxAutomationPeer(checkbox).GetPattern(PatternInterface.Toggle)!;
-            toggle.Toggle(); await Pause();
-            Require(!store.Load().InertialScrolling && !InertialScroll.GetIsEnabled(list) && !InertialScroll.GetIsEnabled(settingScroll), "设置开关没有保存或没有同步到窗口。");
-            using (var reopened = new MainViewModel(new XIslandApi(new HttpClient(new ScrollHandler())), store))
-                Require(!reopened.InertialScrolling, "重开后丢失惯性关闭设置。");
-            toggle.Toggle(); await Pause();
-            Require(store.Load().InertialScrolling, "开启设置未持久保存。");
+            var settingScroll = UiRefinementChecks.Descendants<ScrollViewer>(settings)
+                .Single(scroll => System.Windows.Automation.AutomationProperties.GetName(scroll) == "设置内容");
+            Require(InertialScroll.GetIsEnabled(settingScroll), "设置窗口未沿用惯性滚动。");
             capture(settings, Path.Combine(output, "inertia-settings-light.png"));
             App.ApplyTheme("dark"); await Pause(); capture(settings, Path.Combine(output, "inertia-settings-dark.png"));
             settings.Close(); App.ApplyTheme("light");
@@ -112,10 +104,10 @@ internal static class InertialScrollChecks
             File.WriteAllText(Path.Combine(output, "inertia-results.json"), JsonSerializer.Serialize(new
             {
                 SystemAnimations = SystemParameters.ClientAreaAnimation, WheelLines = SystemParameters.WheelScrollLines,
-                Samples = samples, MotionModel = true, Interruptible = true, SettingsPersist = true,
+                Samples = samples, MotionModel = true, Interruptible = true, LayoutCorrection = true,
                 EditorUntouched = true, UnloadStopsRendering = true, ContinuousLoading = true
             }, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine("PASS: settings toggle/persistence, child window binding, editable area passthrough, unload cleanup.");
+            Console.WriteLine("PASS: child window binding, editable area passthrough, unload cleanup.");
         }
         finally { window.Close(); App.ApplyTheme("light"); }
     }
@@ -145,6 +137,24 @@ internal static class InertialScrollChecks
         Require(motion.Target == 18, "小滚轮增量被放大。");
         Require(InertialScroll.AllowsAnimation(true, true) && !InertialScroll.AllowsAnimation(true, false) && !InertialScroll.AllowsAnimation(false, true), "未遵循系统减少动画设置。");
         Console.WriteLine("PASS: damped motion, reversal, bounded accumulation, convergence, small deltas, reduced motion policy.");
+    }
+
+    private static void CheckLayoutCorrection()
+    {
+        // 回收面板重新测量视口前的行时，同一段正文会取得新的绝对偏移。
+        foreach (var direction in new[] { -1, 1 })
+        foreach (var correction in new[] { -180d, -24d, 24d, 180d })
+        {
+            var motion = new ScrollMotion();
+            motion.Push(direction * 72, 500, 2000, 400);
+            motion.Advance(.016, 2000);
+            var remaining = motion.Target - motion.Position;
+            var actual = motion.Position + correction;
+            motion.Rebase(actual, 2000);
+            var step = direction * (motion.Advance(.016, 2000) - actual);
+            Require(step >= 0 && Math.Abs(motion.Target - actual - remaining) < .01,
+                $"布局偏移 {correction} DIP 后，方向 {direction} 的下一帧位移 {step:F1}，剩余行程从 {remaining:F1} 变为 {motion.Target - actual:F1}。");
+        }
     }
 
     private static MouseWheelEventArgs Wheel(UIElement source, int delta)

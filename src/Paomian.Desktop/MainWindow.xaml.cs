@@ -16,6 +16,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     public MainViewModel Model { get; }
     internal BossKeyController BossKey { get; }
     private ReadingAnchor? _readerAnchor;
+    private ReadingAnchor? _listAnchor;
     private readonly ReadingProgressTracker _readingProgress;
     private readonly MainLayoutController _layout;
     private readonly Action<string> _openBrowser;
@@ -35,6 +36,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         model.ReaderPrepending += BeforePrepend;
         model.ReaderPrepended += AfterPrepend;
         model.ListReset += ResetList;
+        model.ListRefreshing += CaptureListAnchor;
         model.FeedbackRaised += FeedbackReceived;
         model.PropertyChanged += FeedbackStateChanged;
         Loaded += (_, _) => { if (Model.HasError) ShowFeedback(Model.Error, FeedbackArea.General, true); };
@@ -69,6 +71,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             model.PropertyChanged -= ReadingStateChanged; ((INotifyCollectionChanged)ThreadList.Items).CollectionChanged -= ThreadItemsChanged;
             model.ReaderPrepending -= BeforePrepend; model.ReaderPrepended -= AfterPrepend;
             model.ReaderLeaving -= _readingProgress.Flush; _readingProgress.Dispose(); _layout.Dispose();
+            model.ListRefreshing -= CaptureListAnchor;
             model.FeedbackRaised -= FeedbackReceived; model.PropertyChanged -= FeedbackStateChanged; FeedbackLayer.Clear();
             model.Save(); model.Dispose();
         };
@@ -93,11 +96,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _readerAnchor?.Restore(ReaderList); _readerAnchor = null;
         _readingProgress.Resume();
     }
+    private void CaptureListAnchor() => _listAnchor = ReadingAnchor.Capture(ThreadList);
     private void ResetList()
     {
         CancelReadingKeyboard();
         InertialScroll.Stop(ThreadList);
-        if (Model.VisiblePostCount > 0) ThreadList.ScrollIntoView(Model.VisiblePosts.GetItemAt(0));
+        IncrementalScroll.Reset(ThreadList, false);
+        var anchor = _listAnchor;
+        _listAnchor = null;
+        if (anchor?.Item is PostCard old && ThreadList.Items.OfType<PostCard>().FirstOrDefault(c => c.Post.Id == old.Post.Id) is { } current)
+            (anchor with { Item = current }).Restore(ThreadList);
+        else if (Model.VisiblePostCount > 0) ThreadList.ScrollIntoView(Model.VisiblePosts.GetItemAt(0));
     }
     private async void Forum_Click(object sender, RoutedEventArgs e) { if (((Button)sender).Tag is Forum f) await Model.SelectForumAsync(f); }
     private async void HomeTimeline_Click(object sender, RoutedEventArgs e) => await Model.SelectForumAsync(Model.State.Forums.Find(f => f.IsTimeline && f.Id == 1) ?? new(1, "综合线", "时间线", "", true, 20));

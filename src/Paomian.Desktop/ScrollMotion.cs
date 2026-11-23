@@ -25,7 +25,8 @@ internal sealed class ScrollMotion
 
     public void Rebase(double current, double maximum)
     {
-        Position = current; Target = Math.Clamp(Target, 0, Math.Max(0, maximum));
+        Target = Math.Clamp(current + (Target - Position), 0, Math.Max(0, maximum));
+        Position = current;
     }
 
     public double Advance(double seconds, double maximum)

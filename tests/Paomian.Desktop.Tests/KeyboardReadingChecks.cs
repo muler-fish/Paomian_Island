@@ -18,9 +18,9 @@ using Paomian.Desktop;
 
 namespace Paomian.Desktop.Tests;
 
-internal static class KeyboardReadingChecks
+internal static partial class KeyboardReadingChecks
 {
-    internal static int Run(bool demo, string directory, Func<ResourceDictionary> resources, Action<Window, string> capture)
+    internal static int Run(string mode, string directory, Func<ResourceDictionary> resources, Action<Window, string> capture)
     {
         var output = Path.GetFullPath(directory);
         Directory.CreateDirectory(output);
@@ -43,14 +43,15 @@ internal static class KeyboardReadingChecks
             try
             {
                 await model.InitializeAsync();
-                if (demo)
+                if (mode == "--keyboard-demo")
                 {
                     await model.OpenThreadAsync(KeyboardReadingFixture.Thread);
                     Find<FrameworkElement>(window, "ListPane").Focus();
                 }
                 else
                 {
-                    await CheckAsync(window, fixture, output, capture);
+                    if (mode == "--scroll-stability") await CheckStability(window);
+                    else await CheckAsync(window, fixture, output, capture);
                     app.Shutdown(0);
                 }
             }
@@ -193,7 +194,8 @@ internal static class KeyboardReadingChecks
         Require(threadPreview.Owner == window && overlay.Hints.Count == 0, "链接未走真实串预览路径");
         Press(Key.Escape);
         await Idle();
-        Require(window.IsActive && right.IsKeyboardFocused && Near(denseOffset, readerView.VerticalOffset), "关闭串链接预览后焦点或偏移改变");
+        Require(window.IsActive && right.IsKeyboardFocused && Near(denseOffset, readerView.VerticalOffset),
+            $"关闭串链接预览后焦点或偏移改变 active={window.IsActive} focus={(Keyboard.FocusedElement as FrameworkElement)?.Name} offset={denseOffset:F1}->{readerView.VerticalOffset:F1}");
 
         Press(Key.F);
         Pick(overlay, h => AutomationProperties.GetName(h.Target.Source).Contains("的图片", StringComparison.Ordinal));

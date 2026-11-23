@@ -47,6 +47,15 @@ internal static class ReadingProgressChecks
             await vm.OpenThreadAsync(100000, refresh: true); await Task.Delay(250);
             Require(Same(Visible(reader), before), "刷新没有保留当前阅读位置。");
 
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            handler.DelayResponse = release.Task;
+            var refresh = vm.OpenThreadAsync(100000, refresh: true);
+            UserScroll(reader, viewer, 850); await Task.Delay(80);
+            var latest = Visible(reader);
+            release.SetResult(); await refresh; await Task.Delay(180);
+            Require(!Same(latest, before) && Same(latest, Visible(reader)), "慢刷新覆盖了等待期间的阅读位移。");
+            handler.DelayResponse = Task.CompletedTask;
+
             // 刚滚动就切串，尚未等到节流计时器，也应由导航前补存。
             UserScroll(reader, viewer, 1100); await Task.Delay(60); before = Visible(reader);
             await vm.OpenThreadAsync(200000, 1); await Task.Delay(100);
@@ -103,13 +112,15 @@ internal static class ReadingProgressChecks
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private sealed class ProgressHandler : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        internal Task DelayResponse { get; set; } = Task.CompletedTask;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            await DelayResponse.WaitAsync(cancellationToken);
             var query = request.RequestUri!.Query.TrimStart('?').Split('&').Select(s => s.Split('=')).ToDictionary(s => s[0], s => s[1]);
             var page = int.Parse(query.GetValueOrDefault("page", "1"));
             var value = new { id = long.Parse(query["id"]), title = "阅读进度测试", content = "主楼", user_hash = "Author", ReplyCount = 114,
                 Replies = Enumerable.Range(1, 19).Select(i => new { id = page * 1000 + i, user_hash = i % 4 == 0 ? "Author" : "Reader", content = $"第 {page} 页第 {i} 条回复<br>" + string.Join("<br>", Enumerable.Repeat("用于测试实际阅读位置。", 2 + i % 4)) }) };
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(value)) });
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(value)) };
         }
     }
 }

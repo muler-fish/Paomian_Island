@@ -42,6 +42,7 @@ public static class IncrementalScroll
         private ScrollViewer? _viewer;
         private bool _attached;
         private bool _waitingForInput;
+        private bool _followOffset = true;
         private int _direction;
 
         public ScrollState(ListBox list)
@@ -87,8 +88,8 @@ public static class IncrementalScroll
             _list.PreviewMouseDown -= MouseDown;
         }
 
-        public void Reset(bool waitForInput) { _timer.Stop(); _direction = 0; _waitingForInput = waitForInput; }
-        internal void Intent(int direction) { _waitingForInput = false; _direction = direction; Schedule(); }
+        public void Reset(bool waitForInput) { _timer.Stop(); _direction = 0; _followOffset = true; _waitingForInput = waitForInput; }
+        internal void Intent(int direction) { _waitingForInput = false; _followOffset = false; _direction = direction; Schedule(); }
         private void Wheel(object sender, MouseWheelEventArgs args)
         {
             if (Keyboard.Modifiers == ModifierKeys.None && args.Delta != 0) Intent(args.Delta > 0 ? -1 : 1);
@@ -102,7 +103,7 @@ public static class IncrementalScroll
         {
             // 拖动滚动条也是阅读意图；布局/跳页产生的 ScrollChanged 本身不算。
             for (var node = args.OriginalSource as DependencyObject; node is Visual && node != _list; node = VisualTreeHelper.GetParent(node))
-                if (node is ScrollBar) { _waitingForInput = false; break; }
+                if (node is ScrollBar) { _waitingForInput = false; _followOffset = true; break; }
         }
 
         private void Resized(object sender, SizeChangedEventArgs args) => Schedule();
@@ -113,7 +114,7 @@ public static class IncrementalScroll
             // 忽略正文控件等子树内其他 ScrollViewer 的冒泡事件。
             if (ReferenceEquals(args.OriginalSource, _viewer))
             {
-                if (!_waitingForInput && args.VerticalChange != 0 && args.ExtentHeightChange == 0 && args.ViewportHeightChange == 0)
+                if (_followOffset && !_waitingForInput && args.VerticalChange != 0 && args.ExtentHeightChange == 0 && args.ViewportHeightChange == 0)
                     _direction = Math.Sign(args.VerticalChange);
                 Schedule();
             }
@@ -137,7 +138,8 @@ public static class IncrementalScroll
             }
             if (_command?.CanExecute(null) != true || _viewer.ScrollableHeight - _viewer.VerticalOffset > 48) return;
             // 将 End/ScrollToEnd 的末端请求固定成当前像素位置，新增内容后不跟着跳到新底部。
-            _viewer.ScrollToVerticalOffset(_viewer.VerticalOffset);
+            if (_viewer.VerticalOffset >= _viewer.ScrollableHeight && !InertialScroll.IsRunning(_list))
+                _viewer.ScrollToVerticalOffset(_viewer.VerticalOffset);
             _command.Execute(null);
         }
 

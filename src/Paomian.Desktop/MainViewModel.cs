@@ -130,6 +130,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public event Action? ReaderPrepending;
     public event Action? ReaderPrepended;
     public event Action? ListReset;
+    internal event Action? ListRefreshing;
     public TaskCommand RefreshListCommand { get; }
     public TaskCommand JumpCommand { get; }
     public TaskCommand RefreshThreadCommand { get; }
@@ -262,7 +263,11 @@ public sealed partial class MainViewModel : Observable, IDisposable
             var posts = await ReadListAsync(forum, page, refresh, ct);
             // 新版块请求已开始或窗口已关闭时，不能再把旧列表写回界面。
             if (version != _listVersion || _disposed) return;
-            if (!append) { Posts.Clear(); _listStartPage = page; }
+            if (!append)
+            {
+                if (refresh) ListRefreshing?.Invoke();
+                Posts.Clear(); _listStartPage = page;
+            }
             var ids = Posts.Select(p => p.Post.Id).ToHashSet();
             var added = 0;
             foreach (var post in posts) if (ids.Add(post.Id)) { Posts.Add(Card(post)); added++; }
@@ -279,7 +284,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public async Task RefreshListAsync()
     {
         if (IsSubscriptions) await LoadSubscriptionsAsync(true);
-        else if (IsLibrary) ShowLibrary("history");
+        else if (IsLibrary) { ListRefreshing?.Invoke(); ShowLibrary("history"); }
         else await LoadListAsync(1, true);
     }
 
@@ -346,6 +351,9 @@ public sealed partial class MainViewModel : Observable, IDisposable
             {
                 // 网络等待期间仍可阅读旧串；真正替换前再保存一次眼前位置。
                 ReaderLeaving?.Invoke();
+                if (refresh && resume is not null && _original?.Id == id &&
+                    State.History.Find(h => h.Post.Id == id) is { } current && current.Page == page)
+                    restore = current.Position;
                 _replies.Clear(); _replyLocations.Clear(); _readingPages.Clear(); _threadStartPage = _threadPage = page;
                 ReaderRestorePosition = restore;
                 if (restore is { } position) { _onlyPo = position.OnlyPo; Changed(nameof(OnlyPo)); }
@@ -387,7 +395,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
             // 续载不等于读到该页；实际位置由阅读视口节流上报。
             if (!extending)
             {
-                RegisterReadingHistory(new(_original, page, DateTimeOffset.Now, traversal is null ? resume?.Position : restore)); Save();
+                RegisterReadingHistory(new(_original, page, DateTimeOffset.Now, restore)); Save();
                 CommitNavigation(id, page, traversal);
             }
             NotifyReader(); Changed(nameof(HistoryCount));

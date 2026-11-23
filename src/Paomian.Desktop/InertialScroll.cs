@@ -37,6 +37,7 @@ public static class InertialScroll
         private readonly FrameworkElement _surface;
         private readonly ScrollMotion _motion = new();
         private ScrollViewer? _viewer;
+        private ReadingScrollPanel? _panel;
         private Window? _window;
         private INotifyCollectionChanged? _items;
         private bool _enabled, _attached;
@@ -96,7 +97,7 @@ public static class InertialScroll
                 _window.RemoveHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(KeyDown));
             }
             SystemParameters.StaticPropertyChanged -= SystemChanged;
-            _items = null; _window = null; _viewer = null;
+            _items = null; _window = null; _viewer = null; _panel = null;
         }
 
         private void Wheel(object sender, MouseWheelEventArgs args)
@@ -112,11 +113,14 @@ public static class InertialScroll
             if (step <= 0) return;
             var distance = -args.Delta / 120d * step;
             var offset = _viewer.VerticalOffset;
+            if (Running && _panel is not null) _motion.Rebase(_panel.VerticalOffset, _viewer.ScrollableHeight);
             if (distance < 0 && offset <= .1 || distance > 0 && offset >= _viewer.ScrollableHeight - .1) { Stop(); return; }
             _motion.Push(distance, offset, _viewer.ScrollableHeight, _viewer.ViewportHeight);
             args.Handled = true;
             if (!Running && _motion.IsActive)
             {
+                _panel = _surface is ListBox ? ReadingAnchor.Children<ReadingScrollPanel>(_viewer)
+                    .FirstOrDefault(panel => panel.ScrollOwner == _viewer) : null;
                 Running = true; _requestedOffset = offset; _lastFrame = Stopwatch.GetTimestamp();
                 CompositionTarget.Rendering += Frame;
             }
@@ -141,14 +145,17 @@ public static class InertialScroll
             _lastFrame = now;
             // 长时间挂起或切出后不补播一大段位移。
             if (elapsed > .25) { Stop(); return; }
+            if (_panel is not null) _motion.Rebase(_panel.VerticalOffset, _viewer.ScrollableHeight);
+            var previous = _motion.Position;
             _requestedOffset = _motion.Advance(elapsed, _viewer.ScrollableHeight);
-            _viewer.ScrollToVerticalOffset(_requestedOffset);
+            if (_panel is null) _viewer.ScrollToVerticalOffset(_requestedOffset);
+            else _panel.ScrollBy(_requestedOffset - previous);
             if (!_motion.IsActive) Stop();
         }
 
         private void Scrolled(object sender, ScrollChangedEventArgs args)
         {
-            if (!Running || !ReferenceEquals(args.OriginalSource, _viewer)) return;
+            if (!Running || _panel is not null || !ReferenceEquals(args.OriginalSource, _viewer)) return;
             if (args.ExtentHeightChange != 0 || args.ViewportHeightChange != 0)
                 _motion.Rebase(_viewer!.VerticalOffset, _viewer.ScrollableHeight);
             else if (Math.Abs(_viewer!.VerticalOffset - _requestedOffset) > 2)
