@@ -35,6 +35,7 @@ internal static partial class KeyboardReadingChecks
         model.AppearanceChanged();
         KeyboardReadingFixture.SeedImages(store.Cache);
         var window = new MainWindow(model, _ => throw new InvalidOperationException("离线验收未打开外部网站。"));
+        if (mode is "--wheel-comparison" or "--wheel-desktop") window.EnableWheelComparison();
         app.MainWindow = window;
         EventHandler? verify = null;
         verify = async (_, _) =>
@@ -50,7 +51,9 @@ internal static partial class KeyboardReadingChecks
                 }
                 else
                 {
-                    if (mode == "--scroll-stability") await CheckStability(window);
+                    if (mode is "--wheel-comparison" or "--wheel-desktop") await CompareWheel(window, output, mode == "--wheel-desktop");
+                    else if (mode == "--wheel-dpi") await CheckWheelDpi(window);
+                    else if (mode == "--scroll-stability") await CheckStability(window);
                     else await CheckAsync(window, fixture, output, capture);
                     app.Shutdown(0);
                 }

@@ -11,11 +11,32 @@ public sealed class ReadingScrollPanel : VirtualizingStackPanel, IScrollInfo
     private FrameworkElement? _anchor;
     private object? _item;
     private double _top, _arrangedOffset, _pending;
+    private FrameworkElement? _wheelRow;
+    private object? _wheelItem;
+    private double _wheelTop;
+    internal double RequestedOffset => VerticalOffset + _pending;
 
-    internal void ScrollBy(double distance)
+    internal void ForgetWheelRow()
     {
-        var offset = Math.Clamp(VerticalOffset + _pending + distance, 0, Math.Max(0, ExtentHeight - ViewportHeight));
+        _wheelRow = null;
+        _wheelItem = null;
+    }
+
+    internal void ScrollBy(double distance, bool wheelStep = false)
+    {
+        // 下一次输入/呈现帧看到的是上一次所有布局轮次的最终结果。
+        // 用同一条可见内容消化设备像素舍入误差，尚未布局的请求已经包含在 _pending 中。
+        if (wheelStep && _wheelRow is { } previous && ReferenceEquals(previous.DataContext, _wheelItem) &&
+            VisualTreeHelper.GetParent(previous) == this)
+        {
+            var error = VisualTreeHelper.GetOffset(previous).Y - _wheelTop - _pending;
+            if (Math.Abs(error) <= 2) distance += error;
+        }
+        _wheelRow = wheelStep ? _anchor : null;
+        _wheelItem = _wheelRow?.DataContext;
+        var offset = Math.Clamp(RequestedOffset + distance, 0, Math.Max(0, ExtentHeight - ViewportHeight));
         _pending = offset - VerticalOffset;
+        if (_wheelRow is not null) _wheelTop = VisualTreeHelper.GetOffset(_wheelRow).Y - _pending;
         SetVerticalOffset(offset);
     }
 
@@ -25,6 +46,7 @@ public sealed class ReadingScrollPanel : VirtualizingStackPanel, IScrollInfo
         if (ItemsControl.GetItemsOwner(this) is ListBox list) InertialScroll.Stop(list);
         _anchor = null;
         _pending = 0;
+        ForgetWheelRow();
         SetVerticalOffset(offset);
     }
 

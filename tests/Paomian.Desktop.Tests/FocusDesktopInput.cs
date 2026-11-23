@@ -54,6 +54,16 @@ internal sealed class FocusDesktopInput : IDisposable
         Send([KeyInput(key), KeyInput(key, true)]);
     }
 
+    internal static void Wheel(nint expected, int delta)
+    {
+        Guard(expected);
+        Require(GetCursorPos(out var point), "无法读取滚轮位置");
+        VerifyEndpoint(point, expected, "滚轮位置");
+        var input = MouseInputFor(0x0800);
+        input.Data.Mouse.Data = unchecked((uint)delta);
+        Send([input]);
+    }
+
     internal static void Chord(nint expected, ushort modifier, ushort key)
     {
         Guard(expected);

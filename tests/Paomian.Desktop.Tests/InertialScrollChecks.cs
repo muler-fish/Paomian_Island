@@ -27,6 +27,8 @@ internal static class InertialScrollChecks
             await vm.SelectForumAsync(new(4, "惯性滚动测试", "测试", MaxPage: 3)); await Pause();
             var list = (ListBox)window.FindName("ThreadList");
             var reader = (ListBox)window.FindName("ReaderList");
+            InertialScroll.SetMode(list, WheelMode.Legacy);
+            InertialScroll.SetMode(reader, WheelMode.Legacy);
             var viewer = Viewer(list);
             Require(vm.State.InertialScrolling && InertialScroll.GetIsEnabled(list), "新设置应默认启用且绑定到主列表。");
             Require(InertialScroll.GetIsEnabled((ScrollViewer)window.FindName("ForumScroll")) && InertialScroll.GetIsEnabled(reader), "导航与正文未绑定同一设置。");
