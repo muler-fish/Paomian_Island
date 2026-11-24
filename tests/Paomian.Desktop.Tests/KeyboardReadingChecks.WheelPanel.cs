@@ -68,6 +68,14 @@ internal static partial class KeyboardReadingChecks
         T Field<T>(string label) where T : FrameworkElement => Descendants<T>(settings).Single(
             field => AutomationProperties.GetName(field) == label);
         var presetBox = Field<ComboBox>("滚动预设");
+        var details = Descendants<Expander>(settings).Single(e => Equals(e.Header, "调整滚轮参数"));
+        Require(!details.IsExpanded && presetBox.IsVisible && !((StackPanel)details.Content).IsVisible, "参数区应默认折叠，预设应可见");
+        presetBox.SelectedItem = "快速短滑";
+        Require(!details.IsExpanded && model.ReadingWheel == WheelTuning.Fast, "收起时选择预设应直接生效");
+        presetBox.SelectedItem = "推荐预设";
+        capture(settings, Path.Combine(output, "wheel-settings-collapsed.png"));
+        details.IsExpanded = true;
+        await Idle();
         var notch = Field<Slider>("每格距离");
         var duration = Field<Slider>("过渡时长");
         var immediate = Field<Slider>("立即位移比例");
@@ -93,6 +101,11 @@ internal static partial class KeyboardReadingChecks
         duration.Value = 52; immediate.Value = 65; curveBox.SelectedIndex = (int)WheelCurve.Cubic;
         var custom = new WheelTuning(60, 52, .65, WheelCurve.Cubic);
         Require(Near(start, Top()) && model.Store.Load().MouseWheel.Effective == custom, "调节时位置变化或参数未保存");
+        details.IsExpanded = false;
+        await Idle();
+        Require(!notch.IsVisible && !reset.IsVisible && model.ReadingWheel == custom, "收起参数区不应改变自定义设置");
+        details.IsExpanded = true;
+        await Idle();
         reset.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Require(model.ReadingWheel == WheelTuning.Recommended && presetBox.SelectedIndex == 0, "恢复推荐失败");
         presetBox.SelectedItem = "自定义";
