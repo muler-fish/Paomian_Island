@@ -19,6 +19,25 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--loading-model-checks")
+        {
+            try
+            {
+                LoadingComparisonMathChecks.Run(Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/loading-comparison"));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                return 1;
+            }
+        }
+        if (args.FirstOrDefault() == "--loading-compare")
+            return RunLoadingComparison(
+                args.ElementAtOrDefault(1) ?? "artifacts/loading-comparison",
+                args.Contains("--smoke"),
+                args.Contains("--record"));
+
         if (args.FirstOrDefault() == "--wheel-settings-motion") { KeyboardReadingChecks.CheckWheelBursts(); return 0; }
         if (args.FirstOrDefault() == "--profile-upgrade")
         {
@@ -393,6 +412,80 @@ internal static class Program
             }
         };
         return app.Run(window);
+    }
+
+    private static int RunLoadingComparison(string output, bool smoke, bool record)
+    {
+        try
+        {
+            var fullOutput = Path.GetFullPath(output);
+            Directory.CreateDirectory(fullOutput);
+            LoadingComparisonMathChecks.Run(fullOutput);
+            var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose, Resources = LoadResources() };
+            App.ApplyTheme("light");
+            var window = new LoadingComparisonWindow(fullOutput);
+            window.ShowInTaskbar = true;
+            if (record)
+            {
+                window.ContentRendered += (_, _) =>
+                    _ = window.StartRecordingAsync(fullOutput, TimeSpan.FromMilliseconds(5250), window.Close);
+            }
+            else if (smoke)
+            {
+                window.ContentRendered += async (_, _) =>
+                {
+                    try
+                    {
+                        await Task.Delay(2500);
+                        var diagnostics = await window.SaveScreenshotAsync(Path.Combine(fullOutput, "comparison-smoke.png"));
+                        if (diagnostics.Count != 2 || diagnostics.Any(item => !item.IsVisible || !item.IsIndeterminate))
+                        {
+                            File.WriteAllText(Path.Combine(fullOutput, "failure.txt"),
+                                JsonSerializer.Serialize(diagnostics, new JsonSerializerOptions { WriteIndented = true }));
+                            app.Shutdown(1);
+                            return;
+                        }
+
+                        window.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        File.WriteAllText(Path.Combine(fullOutput, "failure.txt"), ex.ToString());
+                        Console.Error.WriteLine(ex);
+                        app.Shutdown(1);
+                    }
+                };
+            }
+            var exitCode = app.Run(window);
+            if (!record)
+                return exitCode;
+
+            var recordingPath = Path.Combine(fullOutput, "recording.json");
+            if (!File.Exists(recordingPath))
+                return 1;
+
+            using var recording = JsonDocument.Parse(File.ReadAllText(recordingPath));
+            var root = recording.RootElement;
+            if (root.TryGetProperty("Error", out var error))
+            {
+                Console.Error.WriteLine(error.GetString());
+                return 1;
+            }
+
+            if (!root.TryGetProperty("CapturedFrames", out var frames)
+                || !root.TryGetProperty("FfmpegExitCode", out var ffmpegExitCode))
+            {
+                Console.Error.WriteLine("录制结果缺少帧数或 ffmpeg 退出状态。");
+                return 1;
+            }
+
+            return frames.GetInt32() >= 300 && ffmpegExitCode.ValueKind == JsonValueKind.Number && ffmpegExitCode.GetInt32() == 0 ? exitCode : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex);
+            return 1;
+        }
     }
 
     // 独立检查实际交付的单文件 EXE，使用临时资料目录，完成后正常关闭测试实例。

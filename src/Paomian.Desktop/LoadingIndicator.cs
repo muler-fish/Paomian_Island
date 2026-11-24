@@ -10,10 +10,15 @@ public sealed class LoadingIndicator : Control
 {
     private static readonly DependencyProperty PhaseProperty = DependencyProperty.Register(
         "Phase", typeof(double), typeof(LoadingIndicator), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
-    private static readonly DependencyProperty MotionEnabledProperty = DependencyProperty.Register(
-        "MotionEnabled", typeof(bool), typeof(LoadingIndicator), new PropertyMetadata(false, (d, _) => ((LoadingIndicator)d).UpdateClock()));
-    private static readonly DoubleAnimation Cycle = CreateCycle();
+    private static readonly DependencyProperty SecondPhaseProperty = DependencyProperty.Register(
+        "SecondPhase", typeof(double), typeof(LoadingIndicator), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
+    private static readonly DoubleAnimation CircularCycle = CreateCycle(TimeSpan.FromMilliseconds(1400));
+    private static readonly DoubleAnimation LinearCycle = CreateCycle(TimeSpan.FromMilliseconds(2100));
+    private static readonly DoubleAnimation LinearSecondCycle = CreateCycle(TimeSpan.FromMilliseconds(2100), TimeSpan.FromMilliseconds(1150));
     private bool _running;
+    private bool MotionEnabled => TryFindResource(SystemParameters.ClientAreaAnimationKey) is bool enabled
+        ? enabled
+        : SystemParameters.ClientAreaAnimation;
     internal bool Circular { get; init; }
 
     public LoadingIndicator()
@@ -21,25 +26,48 @@ public sealed class LoadingIndicator : Control
         Focusable = false;
         IsHitTestVisible = false;
         SetResourceReference(BackgroundProperty, "Line");
-        SetResourceReference(MotionEnabledProperty, SystemParameters.ClientAreaAnimationKey);
-        Loaded += (_, _) => UpdateClock();
-        Unloaded += (_, _) => StopClock();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         IsVisibleChanged += (_, _) => UpdateClock();
     }
 
-    private static DoubleAnimation CreateCycle()
+    private static DoubleAnimation CreateCycle(TimeSpan duration, TimeSpan? beginTime = null)
     {
-        var animation = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(1500)) { RepeatBehavior = RepeatBehavior.Forever };
+        var animation = new DoubleAnimation(0, 1, duration)
+        {
+            BeginTime = beginTime,
+            RepeatBehavior = RepeatBehavior.Forever
+        };
         animation.Freeze();
         return animation;
     }
 
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        SystemParameters.StaticPropertyChanged += OnSystemParametersChanged;
+        UpdateClock();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        SystemParameters.StaticPropertyChanged -= OnSystemParametersChanged;
+        StopClock();
+    }
+
+    private void OnSystemParametersChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SystemParameters.ClientAreaAnimation)) return;
+        UpdateClock();
+        InvalidateVisual();
+    }
+
     private void UpdateClock()
     {
-        if (!IsLoaded || !IsVisible || !(bool)GetValue(MotionEnabledProperty)) { StopClock(); return; }
+        if (!IsLoaded || !IsVisible || !MotionEnabled) { StopClock(); return; }
         if (_running) return;
         _running = true;
-        BeginAnimation(PhaseProperty, Cycle);
+        BeginAnimation(PhaseProperty, Circular ? CircularCycle : LinearCycle);
+        BeginAnimation(SecondPhaseProperty, Circular ? null : LinearSecondCycle);
     }
 
     private void StopClock()
@@ -47,6 +75,7 @@ public sealed class LoadingIndicator : Control
         if (!_running) return;
         _running = false;
         BeginAnimation(PhaseProperty, null);
+        BeginAnimation(SecondPhaseProperty, null);
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -54,49 +83,75 @@ public sealed class LoadingIndicator : Control
         var size = RenderSize;
         if (size.Width <= 0 || size.Height <= 0) return;
         var phase = (double)GetValue(PhaseProperty);
+        var motionEnabled = MotionEnabled;
         if (Circular)
         {
-            var diameter = Math.Min(size.Width, size.Height);
-            var stroke = Math.Max(1, diameter * .095);
-            var radius = (diameter - stroke) / 2;
-            if (radius <= 0) return;
-            var center = new Point(size.Width / 2, size.Height / 2);
-            dc.DrawEllipse(null, new Pen(Background, stroke), center, radius, radius);
-            var sweep = 30 + 105 * (1 - Math.Cos(phase * 2 * Math.PI));
-            var middle = phase * 360 - 90;
-            Point OnCircle(double angle)
-            {
-                var radians = angle * Math.PI / 180;
-                return center + new Vector(Math.Cos(radians) * radius, Math.Sin(radians) * radius);
-            }
-            var arc = new StreamGeometry();
-            using (var path = arc.Open())
-            {
-                path.BeginFigure(OnCircle(middle - sweep / 2), false, false);
-                path.ArcTo(OnCircle(middle + sweep / 2), new Size(radius, radius), 0,
-                    sweep > 180, SweepDirection.Clockwise, true, false);
-            }
-            arc.Freeze();
-            dc.DrawGeometry(null, new Pen(Foreground, stroke) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, arc);
+            DrawCircular(dc, size, phase, motionEnabled);
         }
         else
         {
-            dc.DrawRectangle(Background, null, new Rect(size));
-            // 每段从零长度进入，在另一端缩至零。第二段错开半个周期。
-            void Segment(double time)
-            {
-                var head = Smooth(time / .72);
-                var tail = Smooth((time - .28) / .72);
-                dc.DrawRectangle(Foreground, null, new Rect(tail * size.Width, 0, (head - tail) * size.Width, size.Height));
-            }
-            Segment(phase);
-            Segment((phase + .5) % 1);
+            DrawLinear(dc, size, phase, (double)GetValue(SecondPhaseProperty), motionEnabled);
         }
     }
 
-    private static double Smooth(double time)
+    private void DrawCircular(DrawingContext dc, Size size, double phase, bool motionEnabled)
     {
-        time = Math.Clamp(time, 0, 1);
-        return time * time * (3 - 2 * time);
+        const double viewBoxSize = 44;
+        const double strokeWidth = 3.6;
+        const double radius = (viewBoxSize - strokeWidth) / 2;
+        const double circumference = 2 * Math.PI * radius;
+        var diameter = Math.Min(size.Width, size.Height);
+        if (diameter <= 0) return;
+
+        var scale = diameter / viewBoxSize;
+        dc.PushTransform(new ScaleTransform(scale, scale));
+        var center = new Point(viewBoxSize / 2, viewBoxSize / 2);
+        dc.DrawEllipse(null, new Pen(Background, strokeWidth), center, radius, radius);
+
+        var frame = MuiAnimationMath.CircularFrame(phase, !motionEnabled);
+        dc.PushTransform(new RotateTransform(frame.RotationDegrees, center.X, center.Y));
+        var startRadians = -frame.DashOffset / circumference * 2 * Math.PI;
+        var endRadians = startRadians + frame.DashLength / circumference * 2 * Math.PI;
+        Point OnCircle(double radians) => new(
+            center.X + radius * Math.Cos(radians),
+            center.Y + radius * Math.Sin(radians));
+
+        var geometry = new StreamGeometry();
+        using (var context = geometry.Open())
+        {
+            context.BeginFigure(OnCircle(startRadians), false, false);
+            context.ArcTo(OnCircle(endRadians), new Size(radius, radius), 0,
+                frame.DashLength > circumference / 2, SweepDirection.Clockwise, true, false);
+        }
+        geometry.Freeze();
+        dc.DrawGeometry(null, new Pen(Foreground, strokeWidth), geometry);
+        dc.Pop();
+        dc.Pop();
     }
+
+    private void DrawLinear(DrawingContext dc, Size size, double phase, double secondPhase, bool motionEnabled)
+    {
+        var bounds = new Rect(size);
+        dc.PushClip(new RectangleGeometry(bounds));
+        dc.DrawRectangle(Background, null, bounds);
+        if (!motionEnabled)
+        {
+            dc.DrawRectangle(Foreground, null,
+                new Rect(bounds.Width * .30, 0, bounds.Width * .40, bounds.Height));
+            dc.Pop();
+            return;
+        }
+
+        DrawSegment(dc, bounds.Width, MuiAnimationMath.FirstLinearSegment(phase), bounds.Height);
+        DrawSegment(dc, bounds.Width, MuiAnimationMath.SecondLinearSegment(secondPhase), bounds.Height);
+        dc.Pop();
+    }
+
+    private void DrawSegment(DrawingContext dc, double width, MuiLinearFrame frame, double height)
+    {
+        var segmentWidth = width * (1 - frame.Left - frame.Right);
+        if (segmentWidth > 0)
+            dc.DrawRectangle(Foreground, null, new Rect(frame.Left * width, 0, segmentWidth, height));
+    }
+
 }

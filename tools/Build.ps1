@@ -42,6 +42,7 @@ try {
     Copy-Item -LiteralPath 'licenses\EmoticonData-NOTICE.txt' -Destination (Join-Path $licenses 'EmoticonData-NOTICE.txt')
     Copy-Item -LiteralPath 'licenses\XamlAnimatedGif-LICENSE.txt' -Destination (Join-Path $licenses 'XamlAnimatedGif-LICENSE.txt')
     Copy-Item -LiteralPath 'licenses\XamlAnimatedGif-NOTICE.txt' -Destination (Join-Path $licenses 'XamlAnimatedGif-NOTICE.txt')
+    Copy-Item -LiteralPath 'licenses\MUI-MIT.txt' -Destination (Join-Path $licenses 'MUI-MIT.txt')
     foreach ($notice in @('Emoji-NOTICE.txt', 'Emoji.Wpf-LICENSE.txt', 'Typography-NOTICES.md', 'Typography-MIT.txt', 'FreeType-LICENSE.txt', 'Unicode-LICENSE.txt', 'JeremyAnsel.HLSL-LICENSE.txt')) {
         Copy-Item -LiteralPath (Join-Path 'licenses' $notice) -Destination (Join-Path $licenses $notice)
     }
