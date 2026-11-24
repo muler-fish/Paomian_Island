@@ -68,6 +68,7 @@ internal static class ImageViewerChecks
         await Wait(() => Children<ImageLoading>(viewer).Any(p => p.IsVisible && p.Children.Count == 1));
         Require(Children<ImageLoading>(viewer).Any(p => p.IsVisible), "加载时没有可见进度反馈");
         capture(viewer, Path.Combine(output, "image-loading.png"));
+        await Record(viewer, output, "original");
         Click(viewer, "›"); await Wait(() => Image(viewer).Source is not null);
         first.SetResult(bytes); await Pause();
         Require(viewer.Title.Contains("No.302") && Info(viewer).Contains("2 / 5"), "慢请求覆盖新图片");
@@ -134,11 +135,85 @@ internal static class ImageViewerChecks
         }
         finally { quote.Close(); ImageService.ScrollSettleDelay = settle; }
 
+        if (Environment.GetCommandLineArgs().Contains("--record-motion"))
+            await RecordReading(owner, output, bytes);
         await CheckPaging(owner, bytes, output, capture);
         await CheckModelCursor(output);
         File.WriteAllText(Path.Combine(output, "image-results.json"), JsonSerializer.Serialize(new { Loading = true, StaleResponse = true, Cache = true, RetryDownloadAndDecode = true, ZoomAndPan = true, NarrowThemes = true, CloseCancellation = true, ThumbnailRecycling = true, NoImageMode = true, TailPagination = true, ReaderAndIdentityIsolation = true }));
         Console.WriteLine("PASS: image loading, previous/next, temporary cache, stale requests, download/decode retry, zoom/pan bounds, fit, rotation, themes, narrow toolbar without More, close cancellation, thumbnail recycling, no-image mode.");
     }
+    private static async Task RecordReading(MainWindow owner, string output, byte[] bytes)
+    {
+        var vm = owner.Model;
+        var delay = ImageService.ScrollSettleDelay;
+        var post = new Post { Id = 913, Fid = 4, Content = "沿河步道", ImagePath = "fixture/record", Extension = ".png" };
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(post.ImageUrl(true)!)));
+        vm.Store.Cache.Write("images/" + key + ".bin", bytes);
+        try
+        {
+            ImageService.ScrollSettleDelay = TimeSpan.FromSeconds(45);
+            KeyboardReadingFixture.SeedImages(vm.Store.Cache);
+            vm.State.ListImages = vm.State.ReaderImages = ImageModes.Auto;
+            vm.AppearanceChanged();
+            await vm.SelectForumAsync(new Forum(4, "日常", "综合"));
+            await vm.OpenThreadAsync(KeyboardReadingFixture.Thread);
+            vm.Posts.Clear(); vm.ReadingPosts.Clear();
+            for (var i = 0; i < 4; i++)
+            {
+                var item = post with { Id = post.Id + i };
+                vm.Posts.Add(new PostCard(item, "日常"));
+                vm.ReadingPosts.Add(new ReadPost(item, false));
+            }
+            foreach (var pane in new[] { "ThreadList", "ReaderList" })
+            {
+                var list = (ListBox)owner.FindName(pane);
+                list.ScrollIntoView(list.Items[0]);
+                await Wait(() => Children<LoadingIndicator>(list).Any(x => x.IsVisible));
+                Require(Children<LoadingIndicator>(list).Any(x => x.Circular && x.IsVisible),
+                    $"{pane} 缺少圆环，项目 {list.Items.Count}，可见 {list.IsVisible}，有串 {vm.HasThread}");
+            }
+            var intervals = new List<double>();
+            var rings = Children<LoadingIndicator>(owner).Count(x => x.IsVisible && x.Circular);
+            TimeSpan? last = null;
+            void Frame(object? sender, EventArgs args)
+            {
+                var time = ((RenderingEventArgs)args).RenderingTime;
+                if (last.HasValue && time > last) intervals.Add((time - last.Value).TotalMilliseconds);
+                last = time;
+            }
+            CompositionTarget.Rendering += Frame;
+            try { await Task.Delay(2500); }
+            finally { CompositionTarget.Rendering -= Frame; }
+            intervals.Sort();
+            Require(intervals.Count > 1 && rings >= 2, "缺少并行动画帧");
+            File.WriteAllText(Path.Combine(output, "frames.json"), JsonSerializer.Serialize(new {
+                Rings = rings, Samples = intervals.Count, MedianMs = intervals[intervals.Count / 2],
+                P95Ms = intervals[(int)((intervals.Count - 1) * .95)], MaxMs = intervals[^1] }));
+            await Record(owner, output, "reading");
+        }
+        finally { ImageService.ScrollSettleDelay = delay; }
+    }
+
+    private static async Task Record(Window window, string output, string name)
+    {
+        if (!Environment.GetCommandLineArgs().Contains("--record-motion")) return;
+        var folder = Directory.CreateDirectory(Path.Combine(output, name)).FullName;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var timestamps = new List<double>();
+        while (clock.Elapsed.TotalSeconds < 5)
+        {
+            timestamps.Add(clock.Elapsed.TotalSeconds);
+            var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(window);
+            var png = new PngBitmapEncoder();
+            png.Frames.Add(BitmapFrame.Create(bitmap));
+            using (var file = File.Create(Path.Combine(folder, $"{timestamps.Count:D4}.png"))) png.Save(file);
+            await Task.Delay(20);
+        }
+        File.WriteAllText(Path.Combine(folder, "times.json"), JsonSerializer.Serialize(timestamps));
+    }
+
     private static async Task CheckPaging(MainWindow owner, byte[] bytes, string output, Action<Window, string> capture, bool checkNoticeLifetime = false)
     {
         var first = new Post { Id = 901, ImagePath = "fixture/page1", Extension = ".png" };
@@ -158,6 +233,7 @@ internal static class ImageViewerChecks
         Require(calls.Count == 0, "未到末图就续页");
         PressKey(viewer, Key.Right); await Wait(() => calls.Count == 1);
         await Wait(() => Image(viewer).Source is not null);
+        await Record(viewer, output, "pagination");
         var retained = Image(viewer).Source;
         var loading = Children<TextBlock>(viewer).Single(t => t.IsVisible && t.Text == "正在加载下一页图片");
         var canvas = (Canvas)Image(viewer).Parent;
@@ -243,13 +319,21 @@ internal static class ImageViewerChecks
         await Wait(() => loading.Children.Count == 1);
         if (SystemParameters.ClientAreaAnimation)
         {
-            var ring = (Wpf.Ui.Controls.ProgressRing)loading.Children[0];
+            var ring = (LoadingIndicator)loading.Children[0];
             loading.Resources["Accent"] = Brushes.MediumPurple;
-            Require(ring.Foreground == Brushes.MediumPurple && ring.Width == 22 && ring.IsIndeterminate, "圆环未跟随强调色或尺寸不符");
+            Require(ring.Foreground == Brushes.MediumPurple && ring.Width == 22 && ring.Circular, "圆环未跟随强调色或尺寸不符");
         }
         viewport.ScrollToBottom();
         await Wait(() => loading.IsLoaded && loading.Children.Count == 0);
         viewport.ScrollToTop(); await Wait(() => loading.Children.Count == 1);
+        var progress = new ProgressBar { Height = 4, Width = 140 };
+        progress.Resources[SystemParameters.ClientAreaAnimationKey] = false;
+        progress.SetResourceReference(FrameworkElement.StyleProperty, "LoadingProgress");
+        host.Set(progress); await Pause();
+        Require(Children<LoadingIndicator>(progress).Single() is { IsVisible: true, HasAnimatedProperties: false },
+            "关闭动画偏好后仍有线条时钟");
+        progress.IsIndeterminate = false; progress.Value = 37; await Pause();
+        Require(progress.Value == 37 && !Children<LoadingIndicator>(progress).Any(), "确定进度仍使用循环模板");
         host.Close(); await Wait(() => !loading.IsLoaded && loading.Children.Count == 0);
     }
     private static async Task CheckModelCursor(string output)

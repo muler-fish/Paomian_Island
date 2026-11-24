@@ -63,7 +63,22 @@ internal static class UiCopyChecks
             foreach (var page in nav.Items.Cast<string>().ToArray())
             {
                 nav.SelectedItem = page; await Pause();
-                if (page == "外观") { All<Expander>(settings).Single(e => Equals(e.Header, "标识颜色")).IsExpanded = true; await Pause(); }
+                if (page == "外观")
+                {
+                    var details = All<Expander>(settings).Single(e => Equals(e.Header, "自定义标识颜色"));
+                    if (scale == 1.25)
+                    {
+                        scroll.ScrollToEnd(); await Pause();
+                        capture(settings, Path.Combine(output, $"identity-collapsed-{theme}.png"));
+                    }
+                    details.IsExpanded = true; await Pause();
+                    if (scale == 1.25)
+                    {
+                        scroll.ScrollToEnd(); await Pause();
+                        capture(settings, Path.Combine(output, $"identity-expanded-{theme}.png"));
+                        scroll.ScrollToTop(); await Pause();
+                    }
+                }
                 CheckText(settings, $"设置·{page}");
                 if (page == "快捷键")
                 {

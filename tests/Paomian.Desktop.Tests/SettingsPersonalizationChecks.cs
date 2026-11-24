@@ -57,7 +57,7 @@ internal static class SettingsPersonalizationChecks
             Require(nav.Items.Cast<string>().SequenceEqual(new[] { "阅读", "外观", "快捷键", "内容与图片", "网络", "缓存", "数据与记录", "关于" }), "设置分类不完整");
             async Task Select(string page) { nav.SelectedItem = page; await Pause(); }
             await Select("外观");
-            var expander = All<Expander>(settings).Single(e => Equals(e.Header, "标识颜色"));
+            var expander = All<Expander>(settings).Single(e => Equals(e.Header, "自定义标识颜色"));
             Require(!expander.IsExpanded, "标识颜色没有默认折叠");
             Require(All<ColorField>(settings).All(f => !f.Popup.IsOpen), "调色板默认就打开了");
             var previewBox = Named<Border>(settings, "效果预览");

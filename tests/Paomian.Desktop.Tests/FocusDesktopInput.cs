@@ -40,9 +40,12 @@ internal sealed class FocusDesktopInput : IDisposable
     }
 
     internal static void Click(FrameworkElement element, nint expected)
+        => Click(element, new Point(element.ActualWidth / 2, element.ActualHeight / 2), expected);
+
+    internal static void Click(FrameworkElement element, Point location, nint expected)
     {
         Guard(expected);
-        var p = element.PointToScreen(new Point(element.ActualWidth / 2, element.ActualHeight / 2));
+        var p = element.PointToScreen(location);
         var point = new NativePoint { X = (int)p.X, Y = (int)p.Y };
         Require(GetAncestor(WindowFromPoint(point), 2) == expected, "目标控件被遮挡，取消点击");
         ClickPoint(point);

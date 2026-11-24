@@ -34,7 +34,8 @@ internal sealed class ThreadLinkPreviewWindow : DialogWindow
         _request?.Cancel(); _request?.Dispose(); _request = new();
         var ct = _request.Token; var generation = ++_generation;
         _open.IsEnabled = false; Body.Children.Clear();
-        var progress = new ProgressBar { Height = 3, IsIndeterminate = SystemParameters.ClientAreaAnimation, Value = 50 };
+        var progress = new ProgressBar { Height = 3 };
+        progress.SetResourceReference(StyleProperty, "LoadingProgress");
         Body.Children.Add(progress); Body.Children.Add(Hint("正在读取串预览…"));
         try
         {
@@ -68,7 +69,7 @@ internal sealed class ForumLinkPromptWindow : ChildWindow
     private readonly CancellationTokenSource _request = new();
     private readonly TextBlock _message = new() { FontSize = 20, TextWrapping = TextWrapping.Wrap, Margin = new(0, 0, 0, 12) };
     private readonly TextBlock _detail = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 0, 0, 12) };
-    private readonly ProgressBar _progress = new() { Height = 3, Value = 50, Margin = new(0, 0, 0, 16) };
+    private readonly ProgressBar _progress = new() { Height = 3, Margin = new(0, 0, 0, 16) };
     private readonly Button _go;
     private Forum? _forum;
     private bool _closed;
@@ -81,7 +82,7 @@ internal sealed class ForumLinkPromptWindow : ChildWindow
         var body = new StackPanel(); body.Children.Add(_message); body.Children.Add(_detail); body.Children.Add(_progress);
         grid.Children.Add(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         _detail.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        _progress.IsIndeterminate = SystemParameters.ClientAreaAnimation;
+        _progress.SetResourceReference(StyleProperty, "LoadingProgress");
         var name = link.FindForum(model.State.Forums)?.Name ?? (link.Name.Length > 0 ? link.Name : $"{(link.Kind == IslandLinkKind.Timeline ? "时间线" : "板块")} No.{link.Id}");
         _message.Text = $"即将跳转到「{name}」";
         _detail.Text = "正在确认版块…";

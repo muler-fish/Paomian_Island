@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
-using ProgressRing = Wpf.Ui.Controls.ProgressRing;
 
 namespace Paomian.Desktop;
 
@@ -66,14 +65,13 @@ internal sealed class ImageLoading : Grid
             return;
         }
         var animate = SystemParameters.ClientAreaAnimation;
-        if (Children.Count > 0 && (Children[0] is ProgressRing) == animate) return;
+        if (Children.Count > 0 && (Children[0] is LoadingIndicator) == animate) return;
         Children.Clear();
         if (animate)
         {
-            var ring = new ProgressRing { Width = _diameter, Height = _diameter, IsIndeterminate = true,
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                CoverRingVisibility = Visibility.Collapsed };
-            ring.SetResourceReference(ProgressRing.ForegroundProperty, "Accent");
+            var ring = new LoadingIndicator { Width = _diameter, Height = _diameter, Circular = true,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            ring.SetResourceReference(Control.ForegroundProperty, "Accent");
             Children.Add(ring);
         }
         else

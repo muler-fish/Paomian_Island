@@ -66,7 +66,7 @@ internal static class PublishedColorChecks
                 Require(TryFindInProcess(app.Id, "自定义强调色色域") is null, "点击外部没有关闭调色板");
                 // HEX 输入框写入后，调色板位置跟随
                 // 标识颜色：展开后设置饼干 ID，再用调色板点一下
-                Toggle(Find(settings, "标识颜色"));
+                Toggle(Find(settings, "自定义标识颜色"));
                 var cookieHex = Find(settings, "饼干 ID颜色 HEX");
                 ((ValuePattern)cookieHex.GetCurrentPattern(ValuePattern.Pattern)).SetValue("#1F7A8C"); Thread.Sleep(300);
                 Invoke(Find(settings, "饼干 ID颜色调色")); Thread.Sleep(300);
@@ -92,7 +92,7 @@ internal static class PublishedColorChecks
                 var settings = OpenSettings(app);
                 Select(settings, "外观");
                 var accent = Value(Find(settings, "自定义强调色 HEX"));
-                Toggle(Find(settings, "标识颜色"));
+                Toggle(Find(settings, "自定义标识颜色"));
                 var cookie = Value(Find(settings, "饼干 ID颜色 HEX"));
                 Shot(app.Id, Path.Combine(output, "exe-restarted-dark.png"));
                 Require(accent == finalAccent && cookie == finalCookie, $"重启后颜色丢失：{accent} {cookie}");

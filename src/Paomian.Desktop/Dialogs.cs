@@ -62,12 +62,6 @@ public class DialogWindow : ChildWindow
     }
     protected static TextBlock Hint(string text) { var b = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new(0, 9, 0, 9), LineHeight = 21 }; b.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); return b; }
     protected void Label(string text) { var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeights.Medium, Margin = new(0, 16, 0, 10) }; label.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); Body.Children.Add(label); }
-    protected static Button Button(string label, Action action, bool primary = false)
-    {
-        var b = new Wpf.Ui.Controls.Button { Content = label, Margin = new(8, 0, 0, 0) };
-        if (primary) b.SetResourceReference(StyleProperty, "Primary");
-        b.Click += (_, _) => action(); return b;
-    }
     public void AddAction(string text, Action action, bool primary = false) => Actions.Children.Add(Button(text, action, primary));
 }
 

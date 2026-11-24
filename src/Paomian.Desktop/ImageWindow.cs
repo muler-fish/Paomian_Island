@@ -24,7 +24,7 @@ public sealed class ImageWindow : ChildWindow
         HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Visibility = Visibility.Collapsed };
     private readonly TextBlock _pageText = new() { Text = "已到最后一张", MaxWidth = 300, TextWrapping = TextWrapping.Wrap,
         TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-    private readonly ProgressBar _pageProgress = new() { Height = 3, Margin = new(0, 0, 0, 6), Value = 50, Visibility = Visibility.Collapsed };
+    private readonly ProgressBar _pageProgress = new() { Height = 3, Margin = new(0, 0, 0, 6), Visibility = Visibility.Collapsed };
     private readonly Button _pageRetry;
     private readonly DispatcherTimer _endNoticeTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _atEnd;
@@ -87,7 +87,7 @@ public sealed class ImageWindow : ChildWindow
         { button.SetResourceReference(StyleProperty, "ImageNavigationButton"); button.Margin = new(20, 0, 20, 0); viewport.Children.Add(button); }
         _previous.HorizontalAlignment = HorizontalAlignment.Left; _next.HorizontalAlignment = HorizontalAlignment.Right;
         var pageBody = new StackPanel();
-        _pageProgress.IsIndeterminate = SystemParameters.ClientAreaAnimation;
+        _pageProgress.SetResourceReference(StyleProperty, "LoadingProgress");
         _pageProgress.SetResourceReference(Control.ForegroundProperty, "Accent"); pageBody.Children.Add(_pageProgress);
         var pageRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         pageRow.Children.Add(_pageText);

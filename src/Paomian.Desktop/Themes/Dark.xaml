@@ -1,5 +1,5 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:local="clr-namespace:Paomian.Desktop">
-  <SolidColorBrush x:Key="SettingsNavigationSurface" Color="#1c1e21"/>
+  <SolidColorBrush x:Key="SettingsNavigationSurface" Color="#24262a"/>
   <SolidColorBrush x:Key="SettingsPageSurface" Color="#1d1f22"/>
   <SolidColorBrush x:Key="SettingsGroupSurface" Color="#242629"/>
   <SolidColorBrush x:Key="Canvas" Color="#242629"/>

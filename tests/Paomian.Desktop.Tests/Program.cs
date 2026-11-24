@@ -143,7 +143,7 @@ internal static class Program
         // 使用真正的主窗口及同一份样式资源，但不启动 App 的联网流程。
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown, Resources = LoadResources() };
         App.ApplyTheme("light");
-        var api = bossKeyOnly ? new XIslandApi(new System.Net.Http.HttpClient(new KeyboardReadingFixture())) :
+        var api = bossKeyOnly || args.Contains("--record-motion") ? new XIslandApi(new System.Net.Http.HttpClient(new KeyboardReadingFixture())) :
             readerExperienceOnly ? ReaderExperienceChecks.CreateApi() : windowFocusOnly ? WindowFocusChecks.CreateApi() : refinedOnly ? RefinedReaderChecks.CreateApi() : UiRefinementChecks.CreateApi();
         var vm = new MainViewModel(api, new LocalStore(Path.Combine(output, "profile")));
         var window = new MainWindow(vm) { ShowInTaskbar = bossKeyOnly || windowFocusOnly || args.Contains("--hold") || readerExperienceOnly && args.Contains("--real-input") };
@@ -735,7 +735,7 @@ internal static class Program
     private static WindowReport Inspect(Window window)
     {
         // Fluent 标题栏按钮位于 WPF 内容区；DWM 的旧系统标题栏矩形不能证明它们可见。
-        // Refined Reader 弹窗不带 WPF UI 标题栏，只有自定义的 32×32 关闭键；以它作为标题区操作的边界。
+        // Refined Reader 弹窗不带 WPF UI 标题栏，只有自定义的 46×32 关闭键；以它作为标题区操作的边界。
         if (window is Wpf.Ui.Controls.FluentWindow && !UiRefinementChecks.Descendants<Wpf.Ui.Controls.TitleBar>(window).Any())
         {
             var close = UiRefinementChecks.Descendants<System.Windows.Controls.Button>(window).Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "关闭");

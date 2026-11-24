@@ -87,7 +87,7 @@ internal static class RefinedReaderChecks
                 composite[$"{theme}-{size}"]=new{ReadingWidth=rows[0].ActualWidth,Alignment=start,ActualDpi=VisualTreeHelper.GetDpi(window).PixelsPerInchX};
             }
             window.Width=1280;window.Height=800;await Layout(window);
-            foreach(var dialog in new DialogWindow[]{new ComposerWindow(vm,0),new ComposerWindow(vm,52752005),new SettingsWindow(vm),new CookieWindow(vm)})
+            foreach(var dialog in new ChildWindow[]{new ComposerWindow(vm,0),new ComposerWindow(vm,52752005),new SettingsWindow(vm),new CookieWindow(vm)})
             {
                 dialog.Owner=window;dialog.ShowInTaskbar=false;dialog.Show();await Layout(dialog);
                 CheckCloseGlyph(dialog);
@@ -160,7 +160,7 @@ internal static class RefinedReaderChecks
                 SetDpi(window,scale,1280/scale,800/scale);await Layout(window);
                 Require(Math.Abs(VisualTreeHelper.GetDpi(window).DpiScaleX-scale)<.01,"WPF did not apply the requested DPI");
                 capture(window,Path.Combine(output,$"dpi-{scale*100:0}-{theme}-main.png"));
-                foreach(var dialog in new DialogWindow[]{new ComposerWindow(vm,52752005),new SettingsWindow(vm),new CookieWindow(vm)})
+                foreach(var dialog in new ChildWindow[]{new ComposerWindow(vm,52752005),new SettingsWindow(vm),new CookieWindow(vm)})
                 {
                     dialog.Owner=window;dialog.ShowInTaskbar=false;dialog.Show();
                     dialog.MinHeight=Math.Min(dialog.MinHeight,760/scale);

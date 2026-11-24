@@ -79,7 +79,7 @@ internal static class ReaderExperienceChecks
             nav.SelectedItem = "外观";
             await Layout();
             Require(!All<Expander>(settings).Any(x => Equals(x.Header, "正文彩色文字")) &&
-                All<Expander>(settings).Any(x => Equals(x.Header, "标识颜色")), "外观仍有正文调色入口，或误删标识颜色");
+                All<Expander>(settings).Any(x => Equals(x.Header, "自定义标识颜色")), "外观仍有正文调色入口，或误删标识颜色");
             if (!colorsOnly) await CheckShortcuts(main, settings, nav, realInput);
         }
         finally { settings.Close(); }

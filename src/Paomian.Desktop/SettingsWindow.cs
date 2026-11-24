@@ -7,25 +7,39 @@ using Paomian.Core;
 
 namespace Paomian.Desktop;
 
-public sealed class SettingsWindow : DialogWindow
+public sealed class SettingsWindow : ChildWindow
 {
-    public SettingsWindow(MainViewModel vm) : base("设置")
+    public SettingsWindow(MainViewModel vm) : base("设置", fullHeightClient: true)
     {
         Width = SettingsLayout.Width; Height = SettingsLayout.Height; MinWidth = 640; MinHeight = 420;
         WindowPlacement.ConstrainToWorkArea(this);
         var layout = new Grid();
-        layout.SetResourceReference(Panel.BackgroundProperty, "SettingsNavigationSurface");
-        layout.ColumnDefinitions.Add(new() { Width = new(24 + SettingsLayout.NavigationWidth) }); layout.ColumnDefinitions.Add(new());
+        layout.ColumnDefinitions.Add(new() { Width = new(24 + SettingsLayout.NavigationWidth) });
+        layout.ColumnDefinitions.Add(new());
+        var left = new DockPanel();
+        var right = new DockPanel();
+        var sidebar = new Border { Child = left, CornerRadius = new(9, 0, 0, 9) };
+        sidebar.SetResourceReference(Border.BackgroundProperty, "SettingsNavigationSurface");
+        var pageHost = new Border { Child = right, CornerRadius = new(0, 9, 9, 0), BorderThickness = new(1, 0, 0, 0) };
+        pageHost.SetResourceReference(Border.BackgroundProperty, "SettingsPageSurface");
+        pageHost.SetResourceReference(Border.BorderBrushProperty, "Line");
+        layout.Children.Add(sidebar);
+        Grid.SetColumn(pageHost, 1); layout.Children.Add(pageHost);
+        var title = DialogHeader(showTitle: true);
+        DockPanel.SetDock(title, Dock.Top); left.Children.Add(title);
+        var caption = DialogHeader(showTitle: false);
+        DockPanel.SetDock(caption, Dock.Top); right.Children.Add(caption);
+        var done = Button("完成", Close, true);
+        done.Margin = UiMetrics.DialogActionsMargin; done.HorizontalAlignment = HorizontalAlignment.Right;
+        DockPanel.SetDock(done, Dock.Bottom); right.Children.Add(done);
         var navigation = new ListBox { Margin = new(24, 0, 12, 0), Background = System.Windows.Media.Brushes.Transparent };
         AutomationProperties.SetName(navigation, "设置分类");
         navigation.SetResourceReference(ItemsControl.ItemTemplateProperty, "SettingsCategory");
-        navigation.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "SettingsNavigationItem"); layout.Children.Add(navigation);
+        navigation.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "SettingsNavigationItem"); left.Children.Add(navigation);
         var pages = new Grid();
         var scroll = new ScrollViewer { Content = pages, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         AutomationProperties.SetName(scroll, "设置内容"); UseReadingScroll(scroll);
-        var divider = new Border { Child = scroll, BorderThickness = new(1, 0, 0, 0) }; divider.SetResourceReference(Border.BorderBrushProperty, "Line");
-        divider.SetResourceReference(Border.BackgroundProperty, "SettingsPageSurface");
-        Grid.SetColumn(divider, 1); layout.Children.Add(divider); SetBodyContent(layout);
+        right.Children.Add(scroll); SetClientContent(layout);
         var categories = new List<StackPanel>();
         StackPanel Page(string title)
         {
@@ -72,7 +86,7 @@ public sealed class SettingsWindow : DialogWindow
         };
         SettingsLayout.Row(SettingsLayout.Group(appearance, "主题"), "显示模式", null, themes);
         SettingsPersonalization.Accent(SettingsLayout.Group(appearance, "主题强调色"), vm, (label, action) => Button(label, action));
-        SettingsPersonalization.Identity(appearance, vm, (label, action) => Button(label, action));
+        SettingsPersonalization.Identity(SettingsLayout.Group(appearance, "标识颜色"), vm, (label, action) => Button(label, action));
         SettingsShortcuts.Add(Page("快捷键"), this, vm.Shortcuts, (label, action) => Button(label, action));
 
         // 内容与图片：列表缩略图、串内图片分开设置；原图只在看图窗口按需加载。
@@ -215,7 +229,6 @@ public sealed class SettingsWindow : DialogWindow
         Toggle(updateSettings, "启动时自动检查更新", vm.State.AutoCheckUpdates, value => { vm.State.AutoCheckUpdates = value; vm.Save(); });
         Toggle(updateSettings, "自动下载，退出时安装更新", vm.State.InstallUpdatesOnExit, async value => { vm.State.InstallUpdatesOnExit = value; vm.Save(); if (value) await vm.Updates.CheckAsync(automatic: true); });
         navigation.SelectedIndex = 0;
-        AddAction("完成", Close, true);
     }
     private static void Open(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     internal static string LicensesLocation()

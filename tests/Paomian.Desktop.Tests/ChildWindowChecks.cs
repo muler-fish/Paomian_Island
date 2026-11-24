@@ -47,7 +47,7 @@ internal static class ChildWindowChecks
                 capture(window, Path.Combine(output, name + "-light.png"));
                 var title = UiRefinementChecks.Descendants<TitleBar>(window).SingleOrDefault();
                 Require(window is FluentWindow { ExtendsContentIntoTitleBar: true }, name + " 仍使用系统标题栏，未使用统一的 Fluent 外壳。");
-                // Refined Reader 弹窗只有自定义的 32×32 关闭键；看图窗口保留最小化、最大化与关闭。
+                // Refined Reader 弹窗只有自定义的 46×32 关闭键；看图窗口保留最小化、最大化与关闭。
                 if (title is null)
                 {
                     await CheckDialogCaption(window, name, vm, owner, output, capture);
@@ -106,6 +106,12 @@ internal static class ChildWindowChecks
                 try
                 {
                     disabledWhileModal = !IsWindowEnabled(ownerHandle);
+                    var windows = new BossKeyWindows(owner);
+                    var handle = new WindowInteropHelper(modal).Handle;
+                    windows.Hide();
+                    try { Require(!IsWindowVisible(handle), "老板键未隐藏模态设置窗口"); }
+                    finally { windows.Restore(); }
+                    Require(IsWindowVisible(handle) && !IsWindowEnabled(ownerHandle), "恢复后设置窗口或 Owner 模态状态错误");
                     Click(CloseButton(modal));
                 }
                 catch (Exception ex) { modalError = ex; modal.Close(); }
@@ -132,9 +138,14 @@ internal static class ChildWindowChecks
             Program.RequireWindowFits(window);
             var close = CloseButton(window);
             var bounds = close.TransformToAncestor(window).TransformBounds(new Rect(close.RenderSize));
-            Require(close.IsVisible && close.ActualWidth == 32 && close.ActualHeight == 32 && close.Padding == new Thickness(0) &&
-                bounds.Left >= 0 && bounds.Right <= window.ActualWidth + 1 && bounds.Top >= 0,
-                $"{name} 关闭键不是 32×32 零内边距或超出窗口：尺寸={close.ActualWidth}×{close.ActualHeight}，范围={bounds}。");
+            Require(close.IsVisible && Math.Abs(close.ActualWidth - 46) < 1 && close.ActualHeight == 32 && close.Padding == new Thickness(0) &&
+                bounds.Left >= 0 && Math.Abs(window.ActualWidth - bounds.Right) <= 4 && bounds.Top is >= 0 and <= 4,
+                $"{name} 关闭键不是 46×32 零内边距或超出窗口：尺寸={close.ActualWidth}×{close.ActualHeight}，范围={bounds}。");
+            foreach (var point in new[] { new Point(4, 5), new Point(41, 26) })
+            {
+                var hit = (int)SendMessage(new WindowInteropHelper(window).Handle, 0x84, 0, Pack(close.PointToScreen(point)));
+                Require(hit == 1 && close.InputHitTest(point) != null, name + " 关闭热区边缘未命中");
+            }
         }
         foreach (var theme in new[] { "light", "dark" })
         {
@@ -156,7 +167,32 @@ internal static class ChildWindowChecks
             var content = UiRefinementChecks.Descendants<EmojiEditor>(window).Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "发言正文");
             content.Text = "子窗口标题栏关闭后仍保存草稿。";
         }
-        Click(CloseButton(window)); await Layout(owner);
+        var captionButton = CloseButton(window);
+        var edge = new Point(5, 16);
+        if (Environment.GetCommandLineArgs().Contains("--caption-mouse") && name is "settings" or "drafts" or "reference")
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            await FocusDesktopInput.ActivateAsync(handle);
+            var screen = captionButton.PointToScreen(edge);
+            GetCursorPos(out var previous);
+            try
+            {
+                SetCursorPos((int)screen.X, (int)screen.Y);
+                await Layout(window);
+                Require(captionButton.IsMouseOver, name + " 关闭键没有收到悬停");
+                capture(window, Path.Combine(output, name + "-hover.png"));
+                FocusDesktopInput.Click(captionButton, edge, handle);
+            }
+            finally { SetCursorPos(previous.X, previous.Y); }
+        }
+        else
+        {
+            var target = window.InputHitTest(captionButton.TranslatePoint(edge, window)) as DependencyObject;
+            while (target != null && target is not Button) target = VisualTreeHelper.GetParent(target);
+            Require(ReferenceEquals(target, captionButton), name + " 边缘未命中关闭按钮");
+            Click((Button)target!);
+        }
+        await Layout(owner);
         Require(!window.IsVisible, name + " 的关闭键没有关闭窗口。");
         if (name == "new-thread") Require(vm.Store.Load().Drafts.Any(d => d.Content == "子窗口标题栏关闭后仍保存草稿。"), "点击关闭没有保存草稿。");
     }
@@ -181,6 +217,11 @@ internal static class ChildWindowChecks
     }
     private static void Invoke(TitleBar title, string name) =>
         ((IInvokeProvider)new ButtonAutomationPeer((Button)title.Template.FindName(name, title)).GetPattern(PatternInterface.Invoke)).Invoke();
+    [StructLayout(LayoutKind.Sequential)] private struct CursorPoint { public int X, Y; }
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out CursorPoint point);
+
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(nint hwnd);
     private static IntPtr Pack(Point point) => (IntPtr)(((int)point.X & 0xffff) | (((int)point.Y & 0xffff) << 16));
     private static async Task Layout(Window window) { await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.ApplicationIdle); await Task.Delay(80); }
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }

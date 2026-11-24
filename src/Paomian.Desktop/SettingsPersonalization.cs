@@ -95,8 +95,7 @@ internal static class SettingsPersonalization
 
     internal static void Identity(StackPanel page, MainViewModel vm, Func<string, Action, Button> button)
     {
-        var content = new StackPanel { Margin = new(10, 4, 0, 0) };
-        var expander = new Expander { Header = "标识颜色", Content = content, IsExpanded = false, Margin = new(-10, 12, 0, 0) };
+        var content = SettingsLayout.Details(page, "自定义标识颜色");
         content.Children.Add(SettingsLayout.Text("标签的文字色和底色会按所选颜色自动生成。", true));
         // 预览用与串列表、阅读区相同的身份标签控件。
         var preview = new WrapPanel { Margin = new(0, 10, 0, 4) };
@@ -124,7 +123,6 @@ internal static class SettingsPersonalization
         var reset = button("全部恢复默认", () => { foreach (var field in fields) field.Set("", raise: true); });
         reset.HorizontalAlignment = HorizontalAlignment.Left; reset.Margin = new(0, 16, 0, 4);
         content.Children.Add(reset);
-        SettingsLayout.Block(page, expander, false);
     }
 
     /// <summary>设置窗口切换浅色/深色后通知强调色圆点刷新。</summary>

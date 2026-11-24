@@ -29,6 +29,13 @@ internal static class SettingsLayout
         page.Children.Add(surface);
         return rows;
     }
+    internal static StackPanel Details(StackPanel group, string title)
+    {
+        var content = new StackPanel { Margin = new(10, 4, 0, 0) };
+        group.Children.Add(new Expander { Header = title, Content = content, IsExpanded = false,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch, Margin = new(0, 5, 0, 5) });
+        return content;
+    }
     internal static void Block(StackPanel page, UIElement content, bool separator = true)
     {
         var border = new Border { Child = content, Padding = new(0, 10, 0, 10), BorderThickness = new(0, 0, 0, separator ? 1 : 0) };

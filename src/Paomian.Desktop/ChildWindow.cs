@@ -69,7 +69,7 @@ public abstract class ChildWindow : FluentWindow
         base.OnClosed(e);
     }
 
-    protected ChildWindow(string title, bool dialogChrome = true)
+    protected ChildWindow(string title, bool dialogChrome = true, bool fullHeightClient = false)
     {
         Title = title;
         // 显式沿用 FluentWindow 模板，不能再引用旧 Window 样式，否则会退回系统标题栏。
@@ -83,22 +83,25 @@ public abstract class ChildWindow : FluentWindow
         {
             ResizeMode = ResizeMode.CanResize;
             var shell = new Grid();
-            shell.RowDefinitions.Add(new() { Height = new GridLength(UiMetrics.ChildTitleHeight) });
-            shell.RowDefinitions.Add(new());
-            var header = new Grid { Margin = new(UiMetrics.DialogInset, 16, UiMetrics.DialogInset, 8), Background = Brushes.Transparent };
-            header.ColumnDefinitions.Add(new()); header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-            var heading = new TextBlock { FontSize = 24, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-            heading.SetBinding(TextBlock.TextProperty, new Binding(nameof(Title)) { Source = this });
-            header.Children.Add(heading);
+            if (!fullHeightClient)
+            {
+                shell.RowDefinitions.Add(new() { Height = new GridLength(UiMetrics.ChildTitleHeight) });
+                shell.RowDefinitions.Add(new());
+                shell.Children.Add(DialogHeader(showTitle: true));
+                Grid.SetRow(_client, 1);
+            }
+            shell.Children.Add(_client);
             var cross = new System.Windows.Shapes.Path { Data = Geometry.Parse("M1,1 L11,11 M11,1 L1,11"), Width = 12, Height = 12, StrokeThickness = 1.25, VerticalAlignment = VerticalAlignment.Center };
             cross.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Muted");
             var close = new System.Windows.Controls.Button { Content = cross };
             close.SetResourceReference(StyleProperty, "DialogCloseButton");
             System.Windows.Automation.AutomationProperties.SetName(close, "关闭");
             close.ToolTip = "关闭 · Esc"; close.Click += (_, _) => Close();
-            Grid.SetColumn(close, 1); header.Children.Add(close);
-            header.MouseLeftButtonDown += (_, e) => { if (e.OriginalSource is TextBlock || ReferenceEquals(e.OriginalSource, header)) DragMove(); };
-            shell.Children.Add(header); Grid.SetRow(_client, 1); shell.Children.Add(_client);
+            close.HorizontalAlignment = HorizontalAlignment.Right;
+            close.VerticalAlignment = VerticalAlignment.Top;
+            close.Margin = new(0, 2, 2, 0);
+            System.Windows.Shell.WindowChrome.SetIsHitTestVisibleInChrome(close, true);
+            shell.Children.Add(close);
             var chrome = new Border { Child = shell, CornerRadius = UiMetrics.DialogCornerRadius, BorderThickness = new(1) };
             chrome.SetResourceReference(Border.BackgroundProperty, "Surface");
             chrome.SetResourceReference(Border.BorderBrushProperty, "Line");
@@ -133,6 +136,27 @@ public abstract class ChildWindow : FluentWindow
 
         // Esc 和标题栏关闭都走正常 Window.Close；编辑器仍能在 Closing 中保存草稿或取消关闭。
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(); e.Handled = true; } };
+    }
+
+    protected static System.Windows.Controls.Button Button(string label, Action action, bool primary = false)
+    {
+        var b = new Wpf.Ui.Controls.Button { Content = label, Margin = new(8, 0, 0, 0) };
+        if (primary) b.SetResourceReference(StyleProperty, "Primary");
+        b.Click += (_, _) => action(); return b;
+    }
+
+    protected Grid DialogHeader(bool showTitle)
+    {
+        var header = new Grid { Background = Brushes.Transparent, Height = UiMetrics.ChildTitleHeight };
+        if (showTitle)
+        {
+            var heading = new TextBlock { FontSize = 24, FontWeight = FontWeights.SemiBold,
+                Margin = new(UiMetrics.DialogInset, 16, UiMetrics.DialogInset, 8), VerticalAlignment = VerticalAlignment.Center };
+            heading.SetBinding(TextBlock.TextProperty, new Binding(nameof(Title)) { Source = this });
+            header.Children.Add(heading);
+        }
+        header.MouseLeftButtonDown += (_, e) => { if (e.LeftButton == MouseButtonState.Pressed) DragMove(); };
+        return header;
     }
 
     protected override void OnClosing(CancelEventArgs e)
