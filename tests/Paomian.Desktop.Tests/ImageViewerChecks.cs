@@ -65,7 +65,8 @@ internal static class ImageViewerChecks
         }
         var viewer = new ImageWindow(posts, 301, Download) { Owner = owner, ShowInTaskbar = false };
         viewer.Show(); await Pause();
-        Require(Children<ProgressBar>(viewer).Any(p => p.IsVisible), "加载时没有可见进度反馈");
+        await Wait(() => Children<ImageLoading>(viewer).Any(p => p.IsVisible && p.Children.Count == 1));
+        Require(Children<ImageLoading>(viewer).Any(p => p.IsVisible), "加载时没有可见进度反馈");
         capture(viewer, Path.Combine(output, "image-loading.png"));
         Click(viewer, "›"); await Wait(() => Image(viewer).Source is not null);
         first.SetResult(bytes); await Pause();
@@ -118,6 +119,21 @@ internal static class ImageViewerChecks
         Require(!viewer.IsVisible && closeCanceled, "关闭窗口没有取消请求");
         App.ApplyTheme("light");
         await CheckThumbnails(bytes, output, capture);
+        var quotedPost = new Post { Id = 813, ImagePath = "fixture/reference", Extension = ".png" };
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(quotedPost.ImageUrl(true)!)));
+        owner.Model.Store.Cache.Write("images/" + key + ".bin", bytes);
+        var settle = ImageService.ScrollSettleDelay;
+        var quote = new TextWindow("引用预览", "", referencePreview: true) { Owner = owner };
+        try
+        {
+            ImageService.ScrollSettleDelay = TimeSpan.FromMilliseconds(450);
+            quote.SetPost(quotedPost); quote.Show();
+            await Wait(() => Children<ImageLoading>(quote).Any(item => item.Children.Count == 1));
+            await Wait(() => Children<PostImage>(quote).Any(item => Children<Image>(item).Any()));
+        }
+        finally { quote.Close(); ImageService.ScrollSettleDelay = settle; }
+
         await CheckPaging(owner, bytes, output, capture);
         await CheckModelCursor(output);
         File.WriteAllText(Path.Combine(output, "image-results.json"), JsonSerializer.Serialize(new { Loading = true, StaleResponse = true, Cache = true, RetryDownloadAndDecode = true, ZoomAndPan = true, NarrowThemes = true, CloseCancellation = true, ThumbnailRecycling = true, NoImageMode = true, TailPagination = true, ReaderAndIdentityIsolation = true }));
@@ -195,7 +211,8 @@ internal static class ImageViewerChecks
         var post = new Post { Id = 801, ImagePath = "fixture/thumb", Extension = ".png" };
         var thumb = new PostImage((_, _) => { calls++; return calls == 1 ? gate.Task : Task.FromResult(bitmap); }) { Post = post, PreviewHeight = 72, PreviewMaxWidth = 72 };
         var host = new ThumbnailWindow(thumb) { ShowInTaskbar = false }; host.Show(); await Pause();
-        Require(Children<ProgressBar>(thumb).Any(p => p.IsVisible), "缩略图加载反馈未显示");
+        await Wait(() => Children<ImageLoading>(thumb).Any(p => p.IsVisible && p.Children.Count == 1));
+        Require(Children<ImageLoading>(thumb).Any(p => p.IsVisible), "缩略图加载反馈未显示");
         capture(host, Path.Combine(output, "thumbnail-loading.png"));
         thumb.Post = post with { Id = 802, ImagePath = "fixture/next" }; await Pause(); gate.SetResult(bitmap); await Pause();
         Require(thumb.Post.Id == 802 && Children<Image>(thumb).Single().Source == bitmap, "虚拟化换绑错图");
@@ -215,7 +232,25 @@ internal static class ImageViewerChecks
         host.Set(manual); await Pause();
         Require(noImageCalls == 0, "无图模式仍下载缩略图");
         Require(Buttons(host).Any(b => Equals(b.Content, "显示这张图片") && b.IsEnabled), "无图模式没有手动看图入口");
-        host.Close();
+        Click(host, "显示这张图片"); await Wait(() => Children<Image>(manual).Any());
+        Require(noImageCalls == 1 && !Children<ImageLoading>(manual).Any(), "点击加载或同步命中时的占位状态错误");
+
+        // 未卸载的预取行滚出视口也应停止动画，再滚回来才恢复。
+        var loading = new ImageLoading(144, 60);
+        var stack = new StackPanel(); stack.Children.Add(loading); stack.Children.Add(new Border { Height = 850 });
+        var viewport = new ScrollViewer { Content = stack, Width = 200, Height = 120 };
+        host.Set(viewport);
+        await Wait(() => loading.Children.Count == 1);
+        if (SystemParameters.ClientAreaAnimation)
+        {
+            var ring = (Wpf.Ui.Controls.ProgressRing)loading.Children[0];
+            loading.Resources["Accent"] = Brushes.MediumPurple;
+            Require(ring.Foreground == Brushes.MediumPurple && ring.Width == 22 && ring.IsIndeterminate, "圆环未跟随强调色或尺寸不符");
+        }
+        viewport.ScrollToBottom();
+        await Wait(() => loading.IsLoaded && loading.Children.Count == 0);
+        viewport.ScrollToTop(); await Wait(() => loading.Children.Count == 1);
+        host.Close(); await Wait(() => !loading.IsLoaded && loading.Children.Count == 0);
     }
     private static async Task CheckModelCursor(string output)
     {
@@ -256,7 +291,7 @@ internal static class ImageViewerChecks
     private sealed class ThumbnailWindow : ChildWindow
     {
         public ThumbnailWindow(PostImage thumb) : base("图片加载检查") { Width = 500; Height = 300; Set(thumb); }
-        public void Set(PostImage thumb) => SetClientContent(new Border { Child = thumb, Padding = new(24), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top });
+        public void Set(FrameworkElement thumb) => SetClientContent(new Border { Child = thumb, Padding = new(24), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top });
     }
     private static byte[] Picture()
     {

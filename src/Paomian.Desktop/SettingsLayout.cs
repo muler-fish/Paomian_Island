@@ -16,18 +16,23 @@ internal static class SettingsLayout
     internal static StackPanel Page(string title)
     {
         var page = new StackPanel { Visibility = Visibility.Collapsed, Margin = new(24, 0, 24, 8) };
-        page.Children.Add(new TextBlock { Text = title, FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 12) }); return page;
+        page.Children.Add(new TextBlock { Text = title, FontSize = 22, FontWeight = FontWeights.SemiBold, Margin = new(0, 0, 0, 12) }); return page;
     }
-    internal static void Section(StackPanel page, string title)
+    internal static StackPanel Group(StackPanel page, string title)
     {
-        var heading = Text(title); heading.FontWeight = FontWeights.SemiBold;
-        var border = new Border { BorderThickness = new(0, 1, 0, 0), Padding = new(0, 20, 0, 4), Margin = new(0, 12, 0, 0), Child = heading };
-        border.SetResourceReference(Border.BorderBrushProperty, "Line"); page.Children.Add(border);
+        var heading = Text(title); heading.FontSize = 15; heading.FontWeight = FontWeights.SemiBold;
+        heading.Margin = new(0, 16, 0, 8);
+        page.Children.Add(heading);
+        var rows = new StackPanel();
+        var surface = new Border { Child = rows, CornerRadius = new(7), Padding = new(14, 3, 14, 3) };
+        surface.SetResourceReference(Border.BackgroundProperty, "SettingsGroupSurface");
+        page.Children.Add(surface);
+        return rows;
     }
     internal static void Block(StackPanel page, UIElement content, bool separator = true)
     {
-        var border = new Border { Child = content, Padding = new(0, 12, 0, 12), BorderThickness = new(0, 0, 0, separator ? 1 : 0) };
-        border.SetResourceReference(Border.BorderBrushProperty, "Line"); page.Children.Add(border);
+        var border = new Border { Child = content, Padding = new(0, 10, 0, 10), BorderThickness = new(0, 0, 0, separator ? 1 : 0) };
+        border.SetResourceReference(Border.BorderBrushProperty, "Hairline"); page.Children.Add(border);
     }
     internal static void Row(StackPanel page, string title, string? hint, FrameworkElement control)
     {
@@ -38,6 +43,7 @@ internal static class SettingsLayout
         if (control is not Button) AutomationProperties.SetName(control, title);
         if (control is CheckBox box)
         {
+            box.SetResourceReference(FrameworkElement.StyleProperty, "SettingsSwitch");
             // Preserve the original checkbox label's click target, while aligning the mark on the right.
             labels.Background = System.Windows.Media.Brushes.Transparent;
             labels.MouseLeftButtonUp += (_, e) => { if (box.IsEnabled) { box.Focus(); box.IsChecked = box.IsChecked != true; e.Handled = true; } };
@@ -47,12 +53,20 @@ internal static class SettingsLayout
     }
     internal static Slider Slider(StackPanel page, string title, string? hint, double value, double min, double max, double step, string suffix, Action<double> save)
     {
-        var group = new StackPanel(); var header = new Grid(); header.ColumnDefinitions.Add(new()); header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        header.Children.Add(Text(title)); var current = Text($"{value:0.##}{suffix}", true); Grid.SetColumn(current, 1); header.Children.Add(current); group.Children.Add(header);
-        if (hint is not null) { var help = Text(hint, true); help.Margin = new(0, 2, 0, 0); group.Children.Add(help); }
-        var slider = new Slider { Minimum = min, Maximum = max, TickFrequency = step, IsSnapToTickEnabled = true, Value = value, Margin = new(0, 8, 0, 0) };
-        AutomationProperties.SetName(slider, title); slider.ValueChanged += (_, _) => { current.Text = $"{slider.Value:0.##}{suffix}"; save(slider.Value); };
-        group.Children.Add(slider); Block(page, group); return slider;
+        var grid = new Grid { MinHeight = 34 };
+        grid.ColumnDefinitions.Add(new() { Width = new(2, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new() { Width = new(3, GridUnitType.Star), MaxWidth = 280 });
+        grid.ColumnDefinitions.Add(new() { Width = new(68) });
+        var label = Text(title); label.VerticalAlignment = VerticalAlignment.Center;
+        var slider = new Slider { Minimum = min, Maximum = max, TickFrequency = step, IsSnapToTickEnabled = true,
+            Value = value, VerticalAlignment = VerticalAlignment.Center, ToolTip = hint };
+        AutomationProperties.SetName(slider, title);
+        var current = Text($"{value:0.##}{suffix}", true);
+        current.VerticalAlignment = VerticalAlignment.Center; current.HorizontalAlignment = HorizontalAlignment.Right;
+        slider.ValueChanged += (_, _) => { current.Text = $"{slider.Value:0.##}{suffix}"; save(slider.Value); };
+        grid.Children.Add(label); Grid.SetColumn(slider, 1); grid.Children.Add(slider);
+        Grid.SetColumn(current, 2); grid.Children.Add(current);
+        Block(page, grid); return slider;
     }
     internal static TextBox Path(string value, string name)
     {

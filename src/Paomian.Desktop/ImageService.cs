@@ -268,17 +268,3 @@ public sealed class PostImage : ContentControl
         }
     }
 }
-
-/// <summary>轻量加载占位；关闭系统动画时显示静态进度，缓存命中时直接被图片替换。</summary>
-internal sealed class ImageLoading : Grid
-{
-    internal ImageLoading(double width, double height)
-    {
-        Width = width; Height = height;
-        var bar = new ProgressBar { Width = Math.Min(72, width - 12), Height = 3,
-            IsIndeterminate = SystemParameters.ClientAreaAnimation, Value = 50, VerticalAlignment = VerticalAlignment.Center };
-        bar.SetResourceReference(Control.ForegroundProperty, "Accent");
-        Children.Add(bar);
-        System.Windows.Automation.AutomationProperties.SetName(this, "正在加载图片");
-    }
-}

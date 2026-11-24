@@ -211,8 +211,8 @@ public sealed class ImageWindow : ChildWindow
         // 每次抵达一个新的末图只自动尝试一次，失败或连续无图时由用户重试。
         if (_index == _posts.Count - 1 && _pages?.HasMore == true && !_paging && !_pageFailed && !_pagePaused && _lastAutoPost != post.Id)
         { _lastAutoPost = post.Id; _ = LoadMoreImagesAsync(false); }
-        _feedback.Children.Clear(); _feedback.Children.Add(new ImageLoading(144, 40));
-        _message.Text = "正在加载原图"; _feedback.Children.Add(_message); _feedback.Visibility = Visibility.Visible;
+        _feedback.Children.Clear(); _feedback.Children.Add(new ImageLoading(144, 40, 36));
+        _feedback.Visibility = Visibility.Visible;
         try
         {
             var url = post.ImageUrl() ?? throw new InvalidDataException("这条发言没有可查看的图片。");
@@ -232,7 +232,7 @@ public sealed class ImageWindow : ChildWindow
                 if (generation != _generation || token.IsCancellationRequested || _closed) return;
                 _image.Width = BitConverter.ToUInt16(bytes, 6); _image.Height = BitConverter.ToUInt16(bytes, 8);
             }
-            _feedback.Visibility = Visibility.Collapsed;
+            _feedback.Visibility = Visibility.Collapsed; _feedback.Children.Clear();
             _zoomText.ToolTip = $"{bitmap.PixelWidth} × {bitmap.PixelHeight}";
             UpdateNavigation();
             foreach (var button in _zoomButtons) button.IsEnabled = true;

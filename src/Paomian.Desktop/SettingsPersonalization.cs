@@ -13,8 +13,6 @@ internal static class SettingsPersonalization
 {
     internal static void Accent(StackPanel page, MainViewModel vm, Func<string, Action, Button> button)
     {
-        // 上一行已有分隔线，这里只用加粗小标题，避免出现两条线。
-        var heading = SettingsLayout.Text("主题强调色"); heading.FontWeight = FontWeights.SemiBold; heading.Margin = new(0, 16, 0, 0); page.Children.Add(heading);
         // 只保留作用范围：强调色与标识颜色是两组独立设置。
         var hint = SettingsLayout.Text("用于按钮、选中状态和开关；不影响饼干、PO、SAGE 等标识颜色。", true);
         hint.Margin = new(0, 4, 0, 0); page.Children.Add(hint);
@@ -56,8 +54,6 @@ internal static class SettingsPersonalization
         customRow.Children.Add(SettingsLayout.Text("自定义颜色")); customRow.Children.Add(custom);
         page.Children.Add(customRow);
         page.Children.Add(Preview());
-        var separator = new Border { BorderThickness = new(0, 0, 0, 1), Margin = new(0, 16, 0, 0) }; separator.SetResourceReference(Border.BorderBrushProperty, "Line");
-        page.Children.Add(separator);
     }
 
     // 效果预览：浅底细边框的独立区域，分组展示选中与未选中状态。整块不接收鼠标和焦点，只用于查看，不是设置项。

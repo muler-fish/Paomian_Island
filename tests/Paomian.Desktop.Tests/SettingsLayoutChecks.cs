@@ -57,6 +57,18 @@ internal static class SettingsLayoutChecks
             Require(vm.Store.Load() is { ReaderImages: ImageModes.Click, ShowImages: false } && !vm.ReaderImagesAuto, "image preference lost");
             await Select("缓存");
             Require(limit.Text == "123" && vm.State.CacheLimitMb != 123, "switch/theme lost or committed pending cache limit");
+            await Select("快捷键");
+            var edit = Named<Button>(settings, "刷新当前内容栏：修改");
+            var record = settings.Dispatcher.InvokeAsync(() =>
+            {
+                var dialog = settings.OwnedWindows.Cast<Window>().Single(w => w.Title == "修改快捷键");
+                dialog.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(dialog)!,
+                    Environment.TickCount, Key.F8) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+                if (dialog.IsVisible) dialog.Close();
+            });
+            edit.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); await record;
+            Require(vm.Shortcuts.Label(ShortcutId.RefreshList) == "F8", "分组后的快捷键录入失败");
+            Named<Button>(settings, "刷新当前内容栏：恢复默认").RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
             await Select("网络");
             Named<ComboBox>(settings, "访问 X 岛").SelectedIndex = 1;
             Named<ComboBox>(settings, "软件更新").SelectedIndex = 0;

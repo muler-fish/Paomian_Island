@@ -68,12 +68,17 @@ internal static partial class KeyboardReadingChecks
         T Field<T>(string label) where T : FrameworkElement => Descendants<T>(settings).Single(
             field => AutomationProperties.GetName(field) == label);
         var presetBox = Field<ComboBox>("滚动预设");
-        var details = Descendants<Expander>(settings).Single(e => Equals(e.Header, "调整滚轮参数"));
+        var details = Descendants<Expander>(settings).Single(e => Equals(e.Header, "高级调整"));
         Require(!details.IsExpanded && presetBox.IsVisible && !((StackPanel)details.Content).IsVisible, "参数区应默认折叠，预设应可见");
         presetBox.SelectedItem = "快速短滑";
         Require(!details.IsExpanded && model.ReadingWheel == WheelTuning.Fast, "收起时选择预设应直接生效");
         presetBox.SelectedItem = "推荐预设";
+        details.BringIntoView(); await Idle();
         capture(settings, Path.Combine(output, "wheel-settings-collapsed.png"));
+        var navigation = Field<ListBox>("设置分类");
+        navigation.SelectedItem = "内容与图片"; await Idle();
+        capture(settings, Path.Combine(output, "settings-images.png"));
+        navigation.SelectedItem = "阅读"; await Idle();
         details.IsExpanded = true;
         await Idle();
         var notch = Field<Slider>("每格距离");

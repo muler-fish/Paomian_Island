@@ -13,15 +13,18 @@ public sealed class SettingsWindow : DialogWindow
     {
         Width = SettingsLayout.Width; Height = SettingsLayout.Height; MinWidth = 640; MinHeight = 420;
         WindowPlacement.ConstrainToWorkArea(this);
-        var layout = new Grid { Margin = new(24, 0, 0, 0) };
-        layout.ColumnDefinitions.Add(new() { Width = new(SettingsLayout.NavigationWidth) }); layout.ColumnDefinitions.Add(new());
-        var navigation = new ListBox { Margin = new(0, 0, 12, 0) };
+        var layout = new Grid();
+        layout.SetResourceReference(Panel.BackgroundProperty, "SettingsNavigationSurface");
+        layout.ColumnDefinitions.Add(new() { Width = new(24 + SettingsLayout.NavigationWidth) }); layout.ColumnDefinitions.Add(new());
+        var navigation = new ListBox { Margin = new(24, 0, 12, 0), Background = System.Windows.Media.Brushes.Transparent };
         AutomationProperties.SetName(navigation, "设置分类");
+        navigation.SetResourceReference(ItemsControl.ItemTemplateProperty, "SettingsCategory");
         navigation.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "SettingsNavigationItem"); layout.Children.Add(navigation);
         var pages = new Grid();
         var scroll = new ScrollViewer { Content = pages, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         AutomationProperties.SetName(scroll, "设置内容"); UseReadingScroll(scroll);
         var divider = new Border { Child = scroll, BorderThickness = new(1, 0, 0, 0) }; divider.SetResourceReference(Border.BorderBrushProperty, "Line");
+        divider.SetResourceReference(Border.BackgroundProperty, "SettingsPageSurface");
         Grid.SetColumn(divider, 1); layout.Children.Add(divider); SetBodyContent(layout);
         var categories = new List<StackPanel>();
         StackPanel Page(string title)
@@ -47,7 +50,8 @@ public sealed class SettingsWindow : DialogWindow
             SettingsLayout.Row(page, title, hint, box);
         }
 
-        var reading = Page("阅读");
+        var readingPage = Page("阅读");
+        var reading = SettingsLayout.Group(readingPage, "文字排版");
         SettingsLayout.Slider(reading, "正文字号", null, vm.State.FontSize, 13, 24, 1, " px", value => { vm.State.FontSize = value; vm.AppearanceChanged(); });
         SettingsLayout.Slider(reading, "行间距", null, vm.State.ReadingLineHeight, 1.3, 2.5, .05, " 倍", value => { vm.State.ReadingLineHeight = value; vm.AppearanceChanged(); });
         SettingsLayout.Slider(reading, "字间距", null, vm.State.ReadingLetterSpacing, 0, 3, .25, " px", value => { vm.State.ReadingLetterSpacing = value; vm.AppearanceChanged(); });
@@ -55,9 +59,9 @@ public sealed class SettingsWindow : DialogWindow
         var sample = new PostPreview { Html = "留一点空白，让阅读慢下来。<br>中文  Aa 123  ( ´ ▽ ` )ﾉ", Margin = new(0, 8, 0, 0) };
         sample.SetBinding(TextBlock.FontSizeProperty, new System.Windows.Data.Binding(nameof(MainViewModel.ReadingFontSize)) { Source = vm });
         AutomationProperties.SetName(sample, "阅读效果预览"); preview.Children.Add(sample); SettingsLayout.Block(reading, preview);
-        Toggle(reading, "启用防剧透", vm.State.HideSpoilers, value => { vm.State.HideSpoilers = value; vm.AppearanceChanged(); });
+        Toggle(SettingsLayout.Group(readingPage, "阅读行为"), "启用防剧透", vm.State.HideSpoilers, value => { vm.State.HideSpoilers = value; vm.AppearanceChanged(); });
 
-        SettingsMouseWheel.Add(reading, vm, reset => Button("恢复推荐预设", reset));
+        SettingsMouseWheel.Add(SettingsLayout.Group(readingPage, "鼠标滚轮"), vm, reset => Button("恢复推荐预设", reset));
 
         var appearance = Page("外观");
         var themes = new ComboBox { ItemsSource = new[] { "浅色", "深色" }, SelectedIndex = vm.State.Theme == "dark" ? 1 : 0, Width = 140 };
@@ -66,13 +70,13 @@ public sealed class SettingsWindow : DialogWindow
             vm.State.Theme = themes.SelectedIndex == 1 ? "dark" : "light"; App.ApplyTheme(vm.State.Theme); vm.AppearanceChanged();
             SettingsPersonalization.NotifyThemeChanged();
         };
-        SettingsLayout.Row(appearance, "显示模式", null, themes);
-        SettingsPersonalization.Accent(appearance, vm, (label, action) => Button(label, action));
+        SettingsLayout.Row(SettingsLayout.Group(appearance, "主题"), "显示模式", null, themes);
+        SettingsPersonalization.Accent(SettingsLayout.Group(appearance, "主题强调色"), vm, (label, action) => Button(label, action));
         SettingsPersonalization.Identity(appearance, vm, (label, action) => Button(label, action));
         SettingsShortcuts.Add(Page("快捷键"), this, vm.Shortcuts, (label, action) => Button(label, action));
 
         // 内容与图片：列表缩略图、串内图片分开设置；原图只在看图窗口按需加载。
-        var content = Page("内容与图片");
+        var content = SettingsLayout.Group(Page("内容与图片"), "图片加载");
         ComboBox Mode(string title, string? hint, string[] labels, string[] values, string current, Action<string> save)
         {
             var choices = new ComboBox { ItemsSource = labels, SelectedIndex = Math.Max(0, Array.IndexOf(values, current)), Width = 140 };
@@ -93,7 +97,7 @@ public sealed class SettingsWindow : DialogWindow
         // 唯一与流量相关、会影响选择的说明：自动加载的只是缩略图。
         SettingsLayout.Block(content, SettingsLayout.Text("自动加载的是缩略图，原图在点开查看时才下载。", true), false);
 
-        var network = Page("网络");
+        var network = SettingsLayout.Group(Page("网络"), "连接方式");
         void Route(string title, bool proxy, Action<bool> save)
         {
             var choices = new ComboBox { Width = 140, ItemsSource = new[] { "系统代理", "直连" }, SelectedIndex = proxy ? 0 : 1 };
@@ -105,7 +109,8 @@ public sealed class SettingsWindow : DialogWindow
         // 「直连」容易被理解成绕开所有代理工具，保留这一句。
         SettingsLayout.Block(network, SettingsLayout.Text("直连只跳过系统代理，不影响全局 VPN。", true), false);
 
-        var cache = Page("缓存");
+        var cachePage = Page("缓存");
+        var cache = SettingsLayout.Group(cachePage, "占用与容量");
         var usage = SettingsLayout.Text("正在计算占用…"); AutomationProperties.SetName(usage, "缓存占用"); SettingsLayout.Block(cache, usage);
         var limitRow = new StackPanel(); limitRow.Children.Add(SettingsLayout.Text("容量上限"));
         var limitControls = new WrapPanel { Margin = new(0, 8, 0, 0) };
@@ -113,8 +118,9 @@ public sealed class SettingsWindow : DialogWindow
         AutomationProperties.SetName(limit, "缓存容量上限"); limit.GotKeyboardFocus += (_, _) => limit.SelectAll(); limitControls.Children.Add(limit);
         limitControls.Children.Add(new TextBlock { Text = "MB", VerticalAlignment = VerticalAlignment.Center, Margin = new(8, 0, 16, 6) });
         limitRow.Children.Add(limitControls); limitRow.Children.Add(SettingsLayout.Text("0–4096 MB，设为 0 则不保留缓存。", true)); SettingsLayout.Block(cache, limitRow);
+        var storage = SettingsLayout.Group(cachePage, "缓存管理");
         var pathRow = new StackPanel(); pathRow.Children.Add(SettingsLayout.Text("缓存存储路径"));
-        var path = SettingsLayout.Path(vm.Store.Cache.Root, "缓存存储路径"); pathRow.Children.Add(path); SettingsLayout.Block(cache, pathRow);
+        var path = SettingsLayout.Path(vm.Store.Cache.Root, "缓存存储路径"); pathRow.Children.Add(path); SettingsLayout.Block(storage, pathRow);
         async Task Measure()
         {
             var bytes = await Task.Run(vm.Store.Cache.SizeBytes);
@@ -123,10 +129,10 @@ public sealed class SettingsWindow : DialogWindow
         }
         async Task CacheAction(Func<Task> action)
         {
-            cache.IsEnabled = false;
+            cachePage.IsEnabled = false;
             try { await action(); await Measure(); }
             catch (Exception ex) { usage.Text = "缓存操作未完成：" + ex.Message; }
-            finally { cache.IsEnabled = true; }
+            finally { cachePage.IsEnabled = true; }
         }
         limitControls.Children.Add(Action("应用上限", async () => await CacheAction(async () =>
         {
@@ -151,26 +157,29 @@ public sealed class SettingsWindow : DialogWindow
         var clear = Action("清理缓存", async () => await CacheAction(async () => { await Task.Run(vm.Store.Cache.Clear); vm.ClearTemporaryCache(); }));
         clear.SetResourceReference(Control.ForegroundProperty, "Danger"); cacheButtons.Children.Add(clear);
         cacheManagement.Children.Add(SettingsLayout.Text("清理缓存只删除可以重新下载的正文、订阅列表和图片；饼干、订阅号、草稿、浏览和发言记录、自定义颜文字及各项设置都不受影响。", true));
-        SettingsLayout.Block(cache, cacheManagement, false);
+        SettingsLayout.Block(storage, cacheManagement, false);
         Loaded += async (_, _) => await CacheAction(() => Task.CompletedTask);
 
-        var data = Page("数据与记录");
+        var dataPage = Page("数据与记录");
+        var data = SettingsLayout.Group(dataPage, "账号与屏蔽");
         // 隐私相关的说明保留：饼干和订阅号存放在哪里、清理缓存会不会删掉它们。
         var dataHint = SettingsLayout.Text("饼干和订阅号只在本机加密保存；清理缓存不会删除这里的数据。", true);
-        dataHint.Margin = new(0, 0, 0, 4); data.Children.Add(dataHint);
+        dataHint.Margin = new(0, 0, 0, 4); SettingsLayout.Block(data, dataHint);
         // 按钮放进 Row 时外边距会撑高一行；单行标题时去掉底部外边距，保持垂直居中。
         Button RowAction(string label, Action action) { var button = Action(label, action); button.Margin = new(0); return button; }
         SettingsLayout.Row(data, "订阅号", null, RowAction("管理订阅号", async () => { new SubscriptionWindow(vm) { Owner = this }.ShowDialog(); await vm.LoadSubscriptionsAsync(); }));
         SettingsLayout.Row(data, "屏蔽的串与版块", null, RowAction("屏蔽管理", () => new BlockedThreadsWindow(vm) { Owner = this }.ShowDialog()));
-        var records = SettingsLayout.Text(""); SettingsLayout.Block(data, records);
+        var localData = SettingsLayout.Group(dataPage, "本机记录");
+        var records = SettingsLayout.Text(""); SettingsLayout.Block(localData, records);
         void RefreshRecords() => records.Text = $"最近浏览 {vm.State.History.Count} 个串 · 草稿 {vm.State.Drafts.Count} 份 · 饼干 {vm.State.Cookies.Count} 个 · 自定义颜文字 {vm.State.CustomEmoticons.Count} 个";
         navigation.SelectionChanged += (_, _) => RefreshRecords(); Activated += (_, _) => RefreshRecords(); RefreshRecords();
         // 资料目录不能在这里修改：完整显示路径但不做成输入框，不给点击、焦点和悬停反馈。
         var profilePath = SettingsLayout.Text(vm.Store.Root); profilePath.Margin = new(0, 6, 0, 10); AutomationProperties.SetName(profilePath, "个人资料目录");
         var profile = new StackPanel(); profile.Children.Add(SettingsLayout.Text("个人资料目录")); profile.Children.Add(profilePath);
-        var openProfile = Action("打开资料目录", () => Open(vm.Store.Root)); openProfile.HorizontalAlignment = HorizontalAlignment.Left; profile.Children.Add(openProfile); SettingsLayout.Block(data, profile, false);
+        var openProfile = Action("打开资料目录", () => Open(vm.Store.Root)); openProfile.HorizontalAlignment = HorizontalAlignment.Left; profile.Children.Add(openProfile); SettingsLayout.Block(localData, profile, false);
 
-        var about = Page("关于");
+        var aboutPage = Page("关于");
+        var about = SettingsLayout.Group(aboutPage, "软件信息");
         var brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new(0, 4, 0, 12) };
         var logo = new Image { Width = 48, Height = 48, Margin = new(0, 0, 12, 0) }; logo.SetResourceReference(Image.SourceProperty, "AppLogo");
         System.Windows.Media.RenderOptions.SetBitmapScalingMode(logo, System.Windows.Media.BitmapScalingMode.HighQuality); brand.Children.Add(logo);
@@ -181,15 +190,15 @@ public sealed class SettingsWindow : DialogWindow
         links.Children.Add(Action("作者 · muler-fish", () => Open("https://github.com/muler-fish"))); links.Children.Add(Action("项目仓库", () => Open(ReleaseUpdater.Repository))); links.Children.Add(Action("反馈问题", () => Open(ReleaseUpdater.Repository + "/issues")));
         // 许可全文随程序放在 licenses 文件夹；开发运行时没有这个文件夹，改为打开仓库里的许可证。
         links.Children.Add(Action("开源许可", () => Open(LicensesLocation())));
-        SettingsLayout.Section(about, "软件更新");
-        var updateStatus = SettingsLayout.Text(vm.Updates.Status, true); updateStatus.Margin = new(0, 8, 0, 12); about.Children.Add(updateStatus);
-        var updateButtons = new WrapPanel(); about.Children.Add(updateButtons);
+        var updates = SettingsLayout.Group(aboutPage, "软件更新");
+        var updateStatus = SettingsLayout.Text(vm.Updates.Status, true); updateStatus.Margin = new(0, 8, 0, 12); updates.Children.Add(updateStatus);
+        var updateButtons = new WrapPanel(); updates.Children.Add(updateButtons);
         var check = Action("检查更新", async () => await vm.Updates.CheckAsync()); updateButtons.Children.Add(check);
         var download = Action("下载更新", async () => await vm.Updates.DownloadAsync()); updateButtons.Children.Add(download);
         var install = Action("重启安装", vm.Updates.RestartToInstall); updateButtons.Children.Add(install);
         var notes = new SettingsReleaseNotes(url => (Owner as MainWindow ?? Application.Current.MainWindow as MainWindow)?.OpenExternal(url),
             () => vm.Updates.LoadNotesAsync(retry: true));
-        about.Children.Add(notes);
+        updates.Children.Add(notes);
         void UpdateState()
         {
             updateStatus.Text = vm.Updates.Status; check.IsEnabled = !vm.Updates.Busy && vm.Updates.Staged is null;
@@ -202,8 +211,9 @@ public sealed class SettingsWindow : DialogWindow
         vm.Updates.Changed += UpdateState; vm.Updates.ReleaseChecked += ReadNotes; vm.Updates.NotesChanged += ShowNotes;
         Closed += (_, _) => { vm.Updates.Changed -= UpdateState; vm.Updates.ReleaseChecked -= ReadNotes; vm.Updates.NotesChanged -= ShowNotes; };
         UpdateState();
-        Toggle(about, "启动时自动检查更新", vm.State.AutoCheckUpdates, value => { vm.State.AutoCheckUpdates = value; vm.Save(); });
-        Toggle(about, "自动下载，退出时安装更新", vm.State.InstallUpdatesOnExit, async value => { vm.State.InstallUpdatesOnExit = value; vm.Save(); if (value) await vm.Updates.CheckAsync(automatic: true); });
+        var updateSettings = SettingsLayout.Group(aboutPage, "更新设置");
+        Toggle(updateSettings, "启动时自动检查更新", vm.State.AutoCheckUpdates, value => { vm.State.AutoCheckUpdates = value; vm.Save(); });
+        Toggle(updateSettings, "自动下载，退出时安装更新", vm.State.InstallUpdatesOnExit, async value => { vm.State.InstallUpdatesOnExit = value; vm.Save(); if (value) await vm.Updates.CheckAsync(automatic: true); });
         navigation.SelectedIndex = 0;
         AddAction("完成", Close, true);
     }

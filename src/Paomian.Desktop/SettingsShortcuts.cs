@@ -14,7 +14,7 @@ internal static class SettingsShortcuts
         foreach (var group in AppShortcuts.Commands.GroupBy(command => command.Scope).OrderBy(group => group.Key != ShortcutScope.Global))
         {
             var global = group.Key == ShortcutScope.Global;
-            SettingsLayout.Section(page, global ? "老板键" : group.Key == ShortcutScope.Main ? "主窗口" : "看图窗口");
+            var rows = SettingsLayout.Group(page, global ? "老板键" : group.Key == ShortcutScope.Main ? "主窗口" : "看图窗口");
             if (global)
             {
                 var toggle = new CheckBox { IsChecked = shortcuts.BossKeyEnabled, MinWidth = 24 };
@@ -27,7 +27,7 @@ internal static class SettingsShortcuts
                 }
                 toggle.Checked += Toggle;
                 toggle.Unchecked += Toggle;
-                SettingsLayout.Row(page, "开启老板键", "在其他应用中也可按组合键隐藏或恢复泡面岛。", toggle);
+                SettingsLayout.Row(rows, "开启老板键", "在其他应用中也可按组合键隐藏或恢复泡面岛。", toggle);
                 refresh.Add(() => toggle.IsChecked = shortcuts.BossKeyEnabled);
             }
             foreach (var command in group)
@@ -47,8 +47,8 @@ internal static class SettingsShortcuts
                     AutomationProperties.SetName(action, command.Label + "：" + action.Content);
                     actions.Children.Add(action);
                 }
-                SettingsLayout.Row(page, command.Label, null, actions);
-                page.Children.Add(feedback);
+                SettingsLayout.Row(rows, command.Label, null, actions);
+                rows.Children.Add(feedback);
                 refresh.Add(() =>
                 {
                     var label = shortcuts.Label(command.Id);

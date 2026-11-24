@@ -122,6 +122,42 @@
           </ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
       </Style>
+      <DataTemplate x:Key="SettingsCategory">
+        <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon x:Name="Icon" FontSize="17" VerticalAlignment="Center" Margin="0,0,9,0" />
+          <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding}" Value="阅读"><Setter TargetName="Icon" Property="Symbol" Value="BookOpen24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="外观"><Setter TargetName="Icon" Property="Symbol" Value="Color24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="快捷键"><Setter TargetName="Icon" Property="Symbol" Value="Keyboard24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="内容与图片"><Setter TargetName="Icon" Property="Symbol" Value="Image24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="网络"><Setter TargetName="Icon" Property="Symbol" Value="Globe24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="缓存"><Setter TargetName="Icon" Property="Symbol" Value="Database24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="数据与记录"><Setter TargetName="Icon" Property="Symbol" Value="History24"/></DataTrigger>
+          <DataTrigger Binding="{Binding}" Value="关于"><Setter TargetName="Icon" Property="Symbol" Value="Info24"/></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <Style x:Key="SettingsSwitch" TargetType="CheckBox">
+        <Setter Property="MinHeight" Value="32"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+          <Grid Width="44" Background="Transparent" MinHeight="32">
+            <Border x:Name="Track" Width="40" Height="22" CornerRadius="11" BorderThickness="1" BorderBrush="{DynamicResource Muted}" Background="{DynamicResource Surface}"/>
+            <Ellipse x:Name="Knob" Fill="{DynamicResource Muted}" Width="14" Height="14" Margin="6,0" HorizontalAlignment="Left"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Track" Property="Background" Value="{DynamicResource Accent}"/>
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+              <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource OnAccent}"/>
+              <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Text}"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value=".5"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
       <Style x:Key="SettingsNavigationItem" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
         <Setter Property="Padding" Value="12,10"/><Setter Property="Margin" Value="0,0,0,4"/>
         <Setter Property="FontSize" Value="13"/>
