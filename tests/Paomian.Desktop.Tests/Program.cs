@@ -19,6 +19,16 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--loading-motion")
+        {
+            try
+            {
+                _ = new Application { Resources = LoadResources() };
+                DispatcherChecks.Run(LoadingMotionChecks.RunAsync);
+                return 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        }
         if (args.FirstOrDefault() == "--loading-model-checks")
         {
             try

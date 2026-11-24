@@ -31,11 +31,11 @@ public sealed class LoadingIndicator : Control
         IsVisibleChanged += (_, _) => UpdateClock();
     }
 
-    private static DoubleAnimation CreateCycle(TimeSpan duration, TimeSpan? beginTime = null)
+    private static DoubleAnimation CreateCycle(TimeSpan duration, TimeSpan delay = default)
     {
         var animation = new DoubleAnimation(0, 1, duration)
         {
-            BeginTime = beginTime,
+            BeginTime = delay,
             RepeatBehavior = RepeatBehavior.Forever
         };
         animation.Freeze();
