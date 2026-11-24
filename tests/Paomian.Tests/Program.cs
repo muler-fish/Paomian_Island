@@ -412,6 +412,39 @@ Test("spoiler protection defaults off and retains explicitly saved settings", ()
     }
     finally { Cleanup(path); }
 });
+Test("wheel settings preserve old profiles and remember custom values across preset switches", () =>
+{
+    var path = Path.Combine(Path.GetTempPath(), "PaomianTests-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var store = new LocalStore(path);
+        var file = Path.Combine(path, "state.json");
+        Assert(store.Load().MouseWheel.Effective == new WheelTuning(100, 192, .01, WheelCurve.Quadratic));
+        foreach (var legacy in new[] { "", ""","InertialScrolling":true""", ""","InertialScrolling":false""" })
+        {
+            File.WriteAllText(file, "{\"Theme\":\"dark\",\"CacheLimitMb\":87" + legacy + "}");
+            var state = store.Load();
+            Assert(state.MouseWheel == (legacy.Contains("false") ? WheelSettings.LegacyDirect : WheelSettings.Default));
+            store.Save(state);
+            Assert(!File.ReadAllText(file).Contains("InertialScrolling"));
+            var loaded = new LocalStore(path).Load();
+            Assert(loaded.Theme == "dark" && loaded.CacheLimitMb == 87 && loaded.MouseWheel == state.MouseWheel);
+        }
+        var custom = new WheelTuning(81, 137, .33, WheelCurve.Cubic);
+        var changed = store.Load();
+        changed.MouseWheel = new WheelSettings(WheelPreset.Custom, custom).Select(WheelPreset.Fast);
+        store.Save(changed);
+        var restored = new LocalStore(path).Load().MouseWheel;
+        Assert(restored.Effective == new WheelTuning(64, 48, .7) && restored.Select(WheelPreset.Custom).Effective == custom);
+        File.WriteAllText(file, """{"MouseWheel":{"Preset":2},"InertialScrolling":false,"Theme":"dark"}""");
+        Assert(store.Load().MouseWheel.Preset == WheelPreset.Fine);
+        File.WriteAllText(file, """{"MouseWheel":{"Custom":{"Distance":"invalid"}},"Theme":"dark","CacheLimitMb":87}""");
+        var damaged = store.Load();
+        Assert(store.LoadWarning == null && damaged.Theme == "dark" && damaged.CacheLimitMb == 87 &&
+            damaged.MouseWheel == WheelSettings.Default);
+    }
+    finally { Cleanup(path); }
+});
 Test("corrupt local state is backed up before reset", () =>
 {
     var path = Path.Combine(Path.GetTempPath(), "PaomianTests-" + Guid.NewGuid().ToString("N")); var store = new LocalStore(path);

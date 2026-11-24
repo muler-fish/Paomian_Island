@@ -134,7 +134,15 @@ public sealed class UserState
     // 缺少条目表示用默认键，空字符串表示已清除。
     public Dictionary<string, string> ShortcutBindings { get; set; } = new();
     public bool BossKeyEnabled { get; set; }
-    public bool InertialScrolling { get; set; } = true;
+    private WheelSettings? _mouseWheel;
+    [JsonConverter(typeof(WheelSettingsConverter))]
+    public WheelSettings MouseWheel
+    {
+        get => _mouseWheel ?? (LegacyInertialScrolling == false ? WheelSettings.LegacyDirect : WheelSettings.Default);
+        set => _mouseWheel = value;
+    }
+    [JsonPropertyName("InertialScrolling"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? LegacyInertialScrolling { get; set; }
     // 新资料和缺少此字段的旧资料默认关闭，显式保存的开关状态继续沿用。
     public bool HideSpoilers { get; set; }
     // 缺少布局的旧资料沿用首次启动尺寸；仅记录主窗口，不记住临时弹窗。

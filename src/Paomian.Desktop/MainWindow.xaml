@@ -125,7 +125,7 @@
             <Separator Margin="0,10,0,4"/>
           </StackPanel>
           <!-- 滚动条靠近侧栏右边缘；内容额外预留 18 DIP，展开后的覆盖式滚动条也不会盖住星标。 -->
-          <ScrollViewer x:Name="ForumScroll" Grid.Row="1" Margin="0,0,-8,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" local:InertialScroll.IsEnabled="{Binding InertialScrolling}">
+          <ScrollViewer x:Name="ForumScroll" Grid.Row="1" Margin="0,0,-8,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" local:InertialScroll.IsEnabled="True" local:InertialScroll.Tuning="{Binding ReadingWheel}">
             <StackPanel Margin="0,0,18,0">
               <StackPanel x:Name="FavoriteForumsSection" Margin="0,0,0,8">
                 <TextBlock Text="收藏版块" Style="{StaticResource MutedText}" Margin="10,6,0,6"/>
@@ -197,7 +197,7 @@
           </StackPanel>
           </Grid>
           </StackPanel>
-          <ListBox Grid.Row="2" x:Name="ThreadList" ItemsSource="{Binding VisiblePosts}" IsSynchronizedWithCurrentItem="False" SelectionChanged="Thread_SelectionChanged" ScrollViewer.VerticalScrollBarVisibility="Auto" local:IncrementalScroll.Command="{Binding LoadMoreListCommand}" local:InertialScroll.IsEnabled="{Binding InertialScrolling}" AutomationProperties.Name="串列表">
+          <ListBox Grid.Row="2" x:Name="ThreadList" ItemsSource="{Binding VisiblePosts}" IsSynchronizedWithCurrentItem="False" SelectionChanged="Thread_SelectionChanged" ScrollViewer.VerticalScrollBarVisibility="Auto" local:IncrementalScroll.Command="{Binding LoadMoreListCommand}" local:InertialScroll.IsEnabled="True" local:InertialScroll.Tuning="{Binding ReadingWheel}" AutomationProperties.Name="串列表">
             <ListBox.ItemsPanel><ItemsPanelTemplate><local:ReadingScrollPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource ReadingListItem}">
               <Setter Property="ContextMenu" Value="{StaticResource ThreadContextMenu}"/>
@@ -286,7 +286,7 @@
             </Grid>
           </Border>
           <!-- 库的 ListBox 模板未绑定 Padding；用外边距约束正文及滚动区域，避免楼号贴边裁切。 -->
-          <ListBox Grid.Row="1" x:Name="ReaderList" ItemsSource="{Binding ReadingPosts}" ScrollViewer.VerticalScrollBarVisibility="Auto" local:IncrementalScroll.Command="{Binding LoadMoreThreadCommand}" local:IncrementalScroll.PreviousCommand="{Binding LoadPreviousThreadCommand}" local:InertialScroll.IsEnabled="{Binding InertialScrolling}" Margin="0" AutomationProperties.Name="串正文与回复">
+          <ListBox Grid.Row="1" x:Name="ReaderList" ItemsSource="{Binding ReadingPosts}" ScrollViewer.VerticalScrollBarVisibility="Auto" local:IncrementalScroll.Command="{Binding LoadMoreThreadCommand}" local:IncrementalScroll.PreviousCommand="{Binding LoadPreviousThreadCommand}" local:InertialScroll.IsEnabled="True" local:InertialScroll.Tuning="{Binding ReadingWheel}" Margin="0" AutomationProperties.Name="串正文与回复">
             <ListBox.ItemsPanel><ItemsPanelTemplate><local:ReadingScrollPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
               <Setter Property="Focusable" Value="False"/>

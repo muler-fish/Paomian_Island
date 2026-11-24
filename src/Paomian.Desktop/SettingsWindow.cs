@@ -57,6 +57,8 @@ public sealed class SettingsWindow : DialogWindow
         AutomationProperties.SetName(sample, "阅读效果预览"); preview.Children.Add(sample); SettingsLayout.Block(reading, preview);
         Toggle(reading, "启用防剧透", vm.State.HideSpoilers, value => { vm.State.HideSpoilers = value; vm.AppearanceChanged(); });
 
+        SettingsMouseWheel.Add(reading, vm, reset => Button("恢复推荐预设", reset));
+
         var appearance = Page("外观");
         var themes = new ComboBox { ItemsSource = new[] { "浅色", "深色" }, SelectedIndex = vm.State.Theme == "dark" ? 1 : 0, Width = 140 };
         themes.SelectionChanged += (_, _) =>

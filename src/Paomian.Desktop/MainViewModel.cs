@@ -119,7 +119,15 @@ public sealed partial class MainViewModel : Observable, IDisposable
     public bool ListImagesAuto => ImageModes.List(State) == ImageModes.Auto;
     public bool ListImagesHidden => ImageModes.List(State) == ImageModes.Hidden;
     public bool ReaderImagesAuto => ImageModes.Reader(State) == ImageModes.Auto;
-    public bool InertialScrolling => true;
+    public WheelTuning ReadingWheel => State.MouseWheel.Effective;
+    internal void SetMouseWheel(WheelSettings settings)
+    {
+        if (State.MouseWheel == settings) return;
+        var previous = ReadingWheel;
+        State.MouseWheel = settings;
+        if (ReadingWheel != previous) Changed(nameof(ReadingWheel));
+        Save();
+    }
     public string ThemeLabel => State.Theme == "dark" ? "浅色模式" : "深色模式";
     public bool IsDark => State.Theme == "dark";
     public bool IsLibrary => _library.Length > 0;
@@ -465,7 +473,7 @@ public sealed partial class MainViewModel : Observable, IDisposable
         foreach (var card in Posts) card.SetSpoilerProtection(State.HideSpoilers);
         Changed(nameof(OriginalTitle));
         Changed(nameof(HideSpoilers));
-        Changed(nameof(ReadingFontSize)); Changed(nameof(PreviewAuthorFontSize)); Changed(nameof(ListImagesAuto)); Changed(nameof(ListImagesHidden)); Changed(nameof(ReaderImagesAuto)); Changed(nameof(InertialScrolling)); Changed(nameof(ThemeLabel)); Changed(nameof(IsDark)); Save();
+        Changed(nameof(ReadingFontSize)); Changed(nameof(PreviewAuthorFontSize)); Changed(nameof(ListImagesAuto)); Changed(nameof(ListImagesHidden)); Changed(nameof(ReaderImagesAuto)); Changed(nameof(ThemeLabel)); Changed(nameof(IsDark)); Save();
     }
     public void Save()
     {

@@ -45,14 +45,14 @@ internal static class SettingsLayout
         }
         Grid.SetColumn(control, 1); grid.Children.Add(labels); grid.Children.Add(control); Block(page, grid);
     }
-    internal static void Slider(StackPanel page, string title, string? hint, double value, double min, double max, double step, string suffix, Action<double> save)
+    internal static Slider Slider(StackPanel page, string title, string? hint, double value, double min, double max, double step, string suffix, Action<double> save)
     {
         var group = new StackPanel(); var header = new Grid(); header.ColumnDefinitions.Add(new()); header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         header.Children.Add(Text(title)); var current = Text($"{value:0.##}{suffix}", true); Grid.SetColumn(current, 1); header.Children.Add(current); group.Children.Add(header);
         if (hint is not null) { var help = Text(hint, true); help.Margin = new(0, 2, 0, 0); group.Children.Add(help); }
         var slider = new Slider { Minimum = min, Maximum = max, TickFrequency = step, IsSnapToTickEnabled = true, Value = value, Margin = new(0, 8, 0, 0) };
         AutomationProperties.SetName(slider, title); slider.ValueChanged += (_, _) => { current.Text = $"{slider.Value:0.##}{suffix}"; save(slider.Value); };
-        group.Children.Add(slider); Block(page, group);
+        group.Children.Add(slider); Block(page, group); return slider;
     }
     internal static TextBox Path(string value, string name)
     {

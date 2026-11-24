@@ -35,8 +35,12 @@ internal static partial class KeyboardReadingChecks
         model.AppearanceChanged();
         KeyboardReadingFixture.SeedImages(store.Cache);
         var window = new MainWindow(model, _ => throw new InvalidOperationException("离线验收未打开外部网站。"));
-        if (mode is "--wheel-comparison" or "--wheel-desktop") window.EnableWheelComparison();
-        if (mode == "--wheel-tuning-ui") window.EnableWheelTuning();
+        // 实际桌面上的离线输入专项需要整个窗口都可命中，避免被其他窗口盖住。
+        if (mode is "--wheel-tuning-input" or "--wheel-desktop" or "--scroll-stability" or "--keyboard-reading")
+        {
+            window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            window.Topmost = true;
+        }
         app.MainWindow = window;
         EventHandler? verify = null;
         verify = async (_, _) =>
@@ -199,8 +203,7 @@ internal static partial class KeyboardReadingChecks
         Pick(overlay, h => h.Target.Source is Hyperlink link && LinkText(link) == "沿河路线图");
         var threadPreview = await Active<ThreadLinkPreviewWindow>();
         Require(threadPreview.Owner == window && overlay.Hints.Count == 0, "链接未走真实串预览路径");
-        Press(Key.Escape);
-        await Idle();
+        await ClosePreviewWithEscape();
         Require(window.IsActive && right.IsKeyboardFocused && Near(denseOffset, readerView.VerticalOffset),
             $"关闭串链接预览后焦点或偏移改变 active={window.IsActive} focus={(Keyboard.FocusedElement as FrameworkElement)?.Name} offset={denseOffset:F1}->{readerView.VerticalOffset:F1}");
 
@@ -208,8 +211,7 @@ internal static partial class KeyboardReadingChecks
         Pick(overlay, h => AutomationProperties.GetName(h.Target.Source).Contains("的图片", StringComparison.Ordinal));
         var image = await Active<ImageWindow>();
         Require(image.Owner == window, "图片标签没有打开真实看图窗");
-        Press(Key.Escape);
-        await Idle();
+        await ClosePreviewWithEscape();
         Require(window.IsActive && right.IsKeyboardFocused, "看图窗关闭未恢复阅读区");
 
         var beforeReference = fixture.ReferenceRequests;
@@ -221,11 +223,9 @@ internal static partial class KeyboardReadingChecks
         inner.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent, inner));
         var child = await Active<TextWindow>();
         Require(child.Owner == quote && child != quote, "嵌套引用没有直接父窗");
-        Press(Key.Escape);
-        await Idle();
+        await ClosePreviewWithEscape();
         Require(quote.IsActive, "关闭嵌套引用没有恢复父窗");
-        Press(Key.Escape);
-        await Idle();
+        await ClosePreviewWithEscape();
         Require(window.IsActive && right.IsKeyboardFocused && Near(denseOffset, readerView.VerticalOffset), "关闭引用没有恢复长串阅读位置");
 
         // 原控件以同步模态方式打开：先排测试的编辑路径，再触发标签。
@@ -477,6 +477,16 @@ internal static partial class KeyboardReadingChecks
         await Until(() => Application.Current.Windows.OfType<T>().Any(window => window.IsActive), $"找不到活动窗口 {typeof(T).Name}");
         await Idle();
         return Application.Current.Windows.OfType<T>().Single(window => window.IsActive);
+    }
+
+    private static async Task ClosePreviewWithEscape()
+    {
+        Down(Key.Escape);
+        // 关闭子窗口会重建 WPF 键盘焦点；在所属窗口重新接收输入后释放按键。
+        await Until(() => Keyboard.FocusedElement is DependencyObject focused &&
+            Window.GetWindow(focused) is { IsActive: true, IsVisible: true }, "关闭预览后没有恢复输入窗口");
+        Up(Key.Escape);
+        await Idle();
     }
 
     private static bool Press(Key key, ModifierKeys modifier = ModifierKeys.None)

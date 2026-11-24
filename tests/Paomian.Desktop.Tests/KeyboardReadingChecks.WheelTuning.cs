@@ -165,9 +165,9 @@ internal static partial class KeyboardReadingChecks
 
     private static async Task MeasureScene(ProfileScene scene, List<ProfileRun> runs)
     {
-        (string Name, WheelTuning Settings)[] settings = [("baseline", WheelTuning.Baseline),
+        (string Name, WheelTuning Settings)[] settings = [("baseline", WheelTuning.Short),
             ("fine", WheelTuning.Fine), ("balanced", WheelTuning.Balanced), ("fast", WheelTuning.Fast)];
-        if (scene.Name == "long") settings = [.. settings, ("browser-curve", WheelTuning.BrowserComparison), ("distance-only", new(48, 96, .2)),
+        if (scene.Name == "long") settings = [.. settings, ("browser-curve", WheelTuning.Recommended with { Curve = WheelCurve.SmoothStartStop }), ("distance-only", new(48, 96, .2)),
             ("duration-only", new(72, 72, .2)), ("immediate-only", new(72, 96, .5))];
         for (var trial = 0; trial < 5; trial++)
         for (var index = 0; index < settings.Length; index++)

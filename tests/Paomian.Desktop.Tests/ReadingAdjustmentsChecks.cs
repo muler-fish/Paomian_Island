@@ -44,7 +44,7 @@ internal static class ReadingAdjustmentsChecks
         var settings=new SettingsWindow(model){Owner=owner,ShowInTaskbar=false};settings.Show();await Pause();
         try
         {
-            Require(!All<CheckBox>(settings).Any(c=>Equals(c.Content,"惯性滚动")) && model.InertialScrolling,"inertial option still present or disabled");
+            Require(!All<CheckBox>(settings).Any(c=>Equals(c.Content,"惯性滚动")) && model.ReadingWheel == model.State.MouseWheel.Effective,"inertial option still present or disabled");
             var navigation=All<ListBox>(settings).Single(c=>AutomationProperties.GetName(c)=="设置分类"); navigation.SelectedItem="外观"; await Pause();
             var theme=All<ComboBox>(settings).Single(c=>AutomationProperties.GetName(c)=="显示模式");
             theme.SelectedIndex=1;await Pause();Require(model.State.Theme=="dark","theme dropdown not applied");

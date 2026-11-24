@@ -196,7 +196,10 @@ public abstract class ChildWindow : FluentWindow
             Window? owner = Owner;
             while (owner is not null && owner is not MainWindow) owner = owner.Owner;
             if (owner is MainWindow main)
-                surface.SetBinding(InertialScroll.IsEnabledProperty, new Binding(nameof(MainViewModel.InertialScrolling)) { Source = main.Model });
+            {
+                InertialScroll.SetIsEnabled(surface, true);
+                surface.SetBinding(InertialScroll.TuningProperty, new Binding(nameof(MainViewModel.ReadingWheel)) { Source = main.Model });
+            }
         };
     }
 }

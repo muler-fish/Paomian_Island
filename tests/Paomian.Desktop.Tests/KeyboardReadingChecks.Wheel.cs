@@ -8,6 +8,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 
+using Paomian.Core;
+
 namespace Paomian.Desktop.Tests;
 
 internal static partial class KeyboardReadingChecks
@@ -27,10 +29,10 @@ internal static partial class KeyboardReadingChecks
         var handle = new WindowInteropHelper(window).Handle;
         using var inputDevice = desktop ? new FocusDesktopInput() : null;
         if (desktop) await FocusDesktopInput.ActivateAsync(handle);
-        // 对照入口初始为 B；通过和人工验收相同的 F6 切换。
+        InertialScroll.SetTuning(reader, WheelTuning.Short);
         foreach (var mode in new[] { "B", "C", "A" })
         {
-            if (mode != "B") { Press(Key.F6); await Idle(); }
+            InertialScroll.SetMode(reader, mode switch { "A" => WheelMode.Native, "C" => WheelMode.Legacy, _ => WheelMode.Short });
             foreach (var (name, inputs) in new (string, int[])[]
             {
                 ("single", [-120]), ("burst", [-120,-120,-120,-120,-120,-120]),
@@ -92,7 +94,7 @@ internal static partial class KeyboardReadingChecks
                     if (mode == "B" && name != "reverse" && SystemParameters.WheelScrollLines > 0 &&
                         (SystemParameters.ClientAreaAnimation || name == "fine"))
                     {
-                        var expected = -inputs.Sum() / 120d * 24 * SystemParameters.WheelScrollLines;
+                        var expected = -inputs.Sum() / 120d * WheelTuning.Short.Distance;
                         Require(Near(result.travel, expected, 1.1), $"B 的实际行程 {result.travel:F1} 与目标 {expected:F1} 不符");
                     }
                 }
@@ -101,7 +103,7 @@ internal static partial class KeyboardReadingChecks
         File.WriteAllText(Path.Combine(output, "metrics.json"), JsonSerializer.Serialize(new {
             desktop, window.ActualWidth, window.ActualHeight, dpi = VisualTreeHelper.GetDpi(view).PixelsPerInchY,
             lines = SystemParameters.WheelScrollLines, animations = SystemParameters.ClientAreaAnimation, summaries, traces }));
-        Press(Key.F6); // A → B
+        InertialScroll.SetMode(reader, WheelMode.Short);
         if (desktop) await DragDuringWheel(reader, view, handle);
         // 离线串共三页，先读到最后一页，避免把正常追加的新页误认为边缘回弹。
         await window.Model.LoadMoreThreadAsync();
@@ -119,7 +121,7 @@ internal static partial class KeyboardReadingChecks
         RaiseWheel(view, -105);
         await Task.Delay(220);
         var lines = SystemParameters.WheelScrollLines;
-        var notch = lines < 0 ? view.ViewportHeight : Math.Min(view.ViewportHeight, lines * 24d);
+        var notch = InertialScroll.GetTuning(reader).NotchDistance(lines, view.ViewportHeight);
         Require(Near(initial - Top(), notch * 2, 1.1), "同向整格与精细滚轮混合时丢失或重复了待走行程");
         RaiseWheel(view, 120);
         view.ScrollToVerticalOffset(320);
@@ -179,7 +181,7 @@ internal static partial class KeyboardReadingChecks
                     Console.WriteLine($"等待窗口呈现 {theme}/{scale} delta={delta} at200={initial - Top():F1} remaining={InertialScroll.RemainingDistance(reader):F1}");
                 await Until(() => !InertialScroll.IsRunning(reader), "DPI 变化后滚轮动画未停止");
                 await Idle();
-                var expected = delta < 0 ? 24d * SystemParameters.WheelScrollLines : 0;
+                var expected = delta < 0 ? WheelTuning.Recommended.Distance : 0;
                 if (SystemParameters.ClientAreaAnimation && SystemParameters.WheelScrollLines > 0)
                     Require(Near(initial - Top(), expected, 1.1), $"{theme}/{scale} delta={delta} start={initial:F2} end={Top():F2} expected={expected} dpi={VisualTreeHelper.GetDpi(reader).DpiScaleY}");
             }

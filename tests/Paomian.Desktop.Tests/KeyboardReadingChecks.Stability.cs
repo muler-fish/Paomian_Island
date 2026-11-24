@@ -93,8 +93,8 @@ internal static partial class KeyboardReadingChecks
                     $"{surface.Name} wheel={wheel} dir={direction} travel={travel:F1} step=[{steps.DefaultIfEmpty().Min():F1},{steps.DefaultIfEmpty().Max():F1}]");
                 Require(pane.IsKeyboardFocused, "滚动时焦点仍留在可回收的楼层");
                 if (loadingImage is not null) Require(loadingImage.Content is Image, "滚动期间缩略图未完成加载");
-                if (wheel && SystemParameters.ClientAreaAnimation && SystemParameters.WheelScrollLines == 3)
-                    Require(Near(travel, 216, 12), $"三次滚轮输入移动了 {travel:F1} DIP，预期 216 DIP");
+                if (wheel && SystemParameters.ClientAreaAnimation && SystemParameters.WheelScrollLines > 0)
+                    Require(Near(travel, 300, 12), $"三次滚轮输入移动了 {travel:F1} DIP，预期 300 DIP");
                 Console.WriteLine($"PASS {surface.Name} wheel={wheel} dir={direction} travel={travel:F1} DIP");
                 previous.ClearValue(FrameworkElement.HeightProperty);
                 await Idle();

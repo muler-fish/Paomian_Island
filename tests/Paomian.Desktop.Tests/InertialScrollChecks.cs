@@ -30,7 +30,7 @@ internal static class InertialScrollChecks
             InertialScroll.SetMode(list, WheelMode.Legacy);
             InertialScroll.SetMode(reader, WheelMode.Legacy);
             var viewer = Viewer(list);
-            Require(vm.State.InertialScrolling && InertialScroll.GetIsEnabled(list), "新设置应默认启用且绑定到主列表。");
+            Require(vm.ReadingWheel == WheelTuning.Recommended && InertialScroll.GetIsEnabled(list), "新设置应默认启用且绑定到主列表。");
             Require(InertialScroll.GetIsEnabled((ScrollViewer)window.FindName("ForumScroll")) && InertialScroll.GetIsEnabled(reader), "导航与正文未绑定同一设置。");
 
             if (SystemParameters.ClientAreaAnimation && SystemParameters.WheelScrollLines != 0)

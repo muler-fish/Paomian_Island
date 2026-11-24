@@ -33,8 +33,6 @@ public partial class App : Application
             Personalization.Load(vm.State); ApplyTheme(vm.State.Theme);
             _updates = vm.Updates;
             var window = new MainWindow(vm); MainWindow = window;
-            if (e.Args.Contains("--scroll-tune")) window.EnableWheelTuning();
-            else if (e.Args.Contains("--scroll-compare")) window.EnableWheelComparison();
             if (smoke is not null) window.ShowInTaskbar = false;
             window.Show();
             // 验证入口执行真实只读请求和截图；正常启动独立并行获取通知，读串维护不影响公告。

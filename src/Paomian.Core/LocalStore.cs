@@ -25,7 +25,8 @@ public sealed partial class LocalStore
             state.FontSize = double.IsFinite(state.FontSize) ? Math.Clamp(state.FontSize, 13, 24) : 16;
             state.ReadingLineHeight = double.IsFinite(state.ReadingLineHeight) ? Math.Clamp(state.ReadingLineHeight, 1.3, 2.5) : 1.85;
             state.ReadingLetterSpacing = double.IsFinite(state.ReadingLetterSpacing) ? Math.Clamp(state.ReadingLetterSpacing, 0, 3) : 0;
-            state.InertialScrolling = true;
+            state.MouseWheel = state.MouseWheel.Normalize();
+            state.LegacyInertialScrolling = null;
             state.WindowLayout?.Normalize();
             state.Cookies ??= []; state.Forums ??= []; state.History ??= []; state.Drafts ??= [];
             state.Drafts = state.Drafts.Where(d => d is not null).Select(d => d with { Name = d.Name ?? "" }).ToList();

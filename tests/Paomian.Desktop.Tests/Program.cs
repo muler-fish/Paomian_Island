@@ -19,6 +19,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--wheel-settings-motion") { KeyboardReadingChecks.CheckWheelBursts(); return 0; }
         if (args.FirstOrDefault() == "--profile-upgrade")
         {
             try { ProfileUpgradeChecks.Run(); return 0; }
@@ -572,18 +573,14 @@ internal static class Program
             spoilerToggle.Toggle();
             for (var attempt = 0; attempt < 100 && profile.Load().HideSpoilers; attempt++) Thread.Sleep(50);
             if (profile.Load().HideSpoilers) throw new InvalidOperationException("交付程序没有保存防剧透关闭设置。");
-            // 最终单文件也验证本轮开关，避免只测到测试工程中的源码版本。
-            var inertia = settings.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "惯性滚动"))
-                ?? throw new InvalidOperationException("交付程序未包含惯性滚动选项。");
-            if (inertia.Current.IsOffscreen) throw new InvalidOperationException("惯性滚动选项不在设置首屏。");
-            var inertiaToggle = (TogglePattern)inertia.GetCurrentPattern(TogglePattern.Pattern);
-            if (inertiaToggle.Current.ToggleState != ToggleState.On) throw new InvalidOperationException("惯性滚动未默认开启。");
-            inertiaToggle.Toggle();
-            for (var attempt = 0; attempt < 100 && profile.Load().InertialScrolling; attempt++) Thread.Sleep(50);
-            if (profile.Load().InertialScrolling) throw new InvalidOperationException("交付程序没有保存惯性关闭设置。");
-            inertiaToggle.Toggle();
-            for (var attempt = 0; attempt < 100 && !profile.Load().InertialScrolling; attempt++) Thread.Sleep(50);
-            if (!profile.Load().InertialScrolling) throw new InvalidOperationException("交付程序没有保存惯性开启设置。");
+            var preset = settings.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "滚动预设"))
+                ?? throw new InvalidOperationException("交付程序未包含滚动预设。");
+            if (profile.Load().MouseWheel.Effective != WheelTuning.Recommended ||
+                !((SelectionPattern)preset.GetCurrentPattern(SelectionPattern.Pattern)).Current.GetSelection().Any(item => item.Current.Name == "推荐预设"))
+                throw new InvalidOperationException("交付程序的滚轮默认预设错误。");
+            var categories = settings.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "设置分类"));
+            var dataPage = categories.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "数据与记录"));
+            ((SelectionItemPattern)dataPage.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
             InvokePublishedButton(settings, AutomationElement.NameProperty, "管理订阅号");
             var subscriptions = WaitPublishedWindow(process.Id, "订阅号管理");
             children["subscriptions"] = InspectPublishedChild(subscriptions, output, "subscriptions");
@@ -616,7 +613,7 @@ internal static class Program
             var extractedBytes = Directory.Exists(extractRoot) ? Directory.EnumerateFiles(extractRoot, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) : 0;
             if (releaseBytes + extractedBytes >= 100_000_000) throw new InvalidOperationException("应用文件加首次展开运行时超过 100 MB。");
             var result = new { Version = version, ReleaseBytes = releaseBytes, ExtractedRuntimeBytes = extractedBytes, ApplicationFootprintBytes = releaseBytes + extractedBytes, EmojiDraftRestored = true, LiveTipsShown = requireTips, Startup = report, Children = children, ModalOwnerRestored = root.Current.IsEnabled,
-                ForumFavoriteRestoredAndRemoved = true, InertialScrollingToggleSaved = true, SpoilerProtectionToggleSaved = true, CookieQrImportEntriesVisible = true, EmoticonDropdownAndInsertion = insertedEmoticon, StartupNoticeShown = noticeShown, NoticeSuppressionSaved = noticeShown && profile.Load().SuppressedNoticeKeys.Count > 0 };
+                ForumFavoriteRestoredAndRemoved = true, RecommendedWheelPresetShown = true, SpoilerProtectionToggleSaved = true, CookieQrImportEntriesVisible = true, EmoticonDropdownAndInsertion = insertedEmoticon, StartupNoticeShown = noticeShown, NoticeSuppressionSaved = noticeShown && profile.Load().SuppressedNoticeKeys.Count > 0 };
             File.WriteAllText(Path.Combine(output, "published-window-results.json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine(JsonSerializer.Serialize(result));
             return report.WindowFits && report.CaptionButtonsVisible ? 0 : 1;

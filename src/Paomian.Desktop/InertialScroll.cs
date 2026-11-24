@@ -9,6 +9,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 
+using Paomian.Core;
+
 namespace Paomian.Desktop;
 
 internal enum WheelMode { Native, Short, Legacy }
@@ -30,10 +32,11 @@ public static class InertialScroll
     {
         if (target.GetValue(StateProperty) is ScrollState state) { state.Stop(); state.Mode = mode; }
     }
-    internal static void SetTuning(DependencyObject target, WheelTuning tuning)
-    {
-        if (target.GetValue(StateProperty) is ScrollState state) state.SetTuning(tuning);
-    }
+    public static readonly DependencyProperty TuningProperty = DependencyProperty.RegisterAttached(
+        "Tuning", typeof(WheelTuning), typeof(InertialScroll), new PropertyMetadata(WheelTuning.Recommended,
+            (target, args) => (target.GetValue(StateProperty) as ScrollState)?.SetTuning((WheelTuning)args.NewValue)));
+    public static WheelTuning GetTuning(DependencyObject target) => (WheelTuning)target.GetValue(TuningProperty);
+    public static void SetTuning(DependencyObject target, WheelTuning tuning) => target.SetCurrentValue(TuningProperty, tuning);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct InputSource { public uint DeviceType, OriginId; }
@@ -47,6 +50,7 @@ public static class InertialScroll
         if (surface.GetValue(StateProperty) is not ScrollState state)
         {
             state = new ScrollState(surface); surface.SetValue(StateProperty, state);
+            state.SetTuning(GetTuning(surface));
         }
         state.Enable((bool)args.NewValue);
     }

@@ -1,28 +1,11 @@
+using Paomian.Core;
+
 namespace Paomian.Desktop;
-
-internal enum WheelCurve { Linear, Quadratic, Cubic, SmoothStartStop }
-
-internal sealed record WheelTuning(double Distance, double DurationMs, double ImmediateFraction, WheelCurve Curve = WheelCurve.Quadratic)
-{
-    internal bool ScaleWithSystemLines { get; init; }
-    internal static readonly WheelTuning Baseline = new(72, 96, .2) { ScaleWithSystemLines = true };
-    internal static readonly WheelTuning Fine = new(48, 72, .5);
-    internal static readonly WheelTuning Balanced = new(56, 72, .5);
-    internal static readonly WheelTuning Fast = new(64, 48, .7);
-    internal static readonly WheelTuning BrowserComparison = new(100, 192, .01, WheelCurve.SmoothStartStop);
-
-    internal double NotchDistance(int lines, double viewport) => lines switch
-    {
-        0 => 0,
-        < 0 => viewport,
-        _ => Math.Min(viewport, ScaleWithSystemLines ? Distance * lines / 3 : Distance)
-    };
-}
 
 /// <summary>只记录尚未交给视口的相对距离，布局重排不会改变滚轮的目标行程。</summary>
 internal sealed class ShortWheelMotion
 {
-    internal WheelTuning Tuning { get; set; } = WheelTuning.Baseline;
+    internal WheelTuning Tuning { get; set; } = WheelTuning.Recommended;
     private double _segment;
     private bool _repeatedSoftStart;
     internal double Remaining { get; private set; }
