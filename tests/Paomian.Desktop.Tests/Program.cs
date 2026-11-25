@@ -164,6 +164,7 @@ internal static partial class Program
         if (args.FirstOrDefault() == "--settings-personalization") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-personalization");
         if (args.FirstOrDefault() == "--emoticon-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-layout");
         if (args.FirstOrDefault() == "--emoticon-perf") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/emoticon-perf");
+        if (args.FirstOrDefault() is "--post-layout" or "--reply-titles") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/post-layout");
         if (args.FirstOrDefault() == "--composer-input") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-input");
         if (args.FirstOrDefault() == "--composer-images") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/composer-images");
         if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
@@ -282,9 +283,23 @@ internal static partial class Program
                     await EmoticonPerfChecks.RunAsync(window, output);
                     app.Shutdown(0); return;
                 }
+                if (args.FirstOrDefault() == "--reply-titles")
+                {
+                    var failures = new List<string>();
+                    await ReplyTitleChecks.RunAsync(window, output, Capture, (ok, message) => { if (!ok) failures.Add(message); });
+                    File.WriteAllLines(Path.Combine(output, "failures.txt"), failures);
+                    if (failures.Count > 0) throw new InvalidOperationException($"Reply titles: {failures.Count} failures");
+                    Console.WriteLine("PASS: reply titles, cache, paging and reference layouts");
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--post-layout")
+                {
+                    await PostLayoutChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
                 if (args.FirstOrDefault() == "--composer-input")
                 {
-                    await ComposerInputChecks.RunAsync(window, output, Capture);
+                    await ComposerInputChecks.RunAsync(window, output, Capture, !args.Contains("--no-system-clipboard"));
                     app.Shutdown(0); return;
                 }
                 // 使用真实的系统输入法并发送按键，会占用键盘；只在显式指定时运行。
@@ -345,7 +360,7 @@ internal static partial class Program
                 if (spoilersOnly) { await SpoilerChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (tipsOnly) { await ThreadTipsChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (typographyOnly) { await TypographyChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
-                if (emojiOnly) { await EmojiChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
+                if (emojiOnly) { await EmojiChecks.RunAsync(window, output, Capture, !args.Contains("--no-system-clipboard")); app.Shutdown(0); return; }
                 if (fontOnly) { await EmoticonFontChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (emoticonsOnly) { await EmoticonChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }
                 if (cookieOnly) { await CookieImportChecks.RunAsync(window, output, Capture); app.Shutdown(0); return; }

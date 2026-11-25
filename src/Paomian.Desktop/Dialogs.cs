@@ -120,6 +120,8 @@ public sealed class TextWindow : DialogWindow
         Body.Children.Insert(1, timestamp);
         var author = PostCard.Optional(post.Name, "无名氏", Application.Current.Resources["HideSpoilers"] is true);
         if (author.Length > 0) Body.Children.Insert(2, new EmojiLabel { Text = author, Margin = new(0,0,0,8), Foreground = (Brush)FindResource("Muted") });
+        var title = PostCard.Optional(post.Title, "无标题", Application.Current.Resources["HideSpoilers"] is true);
+        Body.Children.Insert(2, new EmojiLabel { Text = title, FontSize = _body.FontSize, Style = (Style)FindResource("ReaderPostTitle") });
         if (post.HasImage) Body.Children.Add(new PostImage { Post = post, PreviewHeight = _referencePreview ? 160 : 240, Margin = new(0, 20, 0, 0) });
         QueueReferenceFit();
     }

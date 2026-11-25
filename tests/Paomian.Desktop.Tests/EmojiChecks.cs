@@ -23,7 +23,7 @@ internal static class EmojiChecks
         return count;
     }
 
-    public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
+    public static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture, bool systemClipboard = true)
     {
         var body = new PostBody { Html = "😀", HideSpoilers = true, FontSize = 48, Foreground = Brushes.Black, Background = Brushes.White };
         body.Document.Foreground = Brushes.Black;
@@ -46,7 +46,14 @@ internal static class EmojiChecks
             body.SelectAll();
             var copied = new DataObject(); var copyArgs = new DataObjectCopyingEventArgs(copied, false);
             body.RaiseEvent(copyArgs);
-            Require(copyArgs.CommandCancelled && Clipboard.GetText() == samples.TrimEnd('\r', '\n') + "\r\n\r\n", "正文复制没有还原 Unicode 和文档换行");
+            Require(copyArgs.CommandCancelled, "正文允许导出富文本数据");
+            var expectedSelection = samples + "\r\n";
+            Require(body.SelectedText() == expectedSelection, "正文选区没有还原 Unicode 和文档换行");
+            if (systemClipboard)
+            {
+                System.Windows.Input.ApplicationCommands.Copy.Execute(null, body);
+                Require(Clipboard.GetText() == expectedSelection, "正文复制没有还原 Unicode 和文档换行");
+            }
             body.Html = "<b>😀</b><a href=\"https://www.nmbxd.com/t/1\">链接❤️</a>[h]隐藏🌈[/h]";
             Require(!EmojiText.Read(body.Document).Contains("隐藏🌈"), "隐藏内容提前进入正文");
             var paragraph = (Paragraph)body.Document.Blocks.FirstBlock;
@@ -95,7 +102,7 @@ internal static class EmojiChecks
             Require(editor.Text == samples, "粘贴换行或 emoji 丢失");
             await Task.Delay(80); window.UpdateLayout(); capture(window, Path.Combine(output, "emoji-editor-light.png"));
             App.ApplyTheme("dark"); await Task.Delay(80); capture(window, Path.Combine(output, "emoji-editor-dark.png")); App.ApplyTheme("light");
-            File.WriteAllText(Path.Combine(output, "emoji-results.json"), JsonSerializer.Serialize(new { ColoredPixels = colored, Small = small, Large = large, PlainTextMilliseconds = timer.ElapsedMilliseconds, TextRoundTrip = true, Selection = true, UndoRedo = true, IncrementalSequence = true, CopyData = true, Paste = true, LengthLimit = true, Spoiler = true, LabelColor = true, PlainArrows = true, PresentationSelectors = true, FamilyLayout = true }));
+            File.WriteAllText(Path.Combine(output, "emoji-results.json"), JsonSerializer.Serialize(new { ColoredPixels = colored, Small = small, Large = large, PlainTextMilliseconds = timer.ElapsedMilliseconds, TextRoundTrip = true, Selection = true, UndoRedo = true, IncrementalSequence = true, SystemClipboardChecked = systemClipboard, Paste = true, LengthLimit = true, Spoiler = true, LabelColor = true, PlainArrows = true, PresentationSelectors = true, FamilyLayout = true }));
         }
         finally { window.Close(); }
     }

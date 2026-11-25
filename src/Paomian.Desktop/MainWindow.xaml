@@ -305,15 +305,11 @@
                     <TextBlock Grid.Column="1" Text="{Binding TimeLabel}" ToolTip="{Binding Post.Time}" Style="{StaticResource MutedText}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0"/>
                     <Button Grid.Column="2" Content="{Binding Post.Number}" Tag="{Binding Post}" Click="Quote_Click" Style="{StaticResource Quiet}" HorizontalAlignment="Right" Padding="6,0" MinHeight="24" FontSize="12" ToolTip="引用此楼" AutomationProperties.Name="{Binding Post.Number, StringFormat=引用 {0}}"/>
                   </Grid>
-                  <local:EmojiLabel x:Name="OriginalPostTitle" Text="{Binding DataContext.OriginalTitle, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10">
-                    <local:EmojiLabel.Style><Style TargetType="local:EmojiLabel">
-                      <Setter Property="Visibility" Value="Collapsed"/>
-                      <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsOriginal}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
-                        <DataTrigger Binding="{Binding DataContext.OriginalTitle, RelativeSource={RelativeSource AncestorType=Window}}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
-                      </Style.Triggers>
-                    </Style></local:EmojiLabel.Style>
+                  <local:EmojiLabel x:Name="OriginalPostTitle" Style="{StaticResource ReaderPostTitle}"
+                                    FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}}">
+                    <local:EmojiLabel.Text><MultiBinding Converter="{StaticResource PostTitle}">
+                      <Binding Path="Post.Title"/><Binding Path="DataContext.HideSpoilers" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                    </MultiBinding></local:EmojiLabel.Text>
                   </local:EmojiLabel>
                   <local:EmojiLabel x:Name="ReaderAuthor" FontSize="{Binding DataContext.PreviewAuthorFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                     Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10">

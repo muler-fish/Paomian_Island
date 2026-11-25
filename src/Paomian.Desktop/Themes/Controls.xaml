@@ -28,6 +28,18 @@
         <Setter Property="Background" Value="{DynamicResource Canvas}"/>
         <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
       </Style>
+      <local:PostTitleConverter x:Key="PostTitle"/>
+      <!-- 主楼、回应与引用共用原有主楼标题规范；空标题不占空间。 -->
+      <Style x:Key="ReaderPostTitle" TargetType="local:EmojiLabel">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="0,0,0,10"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Style.Triggers>
+          <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+          <DataTrigger Binding="{Binding IsTip}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+        </Style.Triggers>
+      </Style>
       <Style x:Key="MutedText" TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="FontSize" Value="12"/></Style>
       <Style x:Key="FocusRing" TargetType="Control" BasedOn="{StaticResource DefaultControlFocusVisualStyle}"/>
       <!-- Shared desktop controls: the same geometry and state brushes in every window. -->

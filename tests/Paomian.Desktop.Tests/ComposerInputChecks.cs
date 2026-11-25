@@ -15,7 +15,7 @@ namespace Paomian.Desktop.Tests;
 /// <summary>发言正文输入：经 WPF 输入管线模拟逐字输入、Enter、粘贴和输入法组合，核对原文与光标位置。只用模拟接口，不发送。</summary>
 internal static class ComposerInputChecks
 {
-    internal static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture)
+    internal static async Task RunAsync(MainWindow owner, string output, Action<Window, string> capture, bool systemClipboard = true)
     {
         var store = new LocalStore(Path.Combine(output, "input-profile"));
         using var vm = new MainViewModel(UiRefinementChecks.CreateApi(), store);
@@ -63,7 +63,23 @@ internal static class ComposerInputChecks
             Require(editor.Document.Blocks.OfType<Paragraph>().All(p => p.Inlines.LastInline is not LineBreak), "段落末尾留下了 LineBreak");
             // 5. 粘贴多行（结尾带换行，会生成多个段落）
             editor.Text = "开头"; editor.CaretIndex = 2; await Pause();
-            Clipboard.SetText("甲\r\n乙\r\n"); editor.Paste(); await Pause();
+            const string pasteText = "甲\r\n乙\r\n";
+            if (systemClipboard)
+            {
+                Clipboard.SetText(pasteText);
+                editor.Paste();
+            }
+            else
+            {
+                var args = new DataObjectPastingEventArgs(new DataObject(DataFormats.UnicodeText, pasteText), false, DataFormats.UnicodeText);
+                editor.RaiseEvent(args);
+                Require(!args.CommandCancelled && args.FormatToApply == DataFormats.UnicodeText, "编辑器拒绝多行纯文本");
+                var insertion = editor.SelectionStart;
+                var inserted = (string)args.DataObject.GetData(args.FormatToApply);
+                editor.SelectedText = inserted;
+                editor.Select(insertion + inserted.Length, 0);
+            }
+            await Pause();
             await Type(editor, "丙");
             await Check("paste-multiline", "开头甲\r\n乙\r\n丙", 9);
             await Enter(editor); await Type(editor, "丁");
