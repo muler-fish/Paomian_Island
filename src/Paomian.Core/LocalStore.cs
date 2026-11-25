@@ -11,7 +11,16 @@ public sealed partial class LocalStore
     public string Root => _root;
     public DiskCache Cache { get; }
     public string? LoadWarning { get; private set; }
-    public LocalStore(string root) { _root = Path.GetFullPath(root); Directory.CreateDirectory(_root); Cache = new(_root); }
+    public LocalStore(string root)
+    {
+        _root = Path.GetFullPath(root);
+        // 必须在本次运行创建状态和缓存标记前识别旧资料，空的预建目录也可用于首次安装。
+        _existingProfile = File.Exists(Path.Combine(_root, "state.json")) ||
+            File.Exists(Path.Combine(_root, "sent-posts.json")) ||
+            File.Exists(Path.Combine(_root, "cache", AppIdentity.CacheOwnerMarker));
+        Directory.CreateDirectory(_root);
+        Cache = new(_root);
+    }
 
     /// <summary>读取状态并修正缺失或越界的设置；文件损坏时先备份，再使用默认状态。</summary>
     public UserState Load()
@@ -104,12 +113,17 @@ public sealed partial class LocalStore
         lock (_gate)
         {
             var path = Path.Combine(_root, "state.json");
-            var temp = path + ".tmp";
             RememberDraftImages(state);
-            File.WriteAllText(temp, JsonSerializer.Serialize(state, Options));
-            File.Move(temp, path, true);
+            WriteJsonAtomically(path, state);
             ReleaseUnusedDraftImages(state);
         }
+    }
+
+    private static void WriteJsonAtomically<T>(string path, T value)
+    {
+        var temp = path + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(value, Options));
+        File.Move(temp, path, true);
     }
 
     /// <summary>按身份、串号和页码保存正文，与图片及订阅快照共用磁盘上限。</summary>

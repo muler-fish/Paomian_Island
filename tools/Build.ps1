@@ -12,6 +12,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
     dotnet 'tests\Paomian.Tests\bin\Release\net10.0\Paomian.Tests.dll'
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+    dotnet 'tests\Paomian.Desktop.Tests\bin\Release\net10.0-windows\Paomian.Desktop.Tests.dll' --bundled-release-notes
+    if ($LASTEXITCODE -ne 0) { throw 'CHANGELOG.md must contain nonempty notes for the version being packaged.' }
     # 默认按版本输出，试用界面不会覆盖已经交付的 standalone；需要指定路径时显式传入参数。
     [xml]$project = Get-Content -Raw 'src\Paomian.Desktop\Paomian.Desktop.csproj'
     $version = [string]$project.Project.PropertyGroup.Version

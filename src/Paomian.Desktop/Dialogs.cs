@@ -18,6 +18,7 @@ public class DialogWindow : ChildWindow
     protected WrapPanel Actions { get; } = new() { HorizontalAlignment = HorizontalAlignment.Right, Margin = UiMetrics.DialogActionsMargin };
     protected TextBlock Feedback { get; } = new() { TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 8) };
     private readonly Border _bodyHost = new();
+    private readonly Border _footer = new();
     private readonly Grid _clientGrid = new();
     protected void AddClientOverlay(UIElement overlay) { Grid.SetRowSpan(overlay, 3); _clientGrid.Children.Add(overlay); }
     protected void SetBodyContent(UIElement content) => _bodyHost.Child = content;
@@ -32,7 +33,7 @@ public class DialogWindow : ChildWindow
         var scroll = new ScrollViewer { Content = Body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         _bodyHost.Child = scroll; Grid.SetRow(_bodyHost, 1); grid.Children.Add(_bodyHost);
         UseReadingScroll(scroll);
-        var footer = new Border { Child = feedbackInFooter ? FixedFeedbackFooter() : Actions }; Grid.SetRow(footer, 2); grid.Children.Add(footer);
+        _footer.Child = feedbackInFooter ? FixedFeedbackFooter() : Actions; Grid.SetRow(_footer, 2); grid.Children.Add(_footer);
         Feedback.SetResourceReference(TextBlock.ForegroundProperty, "Danger");
         var feedbackStyle = new Style(typeof(TextBlock));
         var emptyFeedback = new Trigger { Property = TextBlock.TextProperty, Value = "" };
@@ -47,6 +48,17 @@ public class DialogWindow : ChildWindow
             var fitted = Math.Max(MinHeight, Body.DesiredSize.Height + heading.ActualHeight + Actions.ActualHeight + Actions.Margin.Top + Actions.Margin.Bottom + UiMetrics.ChildTitleHeight + 4);
             if (fitted < Height) { var difference = Height - fitted; Height = fitted; Top += difference / 2; }
         };
+    }
+    protected void SetFooterLeadingContent(FrameworkElement leading)
+    {
+        _footer.Child = null;
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new());
+        row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        leading.Margin = new(UiMetrics.DialogInset, Actions.Margin.Top, 0, Actions.Margin.Bottom);
+        leading.VerticalAlignment = VerticalAlignment.Center; row.Children.Add(leading);
+        Grid.SetColumn(Actions, 1); row.Children.Add(Actions);
+        _footer.Child = row;
     }
     private DockPanel FixedFeedbackFooter()
     {

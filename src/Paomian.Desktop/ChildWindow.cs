@@ -96,7 +96,7 @@ public abstract class ChildWindow : FluentWindow
             var close = new System.Windows.Controls.Button { Content = cross };
             close.SetResourceReference(StyleProperty, "DialogCloseButton");
             System.Windows.Automation.AutomationProperties.SetName(close, "关闭");
-            close.ToolTip = "关闭 · Esc"; close.Click += (_, _) => Close();
+            close.ToolTip = "关闭 · Esc"; close.Click += (_, _) => Dismiss();
             close.HorizontalAlignment = HorizontalAlignment.Right;
             close.VerticalAlignment = VerticalAlignment.Top;
             close.Margin = new(0, 2, 2, 0);
@@ -135,8 +135,10 @@ public abstract class ChildWindow : FluentWindow
         }
 
         // Esc 和标题栏关闭都走正常 Window.Close；编辑器仍能在 Closing 中保存草稿或取消关闭。
-        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(); e.Handled = true; } };
+        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Dismiss(); e.Handled = true; } };
     }
+
+    protected virtual void Dismiss() => Close();
 
     protected static System.Windows.Controls.Button Button(string label, Action action, bool primary = false)
     {

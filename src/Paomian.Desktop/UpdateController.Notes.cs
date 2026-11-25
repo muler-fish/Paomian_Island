@@ -42,6 +42,7 @@ internal sealed partial class UpdateController
             var entries = await updater.GetNotesAsync(InstalledVersion, target, request.Token);
             if (request.IsCancellationRequested) return;
             Notes = new(NotesPhase.Ready, entries);
+            SaveStagedNotes();
             _notesValidUntil = DateTimeOffset.UtcNow.AddMinutes(15);
         }
         catch (Exception)

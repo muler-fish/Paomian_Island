@@ -25,7 +25,7 @@ public sealed partial class ReleaseUpdater
     }
 
     private static bool IsPublished(JsonElement row) => !row.GetProperty("draft").GetBoolean() && !row.GetProperty("prerelease").GetBoolean();
-    private static Version? StableVersion(string tag) => Regex.IsMatch(tag, @"^v?[0-9]+\.[0-9]+\.[0-9]+\z") &&
+    internal static Version? StableVersion(string tag) => Regex.IsMatch(tag, @"^v?[0-9]+\.[0-9]+\.[0-9]+\z") &&
         Version.TryParse(tag.TrimStart('v'), out var parsed) ? parsed : null;
 
     private static ReleaseNote ReadNote(JsonElement row, string tag, Version version)
@@ -44,6 +44,12 @@ public sealed partial class ReleaseUpdater
         var latest = target.Note;
         if (!IsNewer(latest.Version, installed)) return [];
         var notes = new Dictionary<Version, ReleaseNote> { [latest.Version] = latest };
+        await ReadNotesIntoAsync(notes, version => version < latest.Version && IsNewer(version, installed), ct).ConfigureAwait(false);
+        return notes.Values.OrderByDescending(n => n.Version).ToArray();
+    }
+
+    private async Task ReadNotesIntoAsync(Dictionary<Version, ReleaseNote> notes, Func<Version, bool> include, CancellationToken ct)
+    {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         // 发布时间不保证与版本号同序；看完整个分页链，不在碰到旧版本时提前停止。
@@ -56,11 +62,11 @@ public sealed partial class ReleaseUpdater
                 if (row.ValueKind != JsonValueKind.Object || !row.TryGetProperty("tag_name", out var label) ||
                     label.ValueKind != JsonValueKind.String || !IsPublished(row)) continue;
                 var tag = label.GetString()!;
-                if (StableVersion(tag) is not { } version || version >= latest.Version || !IsNewer(version, installed)) continue;
+                if (StableVersion(tag) is not { } version || !include(version)) continue;
                 var note = ReadNote(row, tag, version);
                 if (!notes.TryGetValue(version, out var existing) || Nullable.Compare(note.PublishedAt, existing.PublishedAt) > 0) notes[version] = note;
             }
-            if (!result.HasNext) return notes.Values.OrderByDescending(n => n.Version).ToArray();
+            if (!result.HasNext) return;
         }
         throw new InvalidDataException("更新记录过多，请在 GitHub 查看完整记录。");
     }

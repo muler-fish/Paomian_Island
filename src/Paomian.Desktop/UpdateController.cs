@@ -41,6 +41,7 @@ internal sealed partial class UpdateController(MainViewModel vm, ReleaseUpdater 
         {
             var progress = new Progress<int>(value => SetStatus($"正在下载更新 · {value}%"));
             Staged = await updater.DownloadAsync(Available, Root, progress, _lifetime.Token);
+            SaveStagedNotes();
             SetStatus("更新已准备好，可重启安装" + (vm.State.InstallUpdatesOnExit ? "，或在退出时安装" : ""));
         }
         catch (Exception ex) { SetStatus("下载失败：" + Friendly(ex)); }

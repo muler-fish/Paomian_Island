@@ -17,6 +17,12 @@ if (args.Contains("--thread-failures"))
 }
 if (args.Contains("--settings-services")) { await SettingsServicesChecks.RunAsync(); return 0; }
 if (args.Contains("--release-notes")) { await ReleaseNotesChecks.RunAsync(); return 0; }
+if (args.Contains("--update-notice"))
+{
+    UpdateNoticeStateChecks.Run();
+    await StartupReleaseNotesChecks.RunAsync();
+    return 0;
+}
 if (args.Contains("--branding")) { BrandingChecks.Run(); return 0; }
 if (args.Contains("--executable-rename"))
 {
@@ -35,6 +41,8 @@ AsyncTest("content links and forum aliases", LinkRoutingChecks.RunAsync);
 Test("reading history back/forward navigation", ReadingHistoryChecks.Run);
 AsyncTest("thread failure classification", ThreadFailureChecks.RunAsync);
 AsyncTest("release notes across stable versions and pages", ReleaseNotesChecks.RunAsync);
+Test("update notice profile migration, acknowledgement and rollback", UpdateNoticeStateChecks.Run);
+AsyncTest("update notice release ranges and offline notes", StartupReleaseNotesChecks.RunAsync);
 Test("disk cache accounting and eviction", DiskCacheChecks.Run);
 void Assert(bool test, string why = "Assertion failed") { if (!test) throw new Exception(why); }
 void Throws<T>(Action action) where T : Exception

@@ -4,7 +4,7 @@ namespace Paomian.Core;
 
 public sealed record UpdatePlan(string Profile, string Target, string OldHash, Dictionary<string, string> Files, int ParentId, long ParentStartTicks, bool Restart);
 
-public static class UpdateInstaller
+public static partial class UpdateInstaller
 {
     // 两代助手均只能执行自己暂存目录内的计划。
     public static bool IsStagedHelper(string stage, string? executable) =>

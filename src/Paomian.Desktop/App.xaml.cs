@@ -28,7 +28,9 @@ public partial class App : Application
             {
                 MessageBox.Show($"{AppIdentity.DisplayName}已经在运行，可从任务栏或系统托盘打开。", AppIdentity.DisplayName); Shutdown(); return;
             }
-            var vm = new MainViewModel(new XIslandApi(), new LocalStore(_profile.Root));
+            var store = new LocalStore(_profile.Root);
+            if (smoke is null) store.InitializeNewProfileVersion(UpdateController.Version);
+            var vm = new MainViewModel(new XIslandApi(), store);
             // 先应用已保存主题和个性化颜色再显示窗口，避免启动时先闪出错误的颜色。
             Personalization.Load(vm.State); ApplyTheme(vm.State.Theme);
             _updates = vm.Updates;
@@ -41,8 +43,9 @@ public partial class App : Application
             {
                 using var notices = new SiteNoticeClient();
                 using var presenter = new StartupNoticePresenter(window, vm, notices);
-                _ = vm.Updates.CleanupAsync();
-                await Task.WhenAll(vm.InitializeAsync(), presenter.RunAsync(), vm.State.AutoCheckUpdates ? vm.Updates.CheckAsync(automatic: true) : Task.CompletedTask);
+                var updateNotice = new StartupUpdatePresenter(window);
+                await Task.WhenAll(updateNotice.RunAsync(), vm.InitializeAsync(), presenter.RunAsync(),
+                    vm.State.AutoCheckUpdates ? vm.Updates.CheckAsync(automatic: true) : Task.CompletedTask);
             }
         }
         catch (Exception ex)

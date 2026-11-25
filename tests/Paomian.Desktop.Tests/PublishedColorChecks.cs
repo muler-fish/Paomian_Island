@@ -28,7 +28,7 @@ internal static class PublishedColorChecks
         Directory.CreateDirectory(output);
         var profileRoot = Path.Combine(output, "profile");
         var timeline = new Forum(1, "综合线", "时间线", IsTimeline: true);
-        new LocalStore(profileRoot).Save(new UserState { Forums = [timeline, new(4, "综合版1", "综合")], FavoriteForums = [timeline], AutoCheckUpdates = false, Theme = "light" });
+        Program.PreparePublishedProfile(executable, profileRoot).Save(new UserState { Forums = [timeline, new(4, "综合版1", "综合")], FavoriteForums = [timeline], AutoCheckUpdates = false, Theme = "light" });
         GetCursorPos(out var cursor);
         var report = new Dictionary<string, object>();
         try
@@ -216,7 +216,7 @@ internal static class PublishedColorChecks
     }
     private static void Move(Point p) => SetCursorPos((int)Math.Round(p.X), (int)Math.Round(p.Y));
     private static void Click(Point p) { Move(p); Thread.Sleep(80); mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(60); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero); }
-    private static void Foreground(IntPtr handle)
+    internal static void Foreground(IntPtr handle)
     {
         var foreignThread = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero); var ownThread = GetCurrentThreadId();
         if (foreignThread != ownThread) AttachThreadInput(ownThread, foreignThread, true);
@@ -247,7 +247,7 @@ internal static class PublishedColorChecks
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out NativePoint point);
-    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] internal static extern bool PostMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();

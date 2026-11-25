@@ -99,8 +99,28 @@ internal static class ReleaseNotesUiChecks
             transport.Latest = "1.0.6"; transport.AllowList = Releases.Gate(); vm.State.InstallUpdatesOnExit = true;
             await updates.CheckAsync(automatic: true); vm.State.InstallUpdatesOnExit = false;
             Require(updates.Staged is not null && Button(settings, "重启安装").IsVisible && Has("正在获取更新内容…"), "auto-download/staging waited for notes");
+            var profile = new LocalStore(vm.Store.Root);
+            var staged = profile.ReadUpgradeNotes().Single();
+            Require(!staged.Complete && staged.Entries.Single().Body == transport.TargetBody, "staging omitted the available target notes");
             transport.AllowList.SetResult(); await Until(() => Has("v1.0.5"));
+            var pending = new PendingUpdateNotice(new Version(1, 0, 4), new Version(1, 0, 6));
+            var saved = StartupNotes.FromLocal(pending, [], profile.ReadUpgradeNotes());
+            Require(saved.IsComplete && !saved.NeedsOnline && saved.Entries.Select(n => n.Body).SequenceEqual([transport.TargetBody, transport.MiddleBody]),
+                "late history failed to complete the offline upgrade notes");
             Click(Button(settings, "完成")); Require(!settings.IsVisible, "Done did not close");
+            var beforeDownload = new Releases { Lists = 1, MiddleBody = "先取得历史说明" };
+            beforeDownload.AllowCheck.SetResult();
+            beforeDownload.AllowList.SetResult();
+            var otherStore = new LocalStore(Path.Combine(output, Guid.NewGuid().ToString("N")));
+            using var other = new MainViewModel(UiRefinementChecks.CreateApi(), otherStore, new ReleaseUpdater(new HttpClient(beforeDownload)), "1.0.4");
+            await other.Updates.CheckAsync();
+            await other.Updates.LoadNotesAsync();
+            Require(otherStore.ReadUpgradeNotes().Count == 0, "checking available updates wrote an installation snapshot");
+            await other.Updates.DownloadAsync();
+            var ready = StartupNotes.FromLocal(pending, [], new LocalStore(otherStore.Root).ReadUpgradeNotes());
+            Require(ready.IsComplete && ready.Entries.Select(n => n.Body).SequenceEqual([beforeDownload.TargetBody, beforeDownload.MiddleBody]),
+                "verified download lost history already obtained in About");
+            other.Updates.Exit();
             Console.WriteLine("PASS release notes WPF: pending, dedup/cache, close/reopen, failure/retry, ordered real controls, Markdown and safe links, 2 themes x 3 DPI, scroll/footer, stale target, verified mock auto-download without installation");
         }
         finally { vm.State.InstallUpdatesOnExit = false; settings.Close(); updates.Exit(); App.ApplyTheme("light"); }

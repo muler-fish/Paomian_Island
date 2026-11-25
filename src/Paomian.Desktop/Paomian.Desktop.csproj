@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <Version>1.0.13</Version>
+    <Version>1.0.14</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/paomian.ico</ApplicationIcon>
   </PropertyGroup>
@@ -15,6 +15,7 @@
   <ItemGroup><InternalsVisibleTo Include="Paomian.Desktop.Tests" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoticons.json" LogicalName="Paomian.Emoticons.json" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="Assets/emoji-sequences.json" LogicalName="Paomian.EmojiSequences.json" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../CHANGELOG.md" LogicalName="Paomian.Changelog.md" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/paomian.png" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/paomian.ico" /></ItemGroup>
   <ItemGroup><Resource Include="Assets/Fonts/*.ttf" /></ItemGroup>

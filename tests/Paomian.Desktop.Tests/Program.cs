@@ -14,11 +14,23 @@ using Paomian.Desktop;
 
 namespace Paomian.Desktop.Tests;
 
-internal static class Program
+internal static partial class Program
 {
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--bundled-release-notes")
+            return UpdateController.BundledNote(Version.Parse(UpdateController.Version)) is { Body.Length: > 0 } ? 0 : 1;
+        if (args.Length == 4 && args[0] == "--published-update-notice")
+        {
+            try { CheckPublishedUpdateNotice(args[1], args[2], args[3]); return 0; }
+            catch (Exception ex)
+            {
+                Directory.CreateDirectory(args[3]);
+                File.WriteAllText(Path.Combine(args[3], "failure.txt"), ex.ToString());
+                Console.Error.WriteLine(ex); return 1;
+            }
+        }
         if (args.FirstOrDefault() == "--loading-motion")
         {
             try
@@ -157,6 +169,7 @@ internal static class Program
         if (args.FirstOrDefault() == "--subscription-display") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/subscription-display");
         if (args.FirstOrDefault() == "--settings-layout") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/settings-layout");
         if (args.FirstOrDefault() == "--release-notes") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/release-notes");
+        if (args.FirstOrDefault() == "--update-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/update-notice");
         if (args.FirstOrDefault() == "--image-notice") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/image-notice");
         if (args.FirstOrDefault() == "--gif") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-playback");
         if (args.FirstOrDefault() == "--gif-copy") output = Path.GetFullPath(args.ElementAtOrDefault(1) ?? "artifacts/gif-copy");
@@ -237,6 +250,11 @@ internal static class Program
                 if (args.FirstOrDefault() == "--release-notes")
                 {
                     await ReleaseNotesUiChecks.RunAsync(window, output, Capture);
+                    app.Shutdown(0); return;
+                }
+                if (args.FirstOrDefault() == "--update-notice")
+                {
+                    await UpdateNoticeUiChecks.RunAsync(output, Capture);
                     app.Shutdown(0); return;
                 }
                 if (args.FirstOrDefault() == "--settings-layout")
@@ -498,13 +516,26 @@ internal static class Program
         }
     }
 
+    // 其他交付 EXE 专项从已经使用当前版本的隔离资料开始；升级迁移由独立专项创建样例。
+    internal static LocalStore PreparePublishedProfile(string executable, string directory)
+    {
+        var store = new LocalStore(directory);
+        var version = FileVersionInfo.GetVersionInfo(Path.GetFullPath(executable));
+        if (version.FileMajorPart < 0 || version.FileMinorPart < 0 || version.FileBuildPart < 0)
+            throw new InvalidDataException("交付程序缺少版本信息。");
+        var installed = new Version(version.FileMajorPart, version.FileMinorPart, version.FileBuildPart);
+        if (store.BeginUpdateNotice(installed.ToString()) is { } pending)
+            store.AcknowledgeUpdateNotice(pending.Target);
+        return store;
+    }
+
     // 独立检查实际交付的单文件 EXE，使用临时资料目录，完成后正常关闭测试实例。
     private static int CheckPublishedExecutable(string executable, string outputDirectory, bool requireNotice = false, bool requireTips = false)
     {
         var output = Path.GetFullPath(outputDirectory);
         Directory.CreateDirectory(output);
         // 只为隔离测试目录准备目录和收藏快照；实际 EXE 的窗口验收不需要站点返回内容。
-        var profile = new LocalStore(Path.Combine(output, "profile"));
+        var profile = PreparePublishedProfile(executable, Path.Combine(output, "profile"));
         if (!File.Exists(Path.Combine(profile.Root, "state.json")))
         {
             var timeline = new Forum(1, "综合线", "时间线", IsTimeline: true);
@@ -753,7 +784,10 @@ internal static class Program
         ((InvokePattern)button.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
     }
 
-    private static AutomationElement WaitPublishedWindow(int processId, string title)
+    private static AutomationElement WaitPublishedWindow(int processId, string title) =>
+        AutomationElement.FromHandle(WaitPublishedHandle(processId, title));
+
+    private static IntPtr WaitPublishedHandle(int processId, string title)
     {
         // OwnedWindow 在可访问性树中可能挂在父窗口下；先按进程枚举 HWND，再读取其控件。
         var titles = new List<string>();
@@ -770,7 +804,7 @@ internal static class Program
                 if (name.ToString() == title) found = handle;
                 return true;
             }, IntPtr.Zero);
-            if (found != IntPtr.Zero) { Thread.Sleep(200); return AutomationElement.FromHandle(found); }
+            if (found != IntPtr.Zero) { Thread.Sleep(200); return found; }
             Thread.Sleep(50);
         }
         throw new InvalidOperationException("等待交付程序子窗口超时：" + title + "；当前窗口：" + string.Join(" / ", titles));

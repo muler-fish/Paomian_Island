@@ -231,7 +231,7 @@ internal static class BossKeyChecks
         using var input = new FocusDesktopInput();
         Require(RegisterTestKey(0, 13, Standard), "启动交付程序前默认组合键已被其他程序占用");
         UnregisterHotKey(0, 13);
-        var store = new LocalStore(Path.Combine(Path.GetFullPath(output), "profile-" + Guid.NewGuid().ToString("N")));
+        var store = Program.PreparePublishedProfile(executable, Path.Combine(Path.GetFullPath(output), "profile-" + Guid.NewGuid().ToString("N")));
         store.Save(new UserState { BossKeyEnabled = true, AutoCheckUpdates = false });
         // 仅给交付 EXE 的子进程使用回环代理，返回 503，不转发或记录请求。
         using var proxy = new TcpListener(IPAddress.Loopback, 0);
