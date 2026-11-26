@@ -47,7 +47,7 @@ internal static class ReportChecks
             {
                 var body = UiRefinementChecks.Descendants<PostBody>(reader).First(b => b.DataContext is ReadPost p && p.Post.Id == target);
                 var menu = body.ContextMenu; menu.PlacementTarget = body; menu.IsOpen = true; await Pause();
-                Require(menu.Items.OfType<MenuItem>().Select(i => i.Header.ToString()).SequenceEqual(new[] { "复制串号", "复制正文", "回应", "举报" }), "串内菜单缺少举报或破坏已有操作");
+                Require(menu.Items.OfType<MenuItem>().Select(i => i.Header.ToString()).SequenceEqual(new[] { "复制串号", "复制选中文本", "复制正文", "回应", "举报" }), "串内菜单缺少举报或破坏已有操作");
                 Task? check = null;
                 _ = window.Dispatcher.BeginInvoke(() => check = EditOpenedReportAsync(window, target, output, capture), DispatcherPriority.Background);
                 menu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "举报")).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
@@ -133,7 +133,8 @@ internal static class ReportChecks
             {
                 var body = UiRefinementChecks.Descendants<PostBody>(preview).Single();
                 var text = EmojiText.Read(body.Document.ContentStart, body.Document.ContentEnd);
-                Require(text.Contains("值班室 · 举报 No.102") && text.Contains(">>No.102") && text.Contains("测试理由 102"), "预览遗漏实际目标或理由");
+                var info = UiRefinementChecks.Descendants<TextBlock>(preview).Single(t => t.Style == preview.FindResource("MutedText"));
+                Require(new System.Windows.Documents.TextRange(info.ContentStart, info.ContentEnd).Text.Contains("值班室 · 举报 No.102") && text.Contains(">>No.102") && text.Contains("测试理由 102"), "预览遗漏实际目标或理由");
                 if (confirm) Click(preview, "确认发送"); else preview.Close();
             }
             finally { if (preview.IsVisible) preview.Close(); }

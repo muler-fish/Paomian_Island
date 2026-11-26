@@ -312,17 +312,13 @@
                     </MultiBinding></local:EmojiLabel.Text>
                   </local:EmojiLabel>
                   <local:EmojiLabel x:Name="ReaderAuthor" FontSize="{Binding DataContext.PreviewAuthorFontSize, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10">
+                                    Style="{StaticResource ReaderPostAuthor}">
                     <local:EmojiLabel.Text><MultiBinding Converter="{StaticResource PostAuthor}">
                       <Binding Path="Post.Name"/><Binding Path="DataContext.HideSpoilers" RelativeSource="{RelativeSource AncestorType=Window}"/>
                     </MultiBinding></local:EmojiLabel.Text>
-                    <local:EmojiLabel.Style><Style TargetType="local:EmojiLabel"><Style.Triggers>
-                      <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
-                      <DataTrigger Binding="{Binding IsTip}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
-                    </Style.Triggers></Style></local:EmojiLabel.Style>
                   </local:EmojiLabel>
                   <local:PostBody Html="{Binding Post.Content}" FontSize="{Binding DataContext.ReadingFontSize, RelativeSource={RelativeSource AncestorType=Window}}" ContextMenu="{StaticResource PostContextMenu}" RequestBringIntoView="ReadingBody_BringIntoView"/>
-                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ReaderImagesAuto, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,16,0,0" PreviewHeight="190" PreviewMaxWidth="260"/>
+                  <local:PostImage Post="{Binding Post}" ShowImages="{Binding DataContext.ReaderImagesAuto, RelativeSource={RelativeSource AncestorType=Window}}" Margin="{x:Static local:UiMetrics.ReaderImageMargin}" PreviewHeight="{x:Static local:UiMetrics.ReaderImageHeight}" PreviewMaxWidth="{x:Static local:UiMetrics.ReaderImageWidth}"/>
                 </StackPanel>
               </Border>
               <DataTemplate.Triggers>

@@ -231,14 +231,24 @@ public sealed class PostBody : System.Windows.Controls.RichTextBox
             long id = 0;
             if (match.Groups["id"].Success && (!long.TryParse(match.Groups["id"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out id) || id <= 0))
             { target.Add(new Run(value)); start = match.Index + match.Length; continue; }
-            var link = new PostLink(parent);
-            link.Inlines.Add(new Run(value));
-            link.ToolTip = match.Groups["id"].Success ? "查看引用" : value;
-            if (match.Groups["id"].Success) link.Click += (_, _) => ReferenceClicked?.Invoke(link, id);
-            else link.Click += (_, _) => Navigate(link, value);
-            target.Add(link); start = match.Index + match.Length;
+            if (match.Groups["id"].Success) target.Add(ReferenceLink(value, id, parent));
+            else
+            {
+                var link = new PostLink(parent) { ToolTip = value };
+                link.Inlines.Add(new Run(value));
+                link.Click += (_, _) => Navigate(link, value);
+                target.Add(link);
+            }
+            start = match.Index + match.Length;
         }
         target.Add(new Run(text[start..]));
+    }
+    internal static Hyperlink ReferenceLink(string text, long id, Span? parent = null)
+    {
+        var link = new PostLink(parent) { ToolTip = "查看引用" };
+        link.Inlines.Add(new Run(text));
+        link.Click += (_, _) => ReferenceClicked?.Invoke(link, id);
+        return link;
     }
     private static void Navigate(Hyperlink source, string url)
     {

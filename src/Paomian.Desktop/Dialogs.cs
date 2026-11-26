@@ -21,6 +21,7 @@ public class DialogWindow : ChildWindow
     private readonly Border _footer = new();
     private readonly Grid _clientGrid = new();
     protected void AddClientOverlay(UIElement overlay) { Grid.SetRowSpan(overlay, 3); _clientGrid.Children.Add(overlay); }
+    protected void AddBodyOverlay(UIElement overlay) { Grid.SetRow(overlay, 1); _clientGrid.Children.Add(overlay); }
     protected void SetBodyContent(UIElement content) => _bodyHost.Child = content;
     public DialogWindow(string title, string subtitle = "", double subtitleFontSize = 12, bool feedbackInFooter = false) : base(title)
     {
@@ -73,6 +74,12 @@ public class DialogWindow : ChildWindow
         return row;
     }
     protected static TextBlock Hint(string text) { var b = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new(0, 9, 0, 9), LineHeight = 21 }; b.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); return b; }
+    protected static TextBlock EmptyState(string text)
+    {
+        var label = new TextBlock { Text = text };
+        label.SetResourceReference(StyleProperty, "DialogEmptyState");
+        return label;
+    }
     protected void Label(string text) { var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeights.Medium, Margin = new(0, 16, 0, 10) }; label.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); Body.Children.Add(label); }
     public void AddAction(string text, Action action, bool primary = false) => Actions.Children.Add(Button(text, action, primary));
 }
@@ -104,11 +111,39 @@ public sealed class TextWindow : DialogWindow
         Body.Children.Add(_body); SetHtml(html); AddAction("关闭", Close);
     }
     public void SetHtml(string html) { _body.Html = html; QueueReferenceFit(); }
+    private static string PreviewHtml(string text)
+    {
+        var html = WebUtility.HtmlEncode(text).Replace("\r\n", "\n").Replace("\n", "<br>");
+        // 单行字面标签可能触发站点旧 HTML 的二次解码；空 span 标记数据已经编码，不包裹正文。
+        return text.Contains('<') && !html.Contains("<br>") ? "<span></span>" + html : html;
+    }
+    internal TextWindow(PostRequest post, string destination, long targetId, string cookieName, MainViewModel model)
+        : this("发送预览", PreviewHtml(post.Content), readingFontSize: model.ReadingFontSize)
+    {
+        Body.MaxWidth = UiMetrics.ReadingWidth;
+        var confirmation = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new(0, 0, 0, 16) };
+        confirmation.SetResourceReference(StyleProperty, "MutedText");
+        confirmation.Inlines.Add(destination);
+        if (targetId > 0) confirmation.Inlines.Add(PostBody.ReferenceLink(targetId.ToString(), targetId));
+        confirmation.Inlines.Add(" · 饼干：" + cookieName);
+        Body.Children.Insert(0, confirmation);
+        EmojiLabel Heading(string input, string placeholder, string style, double size) => new()
+        {
+            Text = PostCard.Optional(PreviewHtml(input), placeholder, model.HideSpoilers),
+            Style = (Style)FindResource(style), FontSize = size
+        };
+        Body.Children.Insert(1, Heading(post.Title, "无标题", "ReaderPostTitle", model.ReadingFontSize));
+        Body.Children.Insert(2, Heading(post.Name, "无名氏", "ReaderPostAuthor", model.PreviewAuthorFontSize));
+    }
     internal void AddImagePreview(System.Windows.Media.Imaging.BitmapSource image, string caption)
     {
-        var picture = new Image { Source = image, Width = 144, Height = 100, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left };
+        var picture = new Image { Source = image, MaxWidth = UiMetrics.ReaderImageWidth, MaxHeight = UiMetrics.ReaderImageHeight - 10,
+            Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
         System.Windows.Automation.AutomationProperties.SetName(picture, "发送预览附图");
-        Body.Children.Add(picture); Body.Children.Add(Hint(caption));
+        var frame = new Border { Child = picture, Height = UiMetrics.ReaderImageHeight, HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = UiMetrics.ReaderImageMargin, Padding = new(4), BorderThickness = new(1), CornerRadius = UiMetrics.ControlCornerRadius };
+        frame.SetResourceReference(Border.BorderBrushProperty, "Line");
+        Body.Children.Add(frame); Body.Children.Add(Hint(caption));
     }
     public void SetPost(Post post)
     {
@@ -153,10 +188,14 @@ public sealed class DraftWindow : DialogWindow
 {
     public DraftWindow(MainViewModel vm, Action<DraftWindow, Draft> open) : base("草稿箱")
     {
+        var empty = EmptyState("暂无草稿");
+        AddBodyOverlay(empty);
+        // 空列表与原有短弹窗使用同一初始尺寸，调整窗口后提示随正文区域布局。
+        if (vm.State.Drafts.Count == 0) Height = MinHeight;
         void Refresh()
         {
             Body.Children.Clear();
-            if (vm.State.Drafts.Count == 0) Body.Children.Add(Hint("暂无草稿"));
+            empty.Visibility = vm.State.Drafts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             foreach (var draft in vm.State.Drafts.OrderByDescending(d => d.ThreadId))
             {
                 var panel = new StackPanel { Margin = new(0, 12, 0, 16) };

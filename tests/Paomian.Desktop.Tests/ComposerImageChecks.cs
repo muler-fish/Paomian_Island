@@ -283,7 +283,7 @@ internal static partial class ComposerImageChecks
         args.RoutedEvent = type; source.RaiseEvent(args); return args;
     }
     private static DataObject Files(params string[] paths) { var list = new StringCollection(); list.AddRange(paths); var data = new DataObject(); data.SetFileDropList(list); return data; }
-    private static BitmapSource Fixture(int width = 360, int height = 180)
+    internal static BitmapSource Fixture(int width = 360, int height = 180)
     {
         var pixels = new byte[width * height * 4];
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
@@ -293,7 +293,7 @@ internal static partial class ComposerImageChecks
         }
         var result = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, width * 4); result.Freeze(); return result;
     }
-    private static byte[] Encode(BitmapSource src, BitmapEncoder? encoder = null)
+    internal static byte[] Encode(BitmapSource src, BitmapEncoder? encoder = null)
     { encoder ??= new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(src)); using var stream = new MemoryStream(); encoder.Save(stream); return stream.ToArray(); }
     private static IEnumerable<T> All<T>(DependencyObject d) where T : DependencyObject => UiRefinementChecks.Descendants<T>(d);
     private static string Text(DependencyObject d) => string.Join(" ", All<TextBlock>(d).Where(t => t.IsVisible).Select(t => t.Text));

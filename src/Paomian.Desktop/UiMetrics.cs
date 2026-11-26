@@ -10,6 +10,9 @@ public static class UiMetrics
     public const double ControlHeight = 32;
     public const double BodyLineHeightRatio = 1.85;
     public const double ReadingWidth = 860;
+    public const double ReaderImageHeight = 190;
+    public const double ReaderImageWidth = 260;
+    public static Thickness ReaderImageMargin => new(0, 16, 0, 0);
     public const double DialogWidth = 640;
     public const double DialogInset = 24;
     public const int PreviewLines = 7;

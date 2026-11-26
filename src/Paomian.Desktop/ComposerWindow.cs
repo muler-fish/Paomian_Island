@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.IO;
-using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -180,13 +179,8 @@ public sealed partial class ComposerWindow : DialogWindow
         var post = new PostRequest(_reportPostId > 0 ? DutyRoomId : (_forum.SelectedItem as Forum)?.Id ?? 4, _threadId, _title.Text,
             _reportPostId > 0 ? ReportPrefix + _content.Text.Trim() : _content.Text, _image is null ? "" : _vm.Store.ResolveDraftImage(_image.Reference),
             _image is not null && _water.IsChecked == true, _name.Text) { PreviewImageHash = _image?.Hash };
-        var destination = _reportPostId > 0 ? $"值班室 · 举报 No.{_reportPostId}" : _threadId > 0 ? $"回复 No.{_threadId}" : _vm.ForumName(post.ForumId);
-        // 仅转换预览：CRLF 先归一，避免残留回车与 <br> 各绘制一次换行；提交原文保持不变。
-        // 用户输入先 HTML 编码，再交给统一正文控件预览，避免把输入内容误当作预览模板标签。
-        var html = $"<b>{WebUtility.HtmlEncode(destination)} · 饼干：{WebUtility.HtmlEncode(cookie.Name)}</b><br><br>" +
-            (post.Title.Length > 0 ? $"<b>标题：{WebUtility.HtmlEncode(post.Title)}</b><br>" : "") +
-            (post.Name.Length > 0 ? $"<b>名称：{WebUtility.HtmlEncode(post.Name)}</b><br>" : "") + "<br>" + WebUtility.HtmlEncode(post.Content).Replace("\r\n", "\n").Replace("\n", "<br>");
-        var preview = new TextWindow("发送预览", html, readingFontSize: _vm.ReadingFontSize) { Owner = this };
+        var destination = _reportPostId > 0 ? "值班室 · 举报 No." : _threadId > 0 ? "回复 No." : _vm.ForumName(post.ForumId);
+        var preview = new TextWindow(post, destination, _reportPostId > 0 ? _reportPostId : _threadId, cookie.Name, _vm) { Owner = this };
         if (_image?.Thumbnail is { } thumb) preview.AddImagePreview(thumb, _image.Name + (post.Watermark ? " · 发送后由 X 岛添加水印" : ""));
         preview.AddAction("确认发送", async () =>
         {

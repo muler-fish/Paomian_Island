@@ -18,7 +18,7 @@ public sealed class CookieWindow : DialogWindow
     private readonly TextBlock _name = new() { Text = "—", TextWrapping = TextWrapping.Wrap };
     private readonly PasswordBox _value = new();
     private readonly TextBlock _active = new();
-    private readonly TextBlock _empty = Hint("尚未导入饼干，可以继续以游客身份浏览。");
+    private readonly TextBlock _empty = EmptyState("尚未导入饼干，可以继续以游客身份浏览。");
     private readonly Button _import;
     private readonly Button _remove, _saveRemark;
     // 游客用空 Id 表示，与 ActiveCookieId 的空值语义一致；只用于下拉显示，不写入饼干列表。
@@ -29,7 +29,7 @@ public sealed class CookieWindow : DialogWindow
     private readonly StackPanel _details = new();
     private readonly TextBlock _detailName = new() { FontSize = 18, FontWeight = FontWeights.Medium, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _detailState = Hint("");
-    private readonly TextBlock _detailEmpty = Hint("选择一份饼干查看详情。");
+    private readonly TextBlock _detailEmpty = EmptyState("选择一份饼干查看详情。");
     private readonly Button _back;
     private readonly bool _fromComposer;
     private string? _currentCookieId;
@@ -101,7 +101,7 @@ public sealed class CookieWindow : DialogWindow
         var left = new Grid { Margin = new(0, 0, 16, 0) };
         left.RowDefinitions.Add(new() { Height = GridLength.Auto }); left.RowDefinitions.Add(new());
         left.Children.Add(Hint("已保存的饼干")); Grid.SetRow(_list, 1); left.Children.Add(_list);
-        Grid.SetRow(_empty, 1); _empty.VerticalAlignment = VerticalAlignment.Center; left.Children.Add(_empty); columns.Children.Add(left);
+        Grid.SetRow(_empty, 1); left.Children.Add(_empty); columns.Children.Add(left);
         var divider = new System.Windows.Shapes.Rectangle(); divider.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "Line");
         Grid.SetColumn(divider, 1); columns.Children.Add(divider);
         var right = new Grid { Margin = new(24, 0, 0, 0) }; Grid.SetColumn(right, 2); columns.Children.Add(right);

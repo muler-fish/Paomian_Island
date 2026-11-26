@@ -47,11 +47,11 @@
     <TabControl Grid.Row="2" x:Name="SpeechTabs">
       <TabItem Header="我的主题"><Grid>
         <ListBox ItemsSource="{Binding Threads}" Style="{StaticResource RecordList}" AutomationProperties.Name="我的主题记录"/>
-        <TextBlock Text="暂无本机主题记录" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Visibility="{Binding EmptyThreads,Converter={StaticResource Visible}}"/>
+        <TextBlock Text="暂无本机主题记录" Style="{StaticResource DialogEmptyState}" Visibility="{Binding EmptyThreads,Converter={StaticResource Visible}}"/>
       </Grid></TabItem>
       <TabItem Header="我的回复"><Grid>
         <ListBox ItemsSource="{Binding Replies}" Style="{StaticResource RecordList}" AutomationProperties.Name="我的回复记录"/>
-        <TextBlock Text="暂无本机回复记录" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Visibility="{Binding EmptyReplies,Converter={StaticResource Visible}}"/>
+        <TextBlock Text="暂无本机回复记录" Style="{StaticResource DialogEmptyState}" Visibility="{Binding EmptyReplies,Converter={StaticResource Visible}}"/>
       </Grid></TabItem>
     </TabControl>
   </Grid>

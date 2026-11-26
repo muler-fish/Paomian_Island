@@ -74,9 +74,8 @@ internal static class EmoticonChecks
             expected += "[1,100]"; Require(content.Text == expected, "骰子格式错误。");
             await Invoke(Button(composer, "预览并发送")); await Task.Delay(80);
             var preview = Application.Current.Windows.OfType<TextWindow>().Single(w => w.Title == "发送预览");
-            var body = UiRefinementChecks.Descendants<PostBody>(preview).Single();
-            var previewText = new TextRange(body.Document.ContentStart, body.Document.ContentEnd).Text;
-            Require(previewText.Contains("标题<&>") && previewText.Contains("名称<&>"), "预览丢失标题或名称。");
+            var headings = UiRefinementChecks.Descendants<EmojiLabel>(preview).Where(t => t.IsVisible).Select(t => t.Text);
+            Require(headings.Contains("标题<&>") && headings.Contains("名称<&>"), "预览丢失标题或名称。");
             preview.Close(); composer.Close(); composer = null;
             var draft = store.Load().Drafts.Single(d => d.ThreadId == 0);
             Require(draft.Content == expected && draft.Title == "标题<&>" && draft.Name == "名称<&>", "草稿未保存可选项或正文。");
