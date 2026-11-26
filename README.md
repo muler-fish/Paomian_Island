@@ -8,7 +8,7 @@
 
 支持三栏阅读、键盘浏览、连续翻页，以及订阅、发串和回应。
 
-[下载 1.0.7（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.0.7/Paomian-Island-1.0.7-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.0.7) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
+[下载 1.1.3（Windows x64）](https://github.com/muler-fish/Paomian_Island/releases/download/v1.1.3/Paomian-Island-1.1.3-win-x64.zip) · [发布页和校验文件](https://github.com/muler-fish/Paomian_Island/releases/tag/v1.1.3) · [更新记录](CHANGELOG.md) · [反馈问题](https://github.com/muler-fish/Paomian_Island/issues)
 
 </div>
 
